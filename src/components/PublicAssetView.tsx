@@ -41,7 +41,11 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
         }
       } catch (err: any) {
         console.error(err);
-        setError('Gagal memuat detail aset. ' + err.message);
+        if (err.message && err.message.includes('offline')) {
+          setError('Gagal memuat karena masalah koneksi internet. Pastikan koneksi stabil.');
+        } else {
+          setError('Gagal memuat detail aset.');
+        }
       } finally {
         setLoading(false);
       }

@@ -51,8 +51,11 @@ export const ProfileDropdown = ({ currentUser, onLogoutRequest }: ProfileDropdow
       const docRefUsers = doc(db, 'settings', 'users');
       let firestoreUsers: Record<string, any> = {};
       try {
-        const docSnapUsers = await getDoc(docRefUsers);
-        if (docSnapUsers.exists()) {
+        const docSnapUsers = await Promise.race([
+          getDoc(docRefUsers),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+        ]);
+        if (docSnapUsers && docSnapUsers.exists()) {
           firestoreUsers = docSnapUsers.data().records || {};
         }
       } catch (e) {

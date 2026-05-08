@@ -91,15 +91,18 @@ export default function App() {
 
         try {
           const docRef = doc(db, 'settings', 'access');
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
+          const docSnap = await Promise.race([
+            getDoc(docRef),
+            new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+          ]);
+          if (docSnap && docSnap.exists()) {
             allowedUsernames = docSnap.data().usernames || docSnap.data().emails || allowedUsernames;
             if (docSnap.data().superAdmins) {
               superAdmins = docSnap.data().superAdmins;
             }
           }
         } catch (error) {
-          console.error('Failed to fetch allowed usernames', error);
+          // Silent offline fallback
         }
 
         if (!allowedUsernames.includes('deniakbar')) {

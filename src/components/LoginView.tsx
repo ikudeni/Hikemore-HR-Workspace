@@ -80,8 +80,11 @@ export const LoginView = ({
       let firestoreUsers: Record<string, any> = {};
       let fetchFailed = false;
       try {
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
+        const docSnap = await Promise.race([
+          getDoc(docRef),
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+        ]);
+        if (docSnap && docSnap.exists()) {
           firestoreUsers = docSnap.data().records || {};
         }
       } catch (e: any) {
