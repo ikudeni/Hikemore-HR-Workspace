@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
 import { Icon } from './ui/Icon';
-import { auth } from '../firebase';
-import { confirmPasswordReset } from 'firebase/auth';
 
 interface ResetPasswordViewProps {
   oobCode: string;
@@ -22,20 +20,11 @@ export const ResetPasswordView = ({ oobCode, onSuccess }: ResetPasswordViewProps
     }
     setIsLoading(true);
     setError('');
-    try {
-      await confirmPasswordReset(auth, oobCode, newPassword);
-      onSuccess();
-    } catch (err: any) {
-      console.error(err);
-      let errMsg = err.message || 'Gagal reset password. Tautan mungkin sudah kedaluwarsa atau tidak valid.';
-      if (err.code === 'auth/expired-action-code') errMsg = 'Tautan reset password sudah kedaluwarsa. Silakan minta tautan baru.';
-      if (err.code === 'auth/invalid-action-code') errMsg = 'Tautan tidak valid atau sudah pernah digunakan.';
-      if (err.code === 'auth/weak-password') errMsg = 'Password terlalu lemah, minimal 6 karakter.';
-      if (err.code === 'auth/operation-not-allowed') errMsg = 'Fitur Email/Password belum diaktifkan di Firebase Console Anda. Silahkan aktifkan terlebih dahulu pada menu Authentication > Sign-in method.';
-      setError(errMsg);
-    } finally {
+    
+    setTimeout(() => {
+      setError('Fitur reset password link tidak aktif dalam mode lokal. Minta admin untuk membuat password baru.');
       setIsLoading(false);
-    }
+    }, 1000);
   };
 
   return (

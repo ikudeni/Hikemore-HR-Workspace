@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Icon } from './components/ui/Icon';
 import { DashboardContent } from './components/DashboardContent';
 import { KaryawanContent } from './components/KaryawanContent';
@@ -19,7 +19,6 @@ import { ProfileDropdown } from './components/ProfileDropdown';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from './types';
 import { calculateDuration, calculateAge } from './utils';
 import { auth, db, handleFirestoreError, OperationType, logActivity } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ResetPasswordView } from './components/ResetPasswordView';
 
@@ -47,9 +46,9 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [loginError, setLoginError] = useState('');
-  const [currentUser, setCurrentUser] = useState({ name: '', email: '' });
+  const [currentUser, setCurrentUser] = useState({ name: '', username: '' });
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
-  const [accessReqUser, setAccessReqUser] = useState<{uid: string, email: string, name: string} | null>(null);
+  const [accessReqUser, setAccessReqUser] = useState<{uid: string, username: string, name: string} | null>(null);
   const [accessReqStatus, setAccessReqStatus] = useState<'none' | 'needs_registration' | 'pending'>('none');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
   const [activeMenu, setActiveMenu] = useState(() => {
@@ -59,7 +58,7 @@ export default function App() {
         return 'Inventory & Assets';
       }
     }
-    return 'Rekrutmen';
+    return 'Dashboard';
   });
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(false);
@@ -72,89 +71,78 @@ export default function App() {
     }
   }, [isDarkMode]);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user && user.email) {
+  const checkAuthStatus = useCallback(async (isLoginAttempt = false) => {
+    if (!isLoginAttempt) setIsAuthChecking(true);
+    const storedUser = localStorage.getItem('currentUser');
+    if (storedUser) {
+      let user;
+      try {
+        user = JSON.parse(storedUser);
+      } catch(e) {}
+      
+      if (user && (user.username || user.email)) {
         
-        // --- DAFTAR EMAIL YANG DIIZINKAN (WHITELIST) ---
-        let allowedEmails = [
-          'deniakbarsaputro@gmail.com',
+        let allowedUsernames = [
+          'deniakbar',
+          'hrdhikemore'
         ];
-        let superAdmins = ['deniakbarsaputro@gmail.com'];
+        let superAdmins = ['deniakbar', 'hrdhikemore'];
 
         try {
           const docRef = doc(db, 'settings', 'access');
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
-            allowedEmails = docSnap.data().emails || allowedEmails;
+            allowedUsernames = docSnap.data().usernames || docSnap.data().emails || allowedUsernames;
             if (docSnap.data().superAdmins) {
               superAdmins = docSnap.data().superAdmins;
             }
           }
         } catch (error) {
-          console.error('Failed to fetch allowed emails', error);
+          console.error('Failed to fetch allowed usernames', error);
         }
 
-        // Always ensure Deni has access
-        if (!allowedEmails.includes('deniakbarsaputro@gmail.com')) {
-          allowedEmails.push('deniakbarsaputro@gmail.com');
+        if (!allowedUsernames.includes('deniakbar')) {
+          allowedUsernames.push('deniakbar');
         }
-        if (!superAdmins.includes('deniakbarsaputro@gmail.com')) {
-          superAdmins.push('deniakbarsaputro@gmail.com');
+        if (!superAdmins.includes('deniakbar')) {
+          superAdmins.push('deniakbar');
         }
 
-        const userEmail = user.email.toLowerCase();
-        setIsSuperAdmin(superAdmins.includes(userEmail));
+        const currentUsername = (user.username || user.email).toLowerCase();
+        setIsSuperAdmin(superAdmins.includes(currentUsername));
 
-        if (allowedEmails.includes(userEmail)) {
+        if (allowedUsernames.includes(currentUsername)) {
           setIsAuthenticated(true);
           setAccessReqUser(null);
           setAccessReqStatus('none');
           setCurrentUser({ 
-            name: user.displayName || user.email?.split('@')[0] || '', 
-            email: user.email || '' 
+            name: user.name || currentUsername.split('@')[0] || '', 
+            username: currentUsername 
           });
           setLoginError('');
         } else {
-          try {
-            const reqRef = doc(db, 'accessRequests', user.uid);
-            const reqSnap = await getDoc(reqRef);
-            if (reqSnap.exists()) {
-               setAccessReqStatus('pending');
-               setAccessReqUser(null);
-               setLoginError('Silahkan menunggu verifikasi dari HR Hikemore.');
-               await signOut(auth);
-            } else {
-               setAccessReqStatus('needs_registration');
-               setAccessReqUser({
-                 uid: user.uid,
-                 email: userEmail,
-                 name: user.displayName || user.email?.split('@')[0] || ''
-               });
-               setLoginError('Silahkan daftar terlebih dulu.');
-            }
-          } catch(e) {
-             setAccessReqStatus('needs_registration');
-             setLoginError('Silahkan daftar terlebih dulu.');
-             setAccessReqUser({
-                 uid: user.uid,
-                 email: userEmail,
-                 name: user.displayName || user.email?.split('@')[0] || ''
-             });
-          }
           setIsAuthenticated(false);
-          setCurrentUser({ name: '', email: '' });
+          setCurrentUser({ name: '', username: '' });
           setRawEmployees([]);
+          localStorage.removeItem('currentUser');
+          setLoginError('Sesi anda telah berakhir atau akses dicabut.');
         }
       } else {
         setIsAuthenticated(false);
-        setCurrentUser({ name: '', email: '' });
+        setCurrentUser({ name: '', username: '' });
         setRawEmployees([]);
       }
-      setIsAuthChecking(false);
-    });
-    return () => unsubscribe();
+    } else {
+      setIsAuthenticated(false);
+      setCurrentUser({ name: '', username: '' });
+      setRawEmployees([]);
+    }
+    setIsAuthChecking(false);
   }, []);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, [checkAuthStatus]);
 
   useEffect(() => {
     let unsubscribeEmployees: (() => void) | undefined;
@@ -375,15 +363,17 @@ export default function App() {
     <>
       {!isAuthenticated ? (
         <LoginView 
-          onLogin={(email) => {}} 
+          onLogin={(username) => {
+            checkAuthStatus(true);
+          }} 
           externalError={loginError} 
           accessReqUser={accessReqUser}
           accessReqStatus={accessReqStatus}
-          onRegisterRequest={async (reqName: string, reqEmail: string) => {
+          onRegisterRequest={async (reqName: string, reqUsername: string) => {
              if (accessReqUser) {
                try {
                  await setDoc(doc(db, 'accessRequests', accessReqUser.uid), {
-                   email: reqEmail || accessReqUser.email,
+                   username: reqUsername || accessReqUser.username,
                    name: reqName || accessReqUser.name,
                    status: 'pending',
                    timestamp: new Date().toISOString()
@@ -391,14 +381,14 @@ export default function App() {
                  setAccessReqStatus('pending');
                  setAccessReqUser(null);
                  setLoginError('Silahkan menunggu verifikasi dari HR Hikemore.');
-                 await signOut(auth);
+                 await auth.signOut();
                } catch(e) {
                  setLoginError('Gagal mengirim permintaan daftar.');
                }
              }
           }}
           onCancelRequest={async () => {
-             await signOut(auth);
+             await auth.signOut();
              setAccessReqStatus('none');
              setAccessReqUser(null);
              setLoginError('');
@@ -492,7 +482,7 @@ export default function App() {
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
               <ActivityLogDropdown />
-              <ProfileDropdown currentUser={currentUser} />
+              <ProfileDropdown currentUser={currentUser} onLogoutRequest={() => setIsLogoutModalOpen(true)} />
             </div>
           </div>
         </header>
@@ -520,12 +510,16 @@ export default function App() {
               <button 
                 onClick={async () => {
                   setIsLogoutModalOpen(false);
+                  localStorage.removeItem('currentUser');
                   try {
-                    await signOut(auth);
+                    await auth.signOut();
                   } catch (error) {
                     console.error("Logout failed", error);
                   }
-                  setActiveMenu('Rekrutmen');
+                  setCurrentUser({ name: '', username: '' });
+                  setRawEmployees([]);
+                  setLoginError('');
+                  setIsAuthenticated(false);
                 }}
                 className="flex-1 py-3 px-4 bg-rose-500 hover:bg-rose-600 focus:ring-4 focus:ring-rose-100 text-white text-sm font-bold rounded-xl transition-colors shadow-sm"
               >

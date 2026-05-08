@@ -1,19 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
-import { auth, handleFirestoreError, OperationType } from '../firebase';
-import { updateProfile, updateEmail, updatePassword, signOut } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface ProfileDropdownProps {
-  currentUser: { name: string; email: string };
+  currentUser: { name: string; username: string };
+  onLogoutRequest?: () => void;
 }
 
-export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
+export const ProfileDropdown = ({ currentUser, onLogoutRequest }: ProfileDropdownProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [name, setName] = useState(currentUser.name);
-  const [email, setEmail] = useState(currentUser.email);
+  const [username, setUsername] = useState(currentUser.username);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -23,7 +26,7 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
   // Update local state when currentUser prop changes
   useEffect(() => {
     setName(currentUser.name);
-    setEmail(currentUser.email);
+    setUsername(currentUser.username);
   }, [currentUser]);
 
   useEffect(() => {
@@ -42,30 +45,60 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
     setSuccessMsg('');
     setIsLoading(true);
 
-    const user = auth.currentUser;
-    if (!user) {
-      setError('User not found.');
-      setIsLoading(false);
-      return;
-    }
+    const userUsername = currentUser.username;
 
     try {
+      const docRefUsers = doc(db, 'settings', 'users');
+      let firestoreUsers: Record<string, any> = {};
+      try {
+        const docSnapUsers = await getDoc(docRefUsers);
+        if (docSnapUsers.exists()) {
+          firestoreUsers = docSnapUsers.data().records || {};
+        }
+      } catch (e) {
+        console.warn("Offline fallback for settings/users: ", e);
+      }
+
+      const localUsers = JSON.parse(localStorage.getItem('localUsers') || '{}');
+      let combinedUsers = { ...localUsers, ...firestoreUsers };
+
+      const user = combinedUsers[userUsername];
+      
+      if (!user) {
+        throw new Error('User not found.');
+      }
+
+      if (username !== currentUser.username || password) {
+        if (!currentPassword) {
+          throw new Error('Masukkan Password Sekarang terlebih dahulu untuk mengubah username atau password Anda.');
+        }
+        if (currentPassword !== user.password) {
+           throw new Error('Password Sekarang salah.');
+        }
+      }
+
       if (name !== currentUser.name) {
-        await updateProfile(user, { displayName: name });
+        user.name = name;
       }
       
-      if (email !== currentUser.email) {
-        await updateEmail(user, email);
+      if (username !== currentUser.username) {
+        if (combinedUsers[username]) {
+           throw new Error('Username baru sudah digunakan oleh akun lain.');
+        }
+        user.username = username;
+        combinedUsers[username] = user;
+        delete combinedUsers[userUsername]; // Remove old username key
       }
       
       if (password) {
         if (password.length < 6) {
-          setError('Password minimal 6 karakter.');
-          setIsLoading(false);
-          return;
+          throw new Error('Password minimal 6 karakter.');
         }
-        await updatePassword(user, password);
+        user.password = password;
       }
+      
+      await setDoc(docRefUsers, { records: combinedUsers }, { merge: false });
+      localStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
       
       setSuccessMsg('Profil berhasil diperbarui. Halaman akan dimuat ulang...');
       setPassword(''); // Clear password field
@@ -75,11 +108,7 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
       
     } catch (err: any) {
       console.error(err);
-      let errMsg = err.message || 'Gagal memperbarui profil.';
-      if (err.code === 'auth/requires-recent-login') {
-         errMsg = 'Membutuhkan login ulang untuk alasan keamanan. Silakan logout dan login kembali untuk mengubah email/password Anda.';
-      }
-      setError(errMsg);
+      setError(err.message || 'Gagal memperbarui profil.');
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +125,7 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
         </div>
         <div className="hidden lg:block text-left relative flex flex-col justify-center gap-1">
           <p className="text-[15px] font-black text-slate-900 truncate w-44 leading-none">{currentUser.name ? currentUser.name : 'User'}</p>
-          {currentUser.email && <p className="text-[12px] font-medium text-slate-500 truncate w-44 leading-none mt-0.5">{currentUser.email}</p>}
+          {currentUser.username && <p className="text-[12px] font-medium text-slate-500 truncate w-44 leading-none mt-0.5">{currentUser.username}</p>}
         </div>
       </button>
 
@@ -114,7 +143,14 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
           </button>
           <div className="h-px bg-slate-100 my-1 mx-2"></div>
           <button 
-            onClick={() => auth.signOut()}
+            onClick={() => {
+              setIsOpen(false);
+              if (onLogoutRequest) {
+                onLogoutRequest();
+              } else {
+                auth.signOut();
+              }
+            }}
             className="w-full text-left px-4 py-2.5 text-[15px] font-medium text-rose-600 hover:bg-rose-50 flex items-center gap-3"
           >
             <Icon name="log-out" size={18} />
@@ -169,14 +205,34 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
               </div>
 
               <div>
-                <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wider mb-2">Email Akun</label>
+                <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wider mb-2">Username Akun</label>
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-900"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-[13px] font-bold text-slate-700 uppercase tracking-wider mb-2">Password Sekarang</label>
+                <div className="relative">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="Diperlukan jika mengganti username/password"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all font-medium text-slate-900 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-2"
+                  >
+                    <Icon name={showCurrentPassword ? "eye-off" : "eye"} size={18} />
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -209,7 +265,7 @@ export const ProfileDropdown = ({ currentUser }: ProfileDropdownProps) => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isLoading || (name === currentUser.name && email === currentUser.email && !password)}
+                  disabled={isLoading || (name === currentUser.name && username === currentUser.username && !password)}
                   className="px-6 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-600/20 disabled:opacity-50 transition-colors flex items-center justify-center min-w-[120px]"
                 >
                   {isLoading ? (

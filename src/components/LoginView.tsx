@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
-import { auth } from '../firebase';
-import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile, sendPasswordResetEmail } from 'firebase/auth';
+import { db } from '../firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface LoginViewProps {
-  onLogin: (email: string) => void;
+  onLogin: (username: string) => void;
   externalError?: string;
-  accessReqUser?: {uid: string, email: string, name: string} | null;
+  accessReqUser?: {uid: string, username: string, name: string} | null;
   accessReqStatus?: 'none' | 'needs_registration' | 'pending';
-  onRegisterRequest?: (name: string, email: string) => void;
+  onRegisterRequest?: (name: string, username: string) => void;
   onCancelRequest?: () => void;
 }
 
@@ -24,7 +24,7 @@ export const LoginView = ({
   const [isLoading, setIsLoading] = useState(false);
 
   // dummy states for aesthetic
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -33,12 +33,12 @@ export const LoginView = ({
   const [isForgotPasswordMode, setIsForgotPasswordMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [reqName, setReqName] = useState('');
-  const [reqEmail, setReqEmail] = useState('');
+  const [reqUsername, setReqUsername] = useState('');
 
   useEffect(() => {
     if (accessReqUser) {
       setReqName(accessReqUser.name);
-      setReqEmail(accessReqUser.email);
+      setReqUsername(accessReqUser.username);
     }
   }, [accessReqUser]);
 
@@ -46,35 +46,27 @@ export const LoginView = ({
     // Automatically submit register request if user just signed up and is not allowed immediately
     if (accessReqStatus === 'needs_registration' && justSignedUp && onRegisterRequest) {
       if (!isLoading) {
-         onRegisterRequest(reqName || accessReqUser?.name || '', reqEmail || accessReqUser?.email || '');
+         onRegisterRequest(reqName || accessReqUser?.name || '', reqUsername || accessReqUser?.username || '');
          setJustSignedUp(false); // Reset to prevent infinite loops
       }
     }
-  }, [accessReqStatus, justSignedUp, onRegisterRequest, isLoading, reqName, reqEmail, accessReqUser]);
+  }, [accessReqStatus, justSignedUp, onRegisterRequest, isLoading, reqName, reqUsername, accessReqUser]);
 
   const handleResetPassword = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    if (!email) {
-      setError('Silakan masukkan alamat email Anda terlebih dahulu');
+    if (!username) {
+      setError('Silakan masukkan alamat username Anda terlebih dahulu');
       setSuccessMessage('');
       return;
     }
     setIsLoading(true);
     setError('');
     setSuccessMessage('');
-    try {
-      await sendPasswordResetEmail(auth, email);
-      setSuccessMessage('Link reset password telah dikirim ke email Anda. Silakan cek folder Spam/Junk jika tidak ada di Inbox.');
-    } catch (err: any) {
-      console.error(err);
-      let errMsg = err.message;
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/invalid-email') {
-        errMsg = 'Email belum terdaftar atau tidak valid';
-      }
-      setError(errMsg);
-    } finally {
+    
+    setTimeout(() => {
+      setSuccessMessage('Fitur reset password tidak aktif dalam mode lokal.');
       setIsLoading(false);
-    }
+    }, 1000);
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -84,22 +76,75 @@ export const LoginView = ({
     setSuccessMessage('');
 
     try {
+      const docRef = doc(db, 'settings', 'users');
+      let firestoreUsers: Record<string, any> = {};
+      let fetchFailed = false;
+      try {
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          firestoreUsers = docSnap.data().records || {};
+        }
+      } catch (e: any) {
+        console.warn('Failed to fetch from Firestore', e);
+        fetchFailed = true;
+      }
+
+      // Merge with any leftover localUsers for backward compatibility temporarily
+      const storedLocalUsers = localStorage.getItem('localUsers');
+      let localUsers = storedLocalUsers ? JSON.parse(storedLocalUsers) : {};
+      
+      let users = { ...localUsers, ...firestoreUsers };
+
+      let updatedFirestore = false;
+      // Auto seed default users if not exist
+      if (!users['deniakbar']) {
+        users['deniakbar'] = { username: 'deniakbar', password: 'password123', name: 'Deni Akbar' };
+        updatedFirestore = true;
+      }
+      if (!users['hrdhikemore']) {
+        users['hrdhikemore'] = { username: 'hrdhikemore', password: 'password123', name: 'HRD Hikemore' };
+        updatedFirestore = true;
+      }
+
       if (isSignUp) {
         if (!name.trim()) throw new Error('Nama harus diisi');
-        const result = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(result.user, { displayName: name });
+        if (users[username]) {
+          throw new Error('Username ini sudah terdaftar. Silakan klik "Sudah punya akun? Masuk" di bawah.');
+        }
+        if (password.length < 6) {
+          throw new Error('Password minimal 6 karakter');
+        }
+        
+        users[username] = { username, password, name };
+        updatedFirestore = true;
+        
+        const user = { username, name };
+        localStorage.setItem('currentUser', JSON.stringify(user));
         setJustSignedUp(true);
       } else {
-        await signInWithEmailAndPassword(auth, email, password);
+        const user = users[username];
+        
+        // Cek fallback auth whitelist (jika admin sudah menambahkannya tapi belum ada password di users)
+        // Kita tidak bisa cek whitelist dari sini langsung tanpa await getDoc('settings', 'access'), jadi kita langsung cek users collection
+        if (!user || user.password !== password) {
+          throw new Error('Username atau password salah');
+        }
+        localStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
       }
+
+      if (updatedFirestore && !fetchFailed) {
+         try {
+           await setDoc(docRef, { records: users }, { merge: true });
+         } catch(e) {
+           console.error('Failed to sync users', e);
+         }
+      }
+
+      onLogin(username);
+
     } catch (err: any) {
       console.error(err);
-      let errMsg = err.message;
-      if (err.code === 'auth/invalid-credential') errMsg = 'Email atau password salah';
-      if (err.code === 'auth/email-already-in-use') errMsg = 'Email ini sudah terdaftar';
-      if (err.code === 'auth/weak-password') errMsg = 'Password minimal 6 karakter';
-      if (err.code === 'auth/operation-not-allowed') errMsg = 'Fitur Email/Password belum diaktifkan di Firebase Console Anda. Silahkan aktifkan pada menu Authentication > Sign-in method.';
-      setError(errMsg);
+      setError(err.message);
     } finally {
       setIsLoading(false);
     }
@@ -120,10 +165,10 @@ export const LoginView = ({
 
           <div className="w-full max-w-[360px] mx-auto mt-4 mb-8">
             <h2 className="text-[28px] font-semibold text-slate-900 mb-2 tracking-tight leading-tight">
-              {isForgotPasswordMode ? 'Reset kata sandi' : isSignUp ? 'Buat akun Anda' : 'Masuk ke akun Anda'}
+              {isForgotPasswordMode ? 'Lupa kata sandi?' : isSignUp ? 'Buat akun Anda' : 'Masuk ke akun Anda'}
             </h2>
             <p className="text-slate-500 mb-8 text-[15px]">
-              {isForgotPasswordMode ? 'Masukkan email untuk menerima link reset' : isSignUp ? 'Daftar untuk memulai' : 'Silakan masukkan detail Anda'}
+              {isForgotPasswordMode ? 'Informasi pemulihan akun' : isSignUp ? 'Daftar untuk memulai' : 'Silakan masukkan detail Anda'}
             </p>
 
             {(error || externalError) && accessReqStatus === 'none' && (
@@ -144,7 +189,7 @@ export const LoginView = ({
                  <div className="bg-amber-50 text-amber-800 p-4 rounded-xl border border-amber-200 text-sm">
                    <div className="flex gap-2">
                      <Icon name="alert-triangle" size={18} className="shrink-0 mt-0.5 text-amber-500" />
-                     <p>Email Anda Belum Terdaftar. Silahkan daftar terlebih dahulu untuk mendapatkan akses.</p>
+                     <p>Username Anda Belum Terdaftar. Silahkan daftar terlebih dahulu untuk mendapatkan akses.</p>
                    </div>
                  </div>
                  
@@ -160,22 +205,22 @@ export const LoginView = ({
                      />
                    </div>
                    <div>
-                     <label className="text-[13px] text-slate-700 font-medium mb-1.5 block">Email</label>
+                     <label className="text-[13px] text-slate-700 font-medium mb-1.5 block">Username</label>
                      <input
-                       type="email"
-                       value={reqEmail}
-                       onChange={(e) => setReqEmail(e.target.value)}
+                       type="text"
+                       value={reqUsername}
+                       onChange={(e) => setReqUsername(e.target.value)}
                        className="block w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-[15px] transition-shadow"
-                       placeholder="Email Anda"
+                       placeholder="Username Anda"
                      />
                    </div>
                  </div>
 
                  <div className="flex flex-col gap-3 pt-2">
                    <button 
-                     onClick={() => onRegisterRequest && onRegisterRequest(reqName, reqEmail)}
+                     onClick={() => onRegisterRequest && onRegisterRequest(reqName, reqUsername)}
                      className="w-full flex justify-center items-center py-2.5 px-4 rounded-lg shadow-sm text-[15px] font-semibold text-white bg-amber-500 hover:bg-amber-600 focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors"
-                     disabled={isLoading || !reqName.trim() || !reqEmail.trim()}
+                     disabled={isLoading || !reqName.trim() || !reqUsername.trim()}
                    >
                      Daftar Akses
                    </button>
@@ -207,9 +252,32 @@ export const LoginView = ({
                    Kembali ke Login
                  </button>
               </div>
+            ) : isForgotPasswordMode ? (
+              <div className="space-y-6 animate-fadeIn">
+                 <div className="flex flex-col items-center justify-center p-8 bg-blue-50 text-blue-800 rounded-2xl border border-blue-100 text-center">
+                   <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+                     <Icon name="info" size={24} className="text-blue-500" />
+                   </div>
+                   <h3 className="text-lg font-bold mb-2 tracking-tight">Hubungi HRD</h3>
+                   <p className="text-sm text-blue-700/80 leading-relaxed max-w-[260px] mx-auto">
+                     Silakan hubungi HRD Hikemore untuk mendapatkan sandi akun Anda.
+                   </p>
+                 </div>
+                 
+                 <button 
+                   onClick={() => {
+                     setIsForgotPasswordMode(false);
+                     setError('');
+                     setSuccessMessage('');
+                   }}
+                   className="w-full flex justify-center items-center py-2.5 px-4 rounded-lg text-[15px] font-semibold text-slate-500 hover:bg-slate-100 transition-colors border border-slate-200"
+                 >
+                   Kembali ke Login
+                 </button>
+              </div>
             ) : (
-            <form onSubmit={isForgotPasswordMode ? handleResetPassword : handleAuth} className="space-y-4">
-              {isSignUp && !isForgotPasswordMode && (
+            <form onSubmit={handleAuth} className="space-y-4">
+              {isSignUp && (
                 <div>
                   <label className="block text-[13px] font-medium text-slate-700 mb-1.5" htmlFor="name">
                     Nama
@@ -229,50 +297,48 @@ export const LoginView = ({
               )}
 
               <div>
-                <label className="block text-[13px] font-medium text-slate-700 mb-1.5" htmlFor="email">
-                  Email
+                <label className="block text-[13px] font-medium text-slate-700 mb-1.5" htmlFor="username">
+                  Username
                 </label>
                 <div className="relative">
                   <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    id="username"
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0958d9] focus:border-transparent text-[15px] transition-shadow"
-                    placeholder="Masukkan email Anda"
+                    placeholder="Masukkan username Anda"
                     required
                   />
                 </div>
               </div>
 
-              {!isForgotPasswordMode && (
-                <div>
-                  <label className="block text-[13px] font-medium text-slate-700 mb-1.5" htmlFor="password">
-                    Kata Sandi
-                  </label>
-                  <div className="relative">
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0958d9] focus:border-transparent text-[15px] transition-shadow pr-10"
-                      placeholder="••••••••"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none flex items-center justify-center p-1 rounded transition-colors"
-                      title={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
-                    >
-                      <Icon name={showPassword ? "eye-off" : "eye"} size={18} />
-                    </button>
-                  </div>
+              <div>
+                <label className="block text-[13px] font-medium text-slate-700 mb-1.5" htmlFor="password">
+                  Kata Sandi
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-lg shadow-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0958d9] focus:border-transparent text-[15px] transition-shadow pr-10"
+                    placeholder="••••••••"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none flex items-center justify-center p-1 rounded transition-colors"
+                    title={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+                  >
+                    <Icon name={showPassword ? "eye-off" : "eye"} size={18} />
+                  </button>
                 </div>
-              )}
+              </div>
 
-              {!isSignUp && !isForgotPasswordMode && (
+              {!isSignUp && (
                 <div className="flex items-center justify-between mt-5 mb-6">
                   <div className="flex items-center">
                     <input
@@ -323,20 +389,12 @@ export const LoginView = ({
                   </div>
                 ) : (
                   <div className="text-center mt-2">
-                    <span className="text-[14px] text-slate-500">
-                      {isSignUp ? 'Sudah punya akun? ' : "Belum punya akun? "}
+                    <span className="text-[14px] text-slate-500 block mb-1">
+                      Belum punya akun? 
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsSignUp(!isSignUp);
-                        setError('');
-                        setSuccessMessage('');
-                      }}
-                      className="text-[#0958d9] hover:text-[#0643a6] font-semibold text-[14px] transition-colors"
-                    >
-                      {isSignUp ? 'Masuk' : 'Daftar'}
-                    </button>
+                    <span className="text-[14px] text-slate-600 block">
+                      Silahkan hubungi HRD untuk dibuatkan akun.
+                    </span>
                   </div>
                 )}
               </div>

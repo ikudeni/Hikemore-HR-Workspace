@@ -1,16 +1,31 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer, collection, addDoc, query, where, getDocs, deleteDoc } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-export const auth = getAuth();
-export const googleProvider = new GoogleAuthProvider();
+
+export function getLocalUser() {
+  try {
+    const data = localStorage.getItem('currentUser');
+    if (data) return JSON.parse(data);
+  } catch(e) {}
+  return null;
+}
+
+export const auth = {
+  get currentUser() {
+    return getLocalUser();
+  },
+  signOut: async () => {
+    localStorage.removeItem('currentUser');
+  }
+} as any;
 
 export async function logActivity(action: string, details: Record<string, any>) {
-  if (!auth.currentUser) return;
-  const userName = auth.currentUser.displayName || auth.currentUser.email?.split('@')[0] || 'User';
+  const user = getLocalUser();
+  if (!user) return;
+  const userName = user.name || user.username || 'User';
   try {
     const cleanDetails = Object.fromEntries(
       Object.entries(details).map(([k, v]) => [k, v == null ? '-' : String(v)])
@@ -40,7 +55,6 @@ export async function logActivity(action: string, details: Record<string, any>) 
   }
 }
 
-
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -54,38 +68,18 @@ export interface FirestoreErrorInfo {
   error: string;
   operationType: OperationType;
   path: string | null;
-  authInfo: {
-    userId?: string | null;
-    email?: string | null;
-    emailVerified?: boolean | null;
-    isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
-  }
+  authInfo: any;
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const user = getLocalUser();
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
-    authInfo: {
-      userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
-      emailVerified: auth.currentUser?.emailVerified,
-      isAnonymous: auth.currentUser?.isAnonymous,
-      tenantId: auth.currentUser?.tenantId,
-      providerInfo: auth.currentUser?.providerData?.map(provider => ({
-        providerId: provider.providerId,
-        email: provider.email,
-      })) || []
-    },
+    authInfo: user ? { username: user.username } : null,
     operationType,
     path
   };
   console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
 }
 
 // Test connection on boot
@@ -99,4 +93,5 @@ async function testConnection() {
   }
 }
 testConnection();
+
 
