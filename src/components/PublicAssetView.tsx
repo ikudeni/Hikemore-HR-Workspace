@@ -50,16 +50,13 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
   }, [barcode]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-100 animate-fadeIn">
-      <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative h-[90vh]">
-        <div className="bg-slate-800 p-4 text-white flex items-center justify-between">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center sm:p-4 bg-slate-100 animate-fadeIn">
+      <div className="bg-white sm:rounded-3xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative h-full sm:h-[90vh]">
+        <div className="bg-slate-800 p-4 text-white flex items-center">
           <div className="flex items-center gap-2">
             <Icon name="layout" size={18} />
             <span className="font-bold text-sm tracking-wide">Detail Aset</span>
           </div>
-          <button onClick={onClose} className="text-slate-300 hover:text-white">
-            <Icon name="x-circle" size={20} />
-          </button>
         </div>
         
         <div className="p-6 overflow-y-auto flex-1">
@@ -146,12 +143,6 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
                     </div>
                   ))
                 )}
-              </div>
-              
-              <div className="mt-8 pt-6 border-t border-slate-100 text-center">
-                 <button onClick={onGoToLogin} className="text-sm font-bold text-blue-600 hover:text-blue-700">
-                   Masuk sebagai admin
-                 </button>
               </div>
             </>
           )}
