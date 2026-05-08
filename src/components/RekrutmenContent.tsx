@@ -9,7 +9,8 @@ import { Icon } from './ui/Icon';
 import { FormSelect, CompactFormSelect } from './ui/FormSelect';
 import { getSourceBadgeClass } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule } from '../types';
-import { logActivity } from '../firebase';
+import { db, logActivity, handleFirestoreError, OperationType } from '../firebase';
+import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 interface RekrutmenContentProps {
   employees: Employee[];

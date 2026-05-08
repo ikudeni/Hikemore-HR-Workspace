@@ -169,7 +169,7 @@ export default function App() {
     };
   }, [isAuthenticated]);
   
-  const [kanbanStages, setKanbanStages] = useState<KanbanStage[]>([
+  const [kanbanStagesReact, setKanbanStagesReact] = useState<KanbanStage[]>([
     { id: 'Penjadwalan WA', label: 'PENJADWALAN WA', color: 'bg-slate-50 text-slate-600 border-slate-100', badgeColor: 'bg-slate-200/50 text-slate-700' },
     { id: 'Interview HR', label: 'INTERVIEW HR', color: 'bg-blue-50 text-blue-600 border-blue-100', badgeColor: 'bg-blue-200/50 text-blue-700' },
     { id: 'Psikotest Online', label: 'PSIKOTEST ONLINE', color: 'bg-indigo-50 text-indigo-600 border-indigo-100', badgeColor: 'bg-indigo-200/50 text-indigo-700' },
@@ -180,14 +180,104 @@ export default function App() {
     { id: 'Talent Pool', label: 'TALENT POOL', color: 'bg-stone-50 text-stone-600 border-stone-100', badgeColor: 'bg-stone-200/50 text-stone-700' },
   ]);
   
-  const [jobStagesMap, setJobStagesMap] = useState<Record<number, string[]>>({});
+  const [jobStagesMapReact, setJobStagesMapReact] = useState<Record<number, string[]>>({});
 
-  const [jobListings, setJobListings] = useState<JobListing[]>([]);
+  const [jobListingsReact, setJobListingsReact] = useState<JobListing[]>([]);
 
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [candidatesReact, setCandidatesReact] = useState<Candidate[]>([]);
+  const [schedulesReact, setSchedulesReact] = useState<Schedule[]>([]);
 
-  const [performaDataMap, setPerformaDataMap] = useState<Record<string, any>>({});
+  const kanbanStages = kanbanStagesReact;
+  const setKanbanStages: React.Dispatch<React.SetStateAction<KanbanStage[]>> = useCallback((valOrFn) => {
+     setKanbanStagesReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'recruitmentData'), { kanbanStages: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  const jobStagesMap = jobStagesMapReact;
+  const setJobStagesMap: React.Dispatch<React.SetStateAction<Record<number, string[]>>> = useCallback((valOrFn) => {
+     setJobStagesMapReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'recruitmentData'), { jobStagesMap: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  const jobListings = jobListingsReact;
+  const setJobListings: React.Dispatch<React.SetStateAction<JobListing[]>> = useCallback((valOrFn) => {
+     setJobListingsReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'recruitmentData'), { jobListings: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  const candidates = candidatesReact;
+  const setCandidates: React.Dispatch<React.SetStateAction<Candidate[]>> = useCallback((valOrFn) => {
+     setCandidatesReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'recruitmentData'), { candidates: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  const schedules = schedulesReact;
+  const setSchedules: React.Dispatch<React.SetStateAction<Schedule[]>> = useCallback((valOrFn) => {
+     setSchedulesReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'recruitmentData'), { schedules: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  useEffect(() => {
+    let unsubscribeRecruitment: (() => void) | undefined;
+    if (isAuthenticated) {
+      const q = doc(db, 'settings', 'recruitmentData');
+      unsubscribeRecruitment = onSnapshot(q, (snapshot) => {
+        if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+           const data = snapshot.data();
+           if (data.jobListings) setJobListingsReact(data.jobListings);
+           if (data.candidates) setCandidatesReact(data.candidates);
+           if (data.schedules) setSchedulesReact(data.schedules);
+           if (data.kanbanStages) setKanbanStagesReact(data.kanbanStages);
+           if (data.jobStagesMap) setJobStagesMapReact(data.jobStagesMap);
+        }
+      });
+    }
+    return () => {
+      if (unsubscribeRecruitment) unsubscribeRecruitment();
+    };
+  }, [isAuthenticated]);
+
+  const [performaDataMapReact, setPerformaDataMapReact] = useState<Record<string, any>>({});
+  
+  const performaDataMap = performaDataMapReact;
+  const setPerformaDataMap: React.Dispatch<React.SetStateAction<Record<string, any>>> = useCallback((valOrFn) => {
+     setPerformaDataMapReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  useEffect(() => {
+    let unsubscribePerforma: (() => void) | undefined;
+    if (isAuthenticated) {
+      const q = doc(db, 'settings', 'performaData');
+      unsubscribePerforma = onSnapshot(q, (snapshot) => {
+        if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+           const data = snapshot.data();
+           if (data.performaDataMap) setPerformaDataMapReact(data.performaDataMap);
+        }
+      });
+    }
+    return () => {
+      if (unsubscribePerforma) unsubscribePerforma();
+    };
+  }, [isAuthenticated]);
   
   const [rawEmployees, setRawEmployees] = useState<Employee[]>([]);
 
@@ -242,7 +332,7 @@ export default function App() {
     }});
   }, [rawEmployees]);
 
-  const [dashboardLayout, setDashboardLayout] = useState<DashboardWidget[]>([
+  const [dashboardLayoutReact, setDashboardLayoutReact] = useState<DashboardWidget[]>([
     { id: 'sum', type: 'summaryStats', span: 3 },
     { id: 'dist', type: 'distribusiChart', span: 1 },
     { id: 'status', type: 'statusPekerjaChart', span: 1 },
@@ -250,6 +340,31 @@ export default function App() {
     { id: 'data', type: 'dataKaryawanTable', span: 2 },
     { id: 'agama', type: 'statusAgamaChart', span: 1 },
   ]);
+
+  const dashboardLayout = dashboardLayoutReact;
+  const setDashboardLayout: React.Dispatch<React.SetStateAction<DashboardWidget[]>> = useCallback((valOrFn) => {
+     setDashboardLayoutReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        setDoc(doc(db, 'settings', 'dashboardData'), { dashboardLayout: newVal }, { merge: true }).catch(console.error);
+        return newVal;
+     });
+  }, []);
+
+  useEffect(() => {
+    let unsubscribeDashboard: (() => void) | undefined;
+    if (isAuthenticated) {
+      const q = doc(db, 'settings', 'dashboardData');
+      unsubscribeDashboard = onSnapshot(q, (snapshot) => {
+        if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+           const data = snapshot.data();
+           if (data.dashboardLayout) setDashboardLayoutReact(data.dashboardLayout);
+        }
+      });
+    }
+    return () => {
+      if (unsubscribeDashboard) unsubscribeDashboard();
+    };
+  }, [isAuthenticated]);
 
   const handleAddEmployee = async (newEmployeeData: Employee) => {
     const randomId = `DEF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
