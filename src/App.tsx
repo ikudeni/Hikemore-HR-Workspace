@@ -21,6 +21,7 @@ import { calculateDuration, calculateAge } from './utils';
 import { auth, db, handleFirestoreError, OperationType, logActivity } from './firebase';
 import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ResetPasswordView } from './components/ResetPasswordView';
+import { PublicAssetView } from './components/PublicAssetView';
 
 const UnderConstructionView = ({ menuName }: { menuName: string }) => (
   <div className="flex flex-col items-center justify-center h-full bg-white rounded-3xl border border-slate-100 shadow-sm opacity-80">
@@ -347,8 +348,32 @@ export default function App() {
     }
   };
 
+  const [scanParam, setScanParam] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('scan');
+    }
+    return null;
+  });
+
   if (resetOobCode) {
     return <ResetPasswordView oobCode={resetOobCode} onSuccess={() => setResetOobCode(null)} />;
+  }
+
+  if (scanParam && !isAuthenticated) {
+    return (
+      <PublicAssetView 
+        barcode={scanParam} 
+        onClose={() => {
+           window.history.replaceState({}, document.title, window.location.pathname);
+           setScanParam(null);
+        }}
+        onGoToLogin={() => {
+           window.history.replaceState({}, document.title, window.location.pathname);
+           setScanParam(null);
+        }}
+      />
+    );
   }
 
   if (isAuthChecking) {
