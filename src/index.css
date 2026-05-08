@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-primary: #3A5BFF;
+  --color-background: #F8F9FB;
+}
+
+@layer base {
+  html {
+    font-size: 13px;
+    @media (min-width: 1536px) {
+      font-size: 14px;
+    }
+  }
+  html.dark {
+    --color-background: #18191A;
+    --color-white: #242526;
+    
+    --color-slate-50: #18191A;
+    --color-slate-100: #3A3B3C;
+    --color-slate-200: #4b4c4f;
+    --color-slate-300: #8C8D8F;
+    --color-slate-400: #b0b3b8;
+    --color-slate-500: #b0b3b8;
+    --color-slate-600: #E4E6EB;
+    --color-slate-700: #E4E6EB;
+    --color-slate-800: #E4E6EB;
+    --color-slate-900: #F5F6F7;
+
+    --color-blue-50: rgba(35, 116, 225, 0.1);
+    --color-blue-100: rgba(35, 116, 225, 0.2);
+    --color-blue-600: #2374E1;
+    --color-blue-700: #1B66C9;
+    
+    --color-green-50: rgba(49, 162, 76, 0.1);
+    --color-green-100: rgba(49, 162, 76, 0.2);
+    --color-green-600: #31A24C;
+    --color-green-700: #2b9142;
+    
+    --color-red-50: rgba(228, 30, 63, 0.1);
+    --color-red-100: rgba(228, 30, 63, 0.2);
+    --color-red-600: #E41E3F;
+    --color-red-700: #cc1835;
+    
+    --color-amber-50: rgba(245, 166, 35, 0.1);
+    --color-amber-100: rgba(245, 166, 35, 0.2);
+    --color-amber-500: #F5A623;
+    
+    --color-orange-50: rgba(245, 124, 0, 0.1);
+    --color-orange-500: #F57C00;
+
+    --color-purple-50: rgba(168, 85, 247, 0.1);
+    --color-purple-100: rgba(168, 85, 247, 0.2);
+    --color-purple-950: #E9D5FF;
+    
+    --color-teal-50: rgba(20, 184, 166, 0.1);
+    --color-teal-100: rgba(20, 184, 166, 0.2);
+    --color-teal-950: #CCFBF1;
+
+    --color-rose-50: rgba(244, 63, 94, 0.1);
+    --color-rose-100: rgba(244, 63, 94, 0.2);
+    --color-rose-950: #FECDD3;
+
+    --color-emerald-50: rgba(16, 185, 129, 0.1);
+    --color-emerald-100: rgba(16, 185, 129, 0.2);
+    --color-emerald-950: #D1FAE5;
+
+    --color-blue-950: #DBEAFE;
+  }
+  body {
+    @apply bg-background text-slate-800 antialiased overflow-hidden font-sans;
+  }
+}
+
+@layer utilities {
+  /* Custom Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px; 
+    height: 12px; 
+  }
+  ::-webkit-scrollbar-track {
+    background: #f8fafc; 
+    border-radius: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1; 
+    border-radius: 10px;
+    border: 2px solid #f8fafc; 
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8; 
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar-x {
+    scrollbar-width: none;
+  }
+  .hide-scrollbar-x::-webkit-scrollbar:horizontal {
+    display: none;
+  }
+  .hide-scrollbar-y::-webkit-scrollbar:vertical {
+    display: none;
+  }
+
+  /* Hover-only Scrollbar */
+  .hover-scrollbar {
+    overflow: auto; 
+  }
+  .hover-scrollbar::-webkit-scrollbar-track {
+    background: transparent; 
+  }
+  
+  .hover-scrollbar::-webkit-scrollbar-thumb:vertical {
+    background-color: transparent; 
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .hover-scrollbar:hover::-webkit-scrollbar-thumb:vertical {
+    background-color: #cbd5e1; 
+  }
+  .hover-scrollbar:hover::-webkit-scrollbar-thumb:vertical:hover {
+    background-color: #94a3b8; 
+  }
+
+  .hover-scrollbar::-webkit-scrollbar-thumb:horizontal {
+    background-color: #cbd5e1; 
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .hover-scrollbar::-webkit-scrollbar-thumb:horizontal:hover {
+    background-color: #94a3b8; 
+  }
+  
+  /* Loading Shimmer Effect */
+  .shimmer {
+    background: #f6f7f8;
+    background-image: linear-gradient(to right, #f6f7f8 0%, #edeef1 20%, #f6f7f8 40%, #f6f7f8 100%);
+    background-repeat: no-repeat;
+    background-size: 800px 100%; 
+    animation: placeholderShimmer 1.5s linear infinite forwards; 
+  }
+
+  @keyframes placeholderShimmer {
+    0% { background-position: -468px 0; }
+    100% { background-position: 468px 0; }
+  }
+
+  /* KANBAN CARD TRANSITIONS */
+  .kanban-card {
+    transition: transform 0.2s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-fadeIn {
+    animation: fadeIn 0.15s ease-out;
+  }
+
+  @keyframes pulse-animation {
+    0% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+    50% { transform: translate(-50%, 0) scale(1.5); opacity: 0.6; }
+    100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+  }
+
+  .pulse-animation {
+    animation: pulse-animation 2s infinite ease-in-out;
+  }
+}

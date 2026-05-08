@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Phase 3: Primitive Definition
+    function isSignedIn() { return request.auth != null; }
+    
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isValidEmployee(data) {
+       return data.keys().hasAll(["name", "dob", "joinDate", "gender", "religion", "maritalStatus", "edu", "major", "pos", "dept", "status", "isActive"]) &&
+              data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+              data.dob is string && data.dob.size() > 0 && data.dob.size() <= 50 &&
+              data.joinDate is string && data.joinDate.size() > 0 && data.joinDate.size() <= 50 &&
+              data.gender is string && data.gender.size() > 0 && data.gender.size() <= 20 &&
+              data.religion is string && data.religion.size() > 0 && data.religion.size() <= 50 &&
+              data.maritalStatus is string && data.maritalStatus.size() > 0 && data.maritalStatus.size() <= 50 &&
+              data.edu is string && data.edu.size() > 0 && data.edu.size() <= 50 &&
+              data.major is string && data.major.size() > 0 && data.major.size() <= 100 &&
+              data.pos is string && data.pos.size() > 0 && data.pos.size() <= 100 &&
+              data.dept is string && data.dept.size() > 0 && data.dept.size() <= 100 &&
+              data.status is string && data.status.size() > 0 && data.status.size() <= 50 &&
+              data.isActive is bool &&
+              (data.get('resignDate', null) == null || (data.resignDate is string && data.resignDate.size() <= 50)) &&
+              (data.get('resignReason', null) == null || (data.resignReason is string && data.resignReason.size() <= 500)) &&
+              (data.get('contractType', null) == null || (data.contractType is string && data.contractType.size() <= 100)) &&
+              (data.get('contractStart', null) == null || (data.contractStart is string && data.contractStart.size() <= 50)) &&
+              (data.get('contractEnd', null) == null || (data.contractEnd is string && data.contractEnd.size() <= 50));
+    }
+
+    function isValidAssetHistoryItem(data) {
+       return data.keys().hasAll(["id", "employeeId", "employeeNameSnapshot", "dateAssigned"]) &&
+              data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+              data.employeeId is string && data.employeeId.size() > 0 && data.employeeId.size() <= 100 &&
+              data.employeeNameSnapshot is string && data.employeeNameSnapshot.size() > 0 && data.employeeNameSnapshot.size() <= 100 &&
+              data.dateAssigned is string && data.dateAssigned.size() > 0 && data.dateAssigned.size() <= 50 &&
+              (data.get('dateReturned', null) == null || (data.dateReturned is string && data.dateReturned.size() <= 50)) &&
+              (data.get('notes', null) == null || (data.notes is string && data.notes.size() <= 500));
+    }
+
+    function isValidAssetHistoryArray(histList) {
+       return histList is list && histList.size() <= 1000;
+    }
+
+    function isValidAsset(data) {
+       return data.keys().hasAll(["barcode", "name", "category", "status", "purchaseDate", "history"]) &&
+              data.barcode is string && data.barcode.size() > 0 && data.barcode.size() <= 100 &&
+              data.name is string && data.name.size() > 0 && data.name.size() <= 200 &&
+              data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+              data.status is string && data.status.size() > 0 && data.status.size() <= 50 &&
+              data.purchaseDate is string && data.purchaseDate.size() > 0 && data.purchaseDate.size() <= 50 &&
+              (data.get('assignedToId', null) == null || (data.assignedToId is string && data.assignedToId.size() <= 128)) &&
+              isValidAssetHistoryArray(data.history);
+    }
+
+    match /employees/{employeeId} {
+      // In a real application, you might limit read/write access to certain roles.
+      // Here we assume any authenticated user can read/write data for CRUD.
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(employeeId) && isValidEmployee(incoming()) && incoming().keys().size() <= 17;
+      allow update: if isSignedIn() && isValidId(employeeId) && isValidEmployee(incoming()) && incoming().keys().size() <= 17;
+      allow delete: if isSignedIn() && isValidId(employeeId);
+    }
+    
+    match /assets/{assetId} {
+      allow read: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(assetId) && isValidAsset(incoming()) && incoming().keys().size() <= 7;
+      allow update: if isSignedIn() && isValidId(assetId) && isValidAsset(incoming()) && incoming().keys().size() <= 7;
+      allow delete: if isSignedIn() && isValidId(assetId);
+    }
+  }
+}

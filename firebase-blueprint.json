@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "Employee": {
+      "title": "Employee",
+      "description": "Employee data.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "dob": { "type": "string" },
+        "joinDate": { "type": "string" },
+        "gender": { "type": "string" },
+        "religion": { "type": "string" },
+        "maritalStatus": { "type": "string" },
+        "edu": { "type": "string" },
+        "major": { "type": "string" },
+        "pos": { "type": "string" },
+        "dept": { "type": "string" },
+        "status": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "resignDate": { "type": "string" },
+        "resignReason": { "type": "string" },
+        "contractType": { "type": "string" },
+        "contractStart": { "type": "string" },
+        "contractEnd": { "type": "string" }
+      },
+      "required": ["name", "dob", "joinDate", "gender", "religion", "maritalStatus", "edu", "major", "pos", "dept", "status", "isActive"]
+    },
+    "Asset": {
+        "title": "Asset",
+        "description": "Inventory Asset",
+        "type": "object",
+        "properties": {
+          "barcode": { "type": "string" },
+          "name": { "type": "string" },
+          "category": { "type": "string" },
+          "status": { "type": "string" },
+          "assignedToId": { "type": "string" },
+          "purchaseDate": { "type": "string" },
+          "history": {
+            "type": "array",
+            "items": { "$ref": "#/entities/AssetHistory" }
+          }
+        },
+        "required": ["barcode", "name", "category", "status", "purchaseDate"]
+    },
+    "AssetHistory": {
+        "title": "AssetHistory",
+        "description": "Asset assignment history.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "employeeId": { "type": "string" },
+            "employeeNameSnapshot": { "type": "string" },
+            "dateAssigned": { "type": "string" },
+            "dateReturned": { "type": "string" },
+            "notes": { "type": "string" }
+        },
+        "required": ["id", "employeeId", "employeeNameSnapshot", "dateAssigned"]
+    }
+  },
+  "firestore": {
+    "employees": {
+      "schema": "#/entities/Employee",
+      "description": "Information about active and inactive employees."
+    },
+    "assets": {
+      "schema": "#/entities/Asset",
+      "description": "Information about company assets."
+    }
+  }
+}

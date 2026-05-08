@@ -1,0 +1,117 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { 
+  Users, Briefcase, ClipboardCheck, GraduationCap, Folder, LogOut, Home, 
+  Search, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Plus, RotateCcw, 
+  Hourglass, Save, UserCog, UserPlus, X, UserMinus, Edit, Trash2, UserCheck,
+  AlertTriangle, Hammer, MessageSquare, Bell,  Sun, Moon, Clock, CheckCircle, 
+  GripVertical, Copy, Check, Power, Edit3, MoreHorizontal,
+  CalendarCheck, BarChart2, Calendar, Phone, XCircle, UserX, Target,
+  MessageCircle, ExternalLink, Smartphone, Video, MapPin, Monitor,
+  File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
+  Info, HelpCircle, FolderPlus, User, DollarSign, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
+  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key
+} from 'lucide-react';
+
+const iconMap = {
+  'dollar-sign': DollarSign,
+  'award': Award,
+  'users': Users,
+  'user': User,
+  'briefcase': Briefcase,
+  'clipboard-check': ClipboardCheck,
+  'graduation-cap': GraduationCap,
+  'folder': Folder,
+  'log-out': LogOut,
+  'home': Home,
+  'search': Search,
+  'chevron-down': ChevronDown,
+  'chevron-up': ChevronUp,
+  'chevron-left': ChevronLeft,
+  'chevron-right': ChevronRight,
+  'arrow-left': ArrowLeft,
+  'refresh-cw': RefreshCw,
+  'key': Key,
+  'plus': Plus,
+  'rotate-ccw': RotateCcw,
+  'hourglass': Hourglass,
+  'save': Save,
+  'user-cog': UserCog,
+  'user-plus': UserPlus,
+  'x': X,
+  'user-minus': UserMinus,
+  'edit': Edit,
+  'trash-2': Trash2,
+  'user-check': UserCheck,
+  'alert-triangle': AlertTriangle,
+  'hammer': Hammer,
+  'message-square': MessageSquare,
+  'bell': Bell,
+  'sun': Sun,
+  'moon': Moon,
+  'clock': Clock,
+  'check-circle': CheckCircle,
+  'grip-vertical': GripVertical,
+  'copy': Copy,
+  'check': Check,
+  'power': Power,
+  'edit-3': Edit3,
+  'more-horizontal': MoreHorizontal,
+  'calendar-check': CalendarCheck,
+  'bar-chart-2': BarChart2,
+  'calendar': Calendar,
+  'phone': Phone,
+  'x-circle': XCircle,
+  'user-x': UserX,
+  'target': Target,
+  'message-circle': MessageCircle,
+  'external-link': ExternalLink,
+  'smartphone': Smartphone,
+  'video': Video,
+  'map-pin': MapPin,
+  'monitor': Monitor,
+  'file': File,
+  'upload-cloud': UploadCloud,
+  'file-text': FileText,
+  'layout': Layout,
+  'layout-grid': LayoutGrid,
+  'list': List,
+  'filter': Filter,
+  'star': Star,
+  'download-cloud': DownloadCloud,
+  'info': Info,
+  'help-circle': HelpCircle,
+  'folder-plus': FolderPlus,
+  'paperclip': Paperclip,
+  'download': Download,
+  'image': Image,
+  'box': Box,
+  'qr-code': QrCode,
+  'barcode': Barcode,
+  'activity': Activity,
+  'trending-up': TrendingUp,
+  'minus': Minus,
+  'trending-down': TrendingDown,
+  'alert-circle': AlertCircle,
+  'log-in': LogIn,
+  'book-open': BookOpen,
+  'shield': Shield,
+  'eye': Eye,
+  'eye-off': EyeOff
+};
+
+interface IconProps {
+  name: keyof typeof iconMap;
+  size?: number;
+  className?: string;
+  strokeWidth?: number;
+}
+
+export const Icon = ({ name, size = 20, className = "", strokeWidth }: IconProps) => {
+  const LucideIcon = iconMap[name];
+  if (!LucideIcon) return null;
+  return <LucideIcon size={size} className={className} strokeWidth={strokeWidth} />;
+};

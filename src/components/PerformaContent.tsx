@@ -1,0 +1,1295 @@
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { Icon } from './ui/Icon';
+import { logActivity } from '../firebase';
+import { Employee } from '../types';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+
+// Leverage complexity berdasarkan Jabatan (Hikemore)
+const DEFAULT_JOB_LEVELS = [
+  { id: 'Staff', label: 'Staff (1.0x)', multiplier: 1.0 },
+  { id: 'Senior Staff', label: 'Senior Staff (1.35x)', multiplier: 1.35 },
+  { id: 'Kepala Toko', label: 'Kepala Toko (1.75x)', multiplier: 1.75 },
+  { id: 'Supervisor', label: 'Supervisor (1.8x)', multiplier: 1.8 },
+  { id: 'Head Department', label: 'Head Department (2.8x)', multiplier: 2.8 },
+  { id: 'Direktur', label: 'Direktur (4.5x)', multiplier: 4.5 },
+];
+
+interface PerformaContentProps {
+  employees: Employee[];
+  performaDataMap: Record<string, any>;
+  setPerformaDataMap: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+}
+
+export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, performaDataMap, setPerformaDataMap }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'input'>('dashboard');
+  const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(employees.length > 0 ? employees[0].id : null);
+  
+  const [filterDept, setFilterDept] = useState('All Departemen');
+  const [filterLevel, setFilterLevel] = useState('All Level');
+  const [filterPenilaian, setFilterPenilaian] = useState('All Penilaian');
+  
+  const globalSettings = performaDataMap['globalSettings'] || { baselineSalary: 3480000 };
+  const baselineSalary = globalSettings.baselineSalary;
+  const jobLevels = globalSettings.jobLevels || DEFAULT_JOB_LEVELS;
+
+  const getMultiplier = (levelId: string, customMultiplier?: number) => {
+    if (levelId === 'Custom') return customMultiplier || 1.0;
+    const level = jobLevels.find((l: any) => l.id === levelId);
+    if (level) return level.multiplier;
+    // legacy fallback
+    const legacy: Record<string, number> = {
+      'Staff / Entry Level': 1.0,         
+      'Senior Staff / Specialist': 1.35,  
+      'Supervisor / Coordinator': 1.8,    
+      'Manager / AVP': 2.8,               
+      'Director / Eksekutif': 4.5,        
+    };
+    return legacy[levelId] || 1.0;
+  };
+
+  const tableRef = useRef<HTMLDivElement>(null);
+  const fakeScrollRef = useRef<HTMLDivElement>(null);
+  const [tableWidth, setTableWidth] = useState<number>(0);
+  
+  const [isLevelDropdownOpen, setIsLevelDropdownOpen] = useState(false);
+  const [newLevelName, setNewLevelName] = useState('');
+  const [newLevelMultiplier, setNewLevelMultiplier] = useState('');
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsLevelDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'dashboard') return;
+    
+    // Slight delay to ensure table is rendered
+    const timer = setTimeout(() => {
+      const tableEl = tableRef.current?.querySelector('table');
+      if (tableEl) {
+        const observer = new ResizeObserver((entries) => {
+          setTableWidth(entries[0].target.scrollWidth);
+        });
+        observer.observe(tableEl);
+        return () => observer.disconnect();
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [activeTab, employees, performaDataMap]);
+
+  const onTableScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (fakeScrollRef.current) {
+      fakeScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
+  const onFakeScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (tableRef.current) {
+      tableRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
+  const handleGlobalSettingChange = (field: string, value: any) => {
+    setPerformaDataMap(prev => ({
+      ...prev,
+      globalSettings: {
+        ...(prev['globalSettings'] || { baselineSalary: 3480000 }),
+        [field]: value
+      }
+    }));
+  };
+
+  const handleAddJobLevel = () => {
+    if (!newLevelName || !newLevelMultiplier) return;
+    const newList = [
+      ...jobLevels,
+      { id: newLevelName.trim(), label: `${newLevelName.trim()} (${newLevelMultiplier}x)`, multiplier: parseFloat(newLevelMultiplier) }
+    ];
+    handleGlobalSettingChange('jobLevels', newList);
+    setNewLevelName('');
+    setNewLevelMultiplier('');
+  };
+
+  const handleDeleteJobLevel = (e: React.MouseEvent, idToDelete: string) => {
+    e.stopPropagation();
+    const newList = jobLevels.filter((lvl: any) => lvl.id !== idToDelete);
+    handleGlobalSettingChange('jobLevels', newList);
+  };
+
+  const performaData = useMemo(() => {
+    return employees.map(emp => {
+      const data = performaDataMap[emp.id] || {
+        grit: 0, growth: 0, prof: 0, sus: 0,
+        telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0, levelJabatan: 'HO - Staff / Admin'
+      };
+
+      const safeCalc = (keys: string[]) => {
+        const sum = keys.reduce((acc, k) => acc + (data[k] || 0), 0);
+        return sum / keys.length;
+      };
+
+      const grit = safeCalc(['grit_1', 'grit_2', 'grit_3', 'grit_4', 'grit_5']);
+      const growth = safeCalc(['growth_1', 'growth_2', 'growth_3', 'growth_4', 'growth_5']);
+      const prof = safeCalc(['prof_1', 'prof_2', 'prof_3', 'prof_4', 'prof_5']);
+      const sus = safeCalc(['sus_1', 'sus_2', 'sus_3', 'sus_4', 'sus_5']);
+      
+      const kompetensiScore = (grit * 0.3) + (growth * 0.2) + (prof * 0.3) + (sus * 0.2); // max 125
+      
+      const telat = data.telat || 0;
+      const ijin = data.ijin || 0;
+      const mangkir = data.mangkir || 0;
+      const sp = data.sp || 0;
+      
+      const kedisiplinanScore = (telat * -1) + (ijin * -1) + (mangkir * -3) + (sp * -5);
+      
+      const nilaiAkhir = kompetensiScore + kedisiplinanScore;
+      
+      const gaji = data.gaji || 0;
+      const levelJabatan = data.levelJabatan || 'HO - Staff / Admin';
+      const multiplier = getMultiplier(levelJabatan, data.customMultiplier);
+      const displayJabatan = levelJabatan === 'Custom' && data.customLevelName 
+        ? `${data.customLevelName} (${multiplier}x)`
+        : levelJabatan;
+      
+      // LOGIKA CERDAS VALUE-BASED METRIC (Tanpa Target Gaji)
+      // 1. Value Per Point Kontribusi (VPC): 
+      //    Seberapa besar nilai 1 poin performa (Skor 75 = Standar)
+      const valuePerPoint = baselineSalary / 75;
+      
+      // 2. Base Nilai Kontribusi:
+      //    Berapa rupiah total nilai performa aktual yang diberikan karyawan ini ke perusahaan?
+      const baseKontribusi = Math.max(0, nilaiAkhir) * valuePerPoint;
+      
+      // 3. Leverage Jabatan (Scale Nilai Kontribusi):
+      //    Manager punya impact lebih besar dari Staff dengan nilai 100 yang sama.
+      const nilaiKontribusi = baseKontribusi * multiplier;
+
+      // 4. Value-to-Cost Ratio (VCR): 
+      //    Membandingkan Nilai Aktual (Kontribusi) vs Beban Aktual (Gaji)
+      //    "Lu gua gaji segini, value kontribusi lu ke perusahaan berapa?"
+      const vcr = gaji > 0 ? (nilaiKontribusi / gaji) : 0;
+      
+      let classification = '';
+      let rekomendasi = '';
+      if (gaji === 0 || nilaiAkhir <= 0) {
+        classification = 'Belum Dinilai';
+        rekomendasi = '-';
+      }
+      else if (vcr >= 1.30) {
+        classification = 'Sangat Bagus (Sangat Menguntungkan)';
+        rekomendasi = 'Layak Promosi / Naik Gaji';
+      }
+      else if (vcr >= 1.10) {
+        classification = 'Bagus (Di Atas Ekspektasi)';
+        rekomendasi = 'Layak Dipertahankan / Bonus';
+      }
+      else if (vcr >= 0.95) {
+        classification = 'Standar (Sesuai Gaji)';
+        rekomendasi = 'Performa Aman / Stay';
+      }
+      else if (vcr >= 0.80) {
+        classification = 'Kurang (Underperforming)';
+        rekomendasi = 'Perlu Pembinaan Intensif';
+      }
+      else {
+        classification = 'Sangat Kurang (Overpaid / Rugi)';
+        rekomendasi = 'Layak SP / Diberhentikan';
+      }
+      
+      return {
+        ...emp,
+        periodeStart: data.periodeStart || '',
+        periodeEnd: data.periodeEnd || '',
+        grit, growth, prof, sus, kompetensiScore,
+        telat, ijin, mangkir, sp, kedisiplinanScore,
+        nilaiAkhir, gaji, levelJabatan: displayJabatan, nilaiKontribusi, vcr, classification, rekomendasi
+      };
+    }).sort((a, b) => b.vcr - a.vcr);
+  }, [employees, performaDataMap, baselineSalary]);
+
+  const uniqueDepts = useMemo(() => Array.from(new Set(performaData.map(d => d.dept))).sort(), [performaData]);
+  const uniqueLevels = useMemo(() => Array.from(new Set(performaData.map(d => d.levelJabatan))).sort(), [performaData]);
+  const uniquePenilaian = useMemo(() => Array.from(new Set(performaData.map(d => d.classification))).filter(c => c !== 'Belum Dinilai').sort(), [performaData]);
+
+  const filteredPerformaData = useMemo(() => {
+    return performaData.filter(d => {
+      const matchDept = filterDept === 'All Departemen' || d.dept === filterDept;
+      const matchLevel = filterLevel === 'All Level' || d.levelJabatan === filterLevel;
+      const matchPenilaian = filterPenilaian === 'All Penilaian' || d.classification === filterPenilaian;
+      return matchDept && matchLevel && matchPenilaian;
+    });
+  }, [performaData, filterDept, filterLevel, filterPenilaian]);
+
+  return (
+    <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative">
+      <div className="w-full flex-1 flex flex-col space-y-6 pb-8">
+        
+        {/* Header & Overview Cards Container */}
+        <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-black tracking-tight text-slate-800">Evaluasi Kinerja vs Cost Salary</h2>
+              <p className="text-sm font-bold text-slate-400 mt-1">Analisis efisiensi biaya kompensasi terhadap tingkat performa dan kontribusi karyawan</p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsGuideModalOpen(true)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Icon name="help-circle" size={16} /> 
+                <span>Panduan</span>
+              </button>
+              <div className="bg-slate-50 border border-slate-100 p-1 rounded-xl flex items-center">
+                <button 
+                  onClick={() => setActiveTab('dashboard')} 
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Dashboard Visual
+                </button>
+                <button 
+                  onClick={() => setActiveTab('input')} 
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${activeTab === 'input' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  Input Data Penilaian
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {activeTab === 'dashboard' && (() => {
+            const evaluatedData = filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai');
+            const isFilterActive = filterDept !== 'All Departemen' || filterLevel !== 'All Level' || filterPenilaian !== 'All Penilaian';
+            return (
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center gap-2.5 justify-end w-full">
+                {isFilterActive && (
+                  <button 
+                    onClick={() => { setFilterDept('All Departemen'); setFilterLevel('All Level'); setFilterPenilaian('All Penilaian'); }} 
+                    className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1"
+                  >
+                    <Icon name="x" size={12} /> Hapus Filter
+                  </button>
+                )}
+                
+                {/* Dept Select */}
+                <div className="relative">
+                  <select 
+                    className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[150px]" 
+                    value={filterDept} 
+                    onChange={e => setFilterDept(e.target.value)}
+                  >
+                    <option value="All Departemen">Semua Departemen</option>
+                    {uniqueDepts.map(d => <option key={d as string} value={d as string}>{d as string}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
+                </div>
+
+                {/* Level Select */}
+                <div className="relative">
+                  <select 
+                    className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[150px]" 
+                    value={filterLevel} 
+                    onChange={e => setFilterLevel(e.target.value)}
+                  >
+                    <option value="All Level">Semua Level</option>
+                    {uniqueLevels.map(l => <option key={l as string} value={l as string}>{l as string}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
+                </div>
+
+                {/* Penilaian Select */}
+                <div className="relative">
+                  <select 
+                    className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[150px]" 
+                    value={filterPenilaian} 
+                    onChange={e => setFilterPenilaian(e.target.value)}
+                  >
+                    <option value="All Penilaian">Semua Penilaian</option>
+                    {uniquePenilaian.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="relative bg-blue-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(59,130,246,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(59,130,246,0.15)] border border-blue-100/50 group cursor-default">
+                  <div className="relative z-10 flex justify-between items-center w-full">
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-blue-500 mb-1 uppercase tracking-widest">Rata-Rata VCR</p>
+                      <p className="text-[32px] leading-none font-black text-blue-950">
+                        {evaluatedData.length > 0 ? (evaluatedData.reduce((acc, curr) => acc + curr.vcr, 0) / evaluatedData.length).toFixed(2) : '0.00'}x
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-blue-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon name="activity" size={20} />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-blue-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </div>
+
+                <div className="relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(16,185,129,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(16,185,129,0.15)] border border-emerald-100/50 group cursor-default">
+                  <div className="relative z-10 flex justify-between items-center w-full">
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-emerald-500 mb-1 uppercase tracking-widest">Efisien (Valuable)</p>
+                      <p className="text-[32px] leading-none font-black text-emerald-950">
+                        {evaluatedData.filter(p => p.classification.startsWith('Sangat Bagus') || p.classification.startsWith('Bagus')).length}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-emerald-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon name="trending-up" size={20} />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-emerald-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </div>
+
+                <div className="relative bg-slate-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-slate-200 group cursor-default">
+                  <div className="relative z-10 flex justify-between items-center w-full">
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-slate-500 mb-1 uppercase tracking-widest">Sesuai (Fair)</p>
+                      <p className="text-[32px] leading-none font-black text-slate-800">
+                        {evaluatedData.filter(p => p.classification.startsWith('Standar')).length}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon name="minus" size={20} />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-slate-400" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </div>
+
+                <div className="relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(244,63,94,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(244,63,94,0.15)] border border-rose-100/50 group cursor-default">
+                  <div className="relative z-10 flex justify-between items-center w-full">
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-rose-500 mb-1 uppercase tracking-widest">Beban (Overpaid)</p>
+                      <p className="text-[32px] leading-none font-black text-rose-950">
+                        {evaluatedData.filter(p => p.classification.startsWith('Kurang') || p.classification.startsWith('Sangat Kurang')).length}
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-rose-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon name="trending-down" size={20} />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-rose-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </div>
+              </div>
+            </div>
+            );
+          })()}
+        </div>
+
+        {activeTab === 'dashboard' ? (
+          <>
+            {/* Scatter Plot untuk Rekomendasi Visualisasi */}
+            <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="font-extrabold text-slate-800">Visualisasi Evaluasi Kinerja vs Cost Salary</h3>
+                  <p className="text-sm font-medium text-slate-500">
+                    Scatter plot efektif untuk membandingkan cost salary terhadap evaluasi kinerja (core value).
+                  </p>
+                </div>
+              </div>
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis type="number" dataKey="nilaiAkhir" name="Skor Akhir" domain={[0, 130]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} label={{ value: 'Nilai Akhir (Total Performa)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} />
+                    <YAxis type="number" dataKey="gaji" name="Gaji" tickFormatter={(v) => `Rp ${(v/1000000).toFixed(0)}Jt`} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
+                    <RechartsTooltip 
+                      cursor={{ strokeDasharray: '3 3' }} 
+                      formatter={(value: number, name: string) => name === 'Gaji' ? `Rp ${value.toLocaleString('id-ID')}` : value}
+                      content={({ payload }) => {
+                        if (payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px]">
+                              <p className="font-bold text-slate-800 mb-1">{data.name}</p>
+                              <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">{data.levelJabatan}</p>
+                              <div className="space-y-1 mb-2">
+                                <p className="text-slate-500 flex justify-between"><span>Nilai Akhir:</span> <span className="font-bold text-slate-800">{data.nilaiAkhir.toFixed(1)}</span></p>
+                                <p className="text-slate-500 flex justify-between"><span>Gaji Aktual:</span> <span className="font-bold text-slate-800">Rp {data.gaji.toLocaleString('id-ID')}</span></p>
+                                <p className="text-slate-500 flex justify-between"><span>Nilai Kontribusi:</span> <span className="font-bold text-emerald-600">Rp {Math.round(data.nilaiKontribusi).toLocaleString('id-ID')}</span></p>
+                              </div>
+                              <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
+                                <p className="text-slate-500 flex justify-between items-center">
+                                  <span>Kesimpulan:</span> 
+                                  <span className="font-bold" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                    {data.classification.split(' (')[0]}
+                                  </span>
+                                </p>
+                                {data.rekomendasi && data.rekomendasi !== '-' && (
+                                  <p className="text-[10px] font-bold text-right" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                    ({data.rekomendasi})
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Scatter name="Karyawan" data={filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai')}>
+                      {filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.classification.startsWith('Sangat Bagus') ? '#10b981' : entry.classification.startsWith('Bagus') ? '#3b82f6' : entry.classification.startsWith('Standar') ? '#64748b' : entry.classification.startsWith('Kurang') && !entry.classification.startsWith('Sangat') ? '#f97316' : entry.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'} />
+                      ))}
+                    </Scatter>
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Table */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] flex flex-col flex-1 min-h-[400px] relative pb-[1px]">
+              <div className="p-6 border-b border-slate-100 shrink-0 rounded-t-[24px] bg-white z-30">
+                <h3 className="font-extrabold text-slate-800">Evaluasi Kinerja vs Cost Salary</h3>
+              </div>
+              <div 
+                ref={tableRef}
+                className="overflow-auto flex-1 max-h-[550px] pb-4 hide-scrollbar-x rounded-b-[24px]"
+                onScroll={onTableScroll}
+              >
+                <table className="min-w-max w-full text-left border-collapse whitespace-nowrap">
+                  <thead className="bg-slate-50 sticky top-0 z-20 shadow-sm shadow-slate-100">
+                    <tr>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest sticky left-0 z-20 bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Karyawan</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest">Jabatan & Level</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Core Value</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Kedisiplinan</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Akhir</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Analitik Gaji & Value</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Value-To-Cost Ratio</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Kesimpulan Penilaian</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-sm font-medium text-slate-700 divide-y divide-slate-100">
+                    {filteredPerformaData.map((d, i) => (
+                      <tr key={i} className="group hover:bg-slate-50">
+                        <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <div className="flex items-center gap-3">
+                              <span className="text-slate-400 font-bold w-6 inline-block">{i + 1}</span>
+                              <span className="font-bold text-slate-900">{d.name}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-medium ml-9 mt-0.5 truncate max-w-[200px]">
+                               {d.periodeStart || d.periodeEnd ? `Periode: ${d.periodeStart ? new Date(d.periodeStart).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}) : '?'} - ${d.periodeEnd ? new Date(d.periodeEnd).toLocaleDateString('id-ID', {day: '2-digit', month: 'short', year: 'numeric'}) : '?'}` : 'Periode blm diatur'}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-slate-800">{d.department}</span>
+                            <span className="text-[11px] text-slate-500 font-medium">{d.levelJabatan}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-center">{d.kompetensiScore.toFixed(1)}</td>
+                        <td className="px-4 py-2 text-red-500 text-center">{d.kedisiplinanScore}</td>
+                        <td className="px-4 py-2 font-bold text-slate-900 text-center">{d.nilaiAkhir.toFixed(1)}</td>
+                        <td className="px-4 py-2">
+                          <div className="flex flex-col gap-1 w-32 py-1 mx-auto">
+                            <div className="flex justify-between items-center w-full gap-2">
+                              <span className="text-[10px] text-slate-400 font-bold">Gaji</span>
+                              <span className="font-bold text-slate-900">Rp {(d.gaji/1000000).toFixed(1)}Jt</span>
+                            </div>
+                            <div className="flex justify-between items-center w-full gap-2">
+                              <span className="text-[10px] text-emerald-500 font-bold">Value</span>
+                              <span className="font-bold text-emerald-600">Rp {(d.nilaiKontribusi/1000000).toFixed(1)}Jt</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <span className="font-black text-lg text-slate-800">{d.vcr.toFixed(2)}x</span>
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <div className="flex flex-col items-center gap-1.5 mt-1">
+                            <span className={`px-2.5 py-1 rounded-md text-[10px] font-black tracking-widest uppercase ${
+                              d.classification === 'Belum Dinilai' ? 'bg-slate-100 text-slate-500' :
+                              d.classification.startsWith('Sangat Bagus') ? 'bg-emerald-100 text-emerald-700' :
+                              d.classification.startsWith('Bagus') ? 'bg-blue-100 text-blue-700' :
+                              d.classification.startsWith('Standar') ? 'bg-slate-200 text-slate-700' :
+                              d.classification.startsWith('Kurang') && !d.classification.startsWith('Sangat') ? 'bg-orange-100 text-orange-700' :
+                              'bg-rose-100 text-rose-700'
+                            }`}>
+                              {d.classification.split(' (')[0]}
+                            </span>
+                            <span className={`text-[11px] font-bold ${
+                              d.classification === 'Belum Dinilai' ? 'text-slate-400' :
+                              d.classification.startsWith('Sangat Bagus') ? 'text-emerald-600' :
+                              d.classification.startsWith('Bagus') ? 'text-blue-600' :
+                              d.classification.startsWith('Standar') ? 'text-slate-600' :
+                              d.classification.startsWith('Kurang') && !d.classification.startsWith('Sangat') ? 'text-orange-600' :
+                              'text-rose-600'
+                            }`}>
+                              {d.rekomendasi}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                    {performaData.length === 0 && (
+                      <tr>
+                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">Belum ada data evaluasi</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div 
+                ref={fakeScrollRef}
+                className="sticky bottom-0 z-50 overflow-x-auto w-full custom-scrollbar bg-slate-50/90 backdrop-blur-md border-t border-slate-200 hidden sm:block shadow-[0_-10px_15px_rgba(0,0,0,0.03)]"
+                onScroll={onFakeScroll}
+              >
+                <div style={{ height: '1px', width: tableWidth ? `${tableWidth}px` : '100%' }}></div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {/* Global Settings */}
+            <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h3 className="font-bold text-slate-800">Target Gaji Baseline (Standar Level Staff / UMR)</h3>
+                <p className="text-xs text-slate-500 mt-1">Nilai ini dijadikan acuan (Multiplier 1.0x) untuk mengukur Ekspektasi Value tiap karyawan. Ubah jika Standar Gaji Dasar perusahaan naik.</p>
+              </div>
+              <div className="flex-shrink-0 w-full sm:w-[250px]">
+                <div className="relative">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold">Rp</div>
+                  <input 
+                    type="text" 
+                    className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl pl-10 pr-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all text-right"
+                    value={baselineSalary.toLocaleString('id-ID')}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      handleGlobalSettingChange('baselineSalary', parseInt(val) || 0);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 h-[calc(100vh-320px)] min-h-[600px]">
+              {/* Left Sidebar: Employee List */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] overflow-hidden flex flex-col">
+              <div className="p-4 border-b border-slate-100 bg-slate-50">
+                <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-widest">Pilih Karyawan</h3>
+              </div>
+              <div className="overflow-y-auto flex-1 p-2 space-y-1 hide-scrollbar">
+                {employees.map(emp => (
+                  <button
+                    key={emp.id}
+                    onClick={() => setSelectedEmpId(emp.id)}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between ${selectedEmpId === emp.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'}`}
+                  >
+                    <div>
+                      <p className="font-bold text-[13px]">{emp.name}</p>
+                      <p className="text-[11px] font-medium text-slate-400 mt-0.5">{emp.pos}</p>
+                    </div>
+                    {performaDataMap[emp.id] && (
+                      <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right Form: Input Data */}
+            <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] overflow-y-auto hide-scrollbar pb-8">
+              {selectedEmpId ? (() => {
+                const emp = employees.find(e => e.id === selectedEmpId)!;
+                const data = performaDataMap[selectedEmpId] || { grit: 0, growth: 0, prof: 0, sus: 0, telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0 };
+                
+                const handleChange = (field: string, value: number | string) => {
+                  setPerformaDataMap(prev => ({
+                    ...prev,
+                    [selectedEmpId]: { ...data, [field]: value }
+                  }));
+                };
+
+                return (
+                  <div>
+                    <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
+                      <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-2xl bg-white border border-blue-100 text-blue-600 flex items-center justify-center font-black text-lg shadow-sm">
+                          {emp.name.charAt(0)}
+                        </div>
+                        <div>
+                          <h3 className="font-black text-xl text-slate-800">{emp.name}</h3>
+                          <p className="text-sm font-bold text-slate-500">{emp.pos} • {emp.dept}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-8 space-y-8">
+                      {/* Periode Section */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest flex items-center gap-2">
+                            <Icon name="calendar" size={16} className="text-blue-500" />
+                            Periode Penilaian
+                          </h4>
+                          {(emp.contractStart || emp.contractEnd) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPerformaDataMap(prev => ({
+                                  ...prev,
+                                  [selectedEmpId]: { ...data, periodeStart: emp.contractStart || '', periodeEnd: emp.contractEnd || '' }
+                                }));
+                              }}
+                              className="text-[10px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1 cursor-pointer"
+                            >
+                              <Icon name="refresh-cw" size={12} />
+                              Samakan dengan Kontrak
+                            </button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Tanggal Mulai (Dari)</label>
+                            <input 
+                              type="date"
+                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans"
+                              value={data.periodeStart || ''}
+                              onChange={(e) => handleChange('periodeStart', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Tanggal Selesai (Sampai)</label>
+                            <input 
+                              type="date"
+                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans"
+                              value={data.periodeEnd || ''}
+                              onChange={(e) => handleChange('periodeEnd', e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Gaji Section */}
+                      <div>
+                        <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <Icon name="dollar-sign" size={16} className="text-blue-500" />
+                          Informasi Gaji & Level
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Estimasi Gaji Bulanan (Rp)</label>
+                            <input 
+                              type="text" 
+                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all"
+                              value={data.gaji ? data.gaji.toLocaleString('id-ID') : ''}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '');
+                                handleChange('gaji', parseInt(val) || 0);
+                              }}
+                              placeholder="Contoh: 8.000.000"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Level Jabatan (Multiplier Ekspektasi)</label>
+                            <div className="relative" ref={dropdownRef}>
+                              <div 
+                                className={`w-full bg-slate-50 border border-slate-200 font-bold max-w-sm rounded-xl pl-4 pr-4 py-3 outline-none focus:border-blue-400 focus:ring-[3px] focus:ring-blue-100 transition-all cursor-pointer text-sm flex items-center justify-between ${!data.levelJabatan ? 'text-slate-500' : 'text-slate-800'}`}
+                                onClick={() => setIsLevelDropdownOpen(!isLevelDropdownOpen)}
+                              >
+                                <span className="truncate">{data.levelJabatan === 'Custom' ? (data.customLevelName ? `${data.customLevelName} (${data.customMultiplier || 1.0}x)` : 'Custom') : jobLevels.find((l:any) => l.id === data.levelJabatan)?.label || 'Silahkan pilih'}</span>
+                                <div className="flex items-center gap-2">
+                                  {data.levelJabatan && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); handleChange('levelJabatan', ''); }}
+                                      className="text-red-500 hover:text-red-600 transition-colors p-1"
+                                    >
+                                      <Icon name="x" size={16} />
+                                    </button>
+                                  )}
+                                  <div className="pointer-events-none text-slate-400">
+                                    <Icon name={isLevelDropdownOpen ? 'chevron-up' : 'chevron-down'} size={16} />
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {isLevelDropdownOpen && (
+                                <div className="absolute top-full left-0 mt-2 w-[120%] max-w-md bg-white border border-slate-200 rounded-xl shadow-xl z-50 overflow-hidden">
+                                  <div className="p-3 bg-slate-50 border-b border-slate-100 text-[11px] font-black text-slate-400 uppercase tracking-widest">
+                                    Silahkan pilih
+                                  </div>
+                                  <div className="max-h-60 overflow-y-auto py-1">
+                                    <div className="px-4 py-2 text-[10px] font-black text-blue-500 uppercase tracking-widest">Level Jabatan</div>
+                                    {jobLevels.map((lvl: any) => (
+                                      <div 
+                                        key={lvl.id}
+                                        className={`flex items-center justify-between px-4 py-2.5 text-sm cursor-pointer transition-colors ${data.levelJabatan === lvl.id ? 'bg-blue-50 text-blue-700 font-bold' : 'text-slate-700 hover:bg-slate-50'}`}
+                                        onClick={() => { handleChange('levelJabatan', lvl.id); setIsLevelDropdownOpen(false); }}
+                                      >
+                                        <span>{lvl.label}</span>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteJobLevel(e, lvl.id); }}
+                                            className="text-rose-400 hover:text-rose-600 hover:bg-rose-50 p-1.5 rounded transition-colors"
+                                            title="Hapus opsi ini"
+                                          >
+                                            <Icon name="x" size={14} />
+                                          </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  
+                                  <div className="p-3 border-t border-slate-100 bg-slate-50 space-y-2">
+                                    <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tambah Opsi Custom</div>
+                                    <div className="flex gap-2">
+                                      <input 
+                                        type="text" 
+                                        placeholder="Nama Level (CFO)" 
+                                        className="flex-1 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-400"
+                                        value={newLevelName}
+                                        onChange={e => setNewLevelName(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                      />
+                                      <input 
+                                        type="number" 
+                                        step="0.1"
+                                        placeholder="Multiplier (4.0)" 
+                                        className="w-28 min-w-0 bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-blue-400"
+                                        value={newLevelMultiplier}
+                                        onChange={e => setNewLevelMultiplier(e.target.value)}
+                                        onClick={e => e.stopPropagation()}
+                                      />
+                                      <button 
+                                        type="button"
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAddJobLevel(); }}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center shrink-0 font-bold text-xs"
+                                      >
+                                        Tambah
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-8">
+                        {/* Core Value Section */}
+                        <div className="space-y-4">
+                          <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Icon name="award" size={16} className="text-blue-500" />
+                            Nilai Core Value
+                          </h4>
+                          {[
+                            { 
+                              id: 'grit', label: 'Grit (Ketekunan)', bobot: '30%', 
+                              desc1: 'Sangat mudah menyerah, menolak tugas.', 
+                              desc2: 'Kurang tekun, inisiatif minim, banyak alasan.', 
+                              desc3: 'Penyelesaian standar, inisiatif butuh arahan.', 
+                              desc4: 'Tekun, inisiatif mandiri, pantang menyerah.',
+                              desc5: 'Sangat gigih, proaktif, kualitas luar biasa.',
+                              questions: [
+                                { id: 'grit_1', text: 'Kemauan belajar hal baru yang menjadi tuntutan pekerjaan' },
+                                { id: 'grit_2', text: 'Kemauan extra effort dalam penyelesaian hambatan pekerjaan' },
+                                { id: 'grit_3', text: 'Menunjukkan sikap give & take pada pekerjaan' },
+                                { id: 'grit_4', text: 'Fokus pada penyelesaian tugas hingga tuntas' },
+                                { id: 'grit_5', text: 'Ketahanan dan pantang menyerah dalam menghadapi tekanan' }
+                              ]
+                            },
+                            { 
+                              id: 'growth', label: 'Growth (Pertumbuhan)', bobot: '20%', 
+                              desc1: 'Menolak masukan, performa terus menurun.', 
+                              desc2: 'Kurang proaktif, mengulang kesalahan sama.', 
+                              desc3: 'Belajar bila diminta, terbuka terhadap masukan ringan.', 
+                              desc4: 'Terbuka inovasi, kinerja mulai terlihat meningkat.',
+                              desc5: 'Sangat proaktif belajar inovasi, kinerja melesat.',
+                              questions: [
+                                { id: 'growth_1', text: 'Memiliki skill yang berkembang seiring waktu' },
+                                { id: 'growth_2', text: 'Tidak mengulang kesalahan yang sama dalam pekerjaan' },
+                                { id: 'growth_3', text: 'Keterbukaan terhadap saran & kritik dalam bekerja' },
+                                { id: 'growth_4', text: 'Menunjukkan kesiapan saat diberikan tanggung jawab lebih' },
+                                { id: 'growth_5', text: 'Kontribusi pada peningkatan sistem kerja' }
+                              ]
+                            },
+                            { 
+                              id: 'prof', label: 'Professionalism', bobot: '30%', 
+                              desc1: 'Sering melanggar aturan, tidak bertanggung jawab.', 
+                              desc2: 'Kurang tanggap, komunikasi seadanya, perlu diawasi.', 
+                              desc3: 'Tanggung jawab tercapai, komunikasi cukup, patuh.', 
+                              desc4: 'Bertanggung jawab penuh, komunikasi lancar.',
+                              desc5: 'Integritas sangat tinggi, menjadi teladan profesional.',
+                              questions: [
+                                { id: 'prof_1', text: 'Tanggung jawab terhadap pekerjaan & komunikasi efektif' },
+                                { id: 'prof_2', text: 'Bekerja dengan integritas dan etika' },
+                                { id: 'prof_3', text: 'Kepatuhan pada prosedur dan aturan kerja' },
+                                { id: 'prof_4', text: 'Kemampuan berkolaborasi dalam alur kerja tim' },
+                                { id: 'prof_5', text: 'Kemampuan melakukan efisiensi dan produktifitas' }
+                              ]
+                            },
+                            { 
+                              id: 'sus', label: 'Sustainable (Adaptasi)', bobot: '20%', 
+                              desc1: 'Menolak keras perubahan, banyak mengeluh.', 
+                              desc2: 'Lambat beradaptasi, sering bingung metode baru.', 
+                              desc3: 'Bisa beradaptasi bila diajari, kualitas stabil.', 
+                              desc4: 'Cepat menyesuaikan diri, mendukung inisiatif perusahaan.',
+                              desc5: 'Sangat efisien adaptasi, loyalitas kuat jangka panjang.',
+                              questions: [
+                                { id: 'sus_1', text: 'Kemampuan adaptasi pada perubahan pola kerja' },
+                                { id: 'sus_2', text: 'Memiliki loyalitas bertahan di perusahaan' },
+                                { id: 'sus_3', text: 'Konsistensi dalam memberikan hasil kerja yang berkualitas' },
+                                { id: 'sus_4', text: 'Memiliki komitmen untuk tumbuh bersama tujuan perusahaan' },
+                                { id: 'sus_5', text: 'Kemampuan mempertahankan motivasi kerja dalam jangka panjang' }
+                              ]
+                            },
+                          ].map(komp => {
+                            const avgScore = komp.questions.reduce((acc, q) => acc + (data[q.id as keyof typeof data] || 0), 0) / komp.questions.length;
+                            const hasSelections = komp.questions.some(q => !!data[q.id as keyof typeof data]);
+                            return (
+                            <div key={komp.id} className="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                              <div className="flex justify-between items-center mb-4">
+                                <div className="flex flex-col">
+                                  <label className="text-sm font-black tracking-widest text-slate-800 uppercase">{komp.label}</label>
+                                  <span className="text-[11px] font-bold text-slate-500">Bobot {komp.bobot} • Skor Rata-rata: {hasSelections ? avgScore.toFixed(1) : '-'}</span>
+                                </div>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 mb-4">
+                                <div className={`p-3 rounded-xl border transition-all ${hasSelections && avgScore > 0 && avgScore <= 25 ? 'bg-red-50 border-red-200 ring-1 ring-red-200' : 'bg-white border-slate-200 opacity-70'}`}>
+                                  <p className="text-[10px] font-black text-red-500 mb-1">Skor 1 (Sangat Kurang)</p>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-tight">{komp.desc1}</p>
+                                </div>
+                                <div className={`p-3 rounded-xl border transition-all ${hasSelections && avgScore > 25 && avgScore <= 50 ? 'bg-orange-50 border-orange-200 ring-1 ring-orange-200' : 'bg-white border-slate-200 opacity-70'}`}>
+                                  <p className="text-[10px] font-black text-orange-500 mb-1">Skor 2 (Kurang)</p>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-tight">{komp.desc2}</p>
+                                </div>
+                                <div className={`p-3 rounded-xl border transition-all ${hasSelections && avgScore > 50 && avgScore <= 75 ? 'bg-slate-50 border-slate-300 ring-1 ring-slate-300' : 'bg-white border-slate-200 opacity-70'}`}>
+                                  <p className="text-[10px] font-black text-slate-500 mb-1">Skor 3 (Standar)</p>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-tight">{komp.desc3}</p>
+                                </div>
+                                <div className={`p-3 rounded-xl border transition-all ${hasSelections && avgScore > 75 && avgScore <= 100 ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-200' : 'bg-white border-slate-200 opacity-70'}`}>
+                                  <p className="text-[10px] font-black text-blue-500 mb-1">Skor 4 (Bagus)</p>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-tight">{komp.desc4}</p>
+                                </div>
+                                <div className={`p-3 rounded-xl border transition-all ${hasSelections && avgScore > 100 ? 'bg-emerald-50 border-emerald-200 ring-1 ring-emerald-200' : 'bg-white border-slate-200 opacity-70'}`}>
+                                  <p className="text-[10px] font-black text-emerald-500 mb-1">Skor 5 (Sangat Bagus)</p>
+                                  <p className="text-[11px] font-medium text-slate-600 leading-tight">{komp.desc5}</p>
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                {komp.questions.map((q, idx) => (
+                                  <div key={q.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
+                                    <label className="text-[13px] font-semibold text-slate-700 flex-1 pr-4">{idx + 1}. {q.text}</label>
+                                    <div className="w-36 md:w-44 flex-shrink-0 relative">
+                                      <select 
+                                        className={`appearance-none w-full bg-slate-50 border border-slate-200 font-bold rounded-lg pl-3 pr-16 py-2 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-[13px] cursor-pointer ${data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? 'text-slate-500' : 'text-slate-800'}`}
+                                        value={data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? '' : data[q.id as keyof typeof data]}
+                                        onChange={(e) => {
+                                          if (e.target.value === '') {
+                                            handleChange(q.id, '');
+                                          } else {
+                                            handleChange(q.id, parseInt(e.target.value) || 0);
+                                          }
+                                        }}
+                                      >
+                                        <option value="" disabled>Silahkan pilih</option>
+                                        <option value="125">5 - Sangat Bagus</option>
+                                        <option value="100">4 - Bagus</option>
+                                        <option value="75">3 - Standar / Cukup</option>
+                                        <option value="50">2 - Kurang</option>
+                                        <option value="25">1 - Sangat Kurang</option>
+                                        <option value="0">Tidak Ada</option>
+                                      </select>
+                                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                        {(data[q.id as keyof typeof data] !== undefined && data[q.id as keyof typeof data] !== '') && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleChange(q.id, '')}
+                                            className="text-red-400 hover:text-red-600 transition-colors p-1 z-10 relative cursor-pointer"
+                                            title="Kosongkan nilai"
+                                          >
+                                            <Icon name="x" size={14} />
+                                          </button>
+                                        )}
+                                        <div className="pointer-events-none text-slate-400">
+                                          <Icon name="chevron-down" size={14} />
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )})}
+                        </div>
+
+                        {/* Kedisiplinan Section */}
+                        <div className="space-y-4">
+                          <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <Icon name="clock" size={16} className="text-rose-500" />
+                            Kedisiplinan (Pengurang)
+                          </h4>
+                          {[
+                            { id: 'telat', label: 'Datang Lambat / Pulang Cepat', penalty: '-1 / kali' },
+                            { id: 'ijin', label: 'Sakit / Ijin', penalty: '-1 / kali' },
+                            { id: 'mangkir', label: 'Mangkir / Alfa', penalty: '-3 / kali' },
+                            { id: 'sp', label: 'Surat Peringatan', penalty: '-5 / kali' },
+                          ].map(dis => (
+                            <div key={dis.id}>
+                              <div className="flex justify-between items-center mb-2">
+                                <label className="text-[11px] font-black tracking-widest text-slate-500 uppercase">{dis.label}</label>
+                                <span className="text-[10px] font-bold text-rose-400 bg-rose-50 px-2 py-0.5 rounded-md">{dis.penalty}</span>
+                              </div>
+                              <input 
+                                type="number"
+                                min="0" 
+                                className="w-full bg-white border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 transition-all"
+                                value={data[dis.id as keyof typeof data] === 0 ? 0 : (data[dis.id as keyof typeof data] || '')}
+                                onChange={(e) => handleChange(dis.id, e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                                placeholder="0"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })() : (
+                <div className="flex flex-col items-center justify-center p-12 h-full text-slate-400">
+                  <Icon name="user" size={48} className="mb-4 text-slate-200" />
+                  <p className="font-bold text-lg">Pilih karyawan dari daftar</p>
+                  <p className="text-sm">Untuk mengisi data penilaian dan gaji</p>
+                </div>
+              )}
+            </div>
+          </div>
+          </div>
+        )}
+
+      </div>
+
+      {isGuideModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
+          <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden m-auto animate-scaleIn border border-slate-100">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Icon name="info" size={20} />
+                </div>
+                <div>
+                  <h3 className="font-black text-xl text-slate-800">Panduan Pengukuran Performa vs Cost Salary</h3>
+                  <p className="text-sm font-bold text-slate-500">Memahami konsep dan metrik perhitungan Value Creation</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsGuideModalOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+            
+            <div className="p-8 overflow-y-auto custom-scrollbar flex flex-col gap-8">
+              
+              <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-6">
+                <h4 className="text-blue-800 font-black text-lg mb-2">Maksud dari Isi Performa Ini</h4>
+                <p className="text-slate-700 leading-relaxed text-sm text-justify">
+                  Berbeda dengan pengukuran performa tradisional yang hanya fokus pada KPI target penyelesaian tugas harian, modul ini dirancang untuk mengukur secara objektif <strong>besaran "Value" (nilai yang diciptakan) karyawan dibandingkan dengan "Cost" (gaji yang dikeluarkan perusahaan)</strong>. Ini adalah analisa tingkat investasi ROI (Return on Investment) pada SDM perusahaan. Modul ini menjawab pertanyaan krusial: <em>"Apakah perusahaan overpaying untuk hasil kerja saat ini? Atau karyawan justru pantas mendapatkan apresiasi/promosi?"</em>
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-6">
+                <div className="border border-slate-200 rounded-2xl p-6 hover:border-blue-200 transition-colors shadow-sm bg-white">
+                  <div className="flex items-center gap-3 mb-4 text-slate-800">
+                    <div className="p-2 bg-slate-100 rounded-lg text-blue-600"><Icon name="target" size={18} /></div>
+                    <h4 className="font-bold text-base">1. Target Gaji Baseline</h4>
+                  </div>
+                  <p className="text-slate-600 text-[13px] leading-relaxed mb-3">
+                    Angka ini merupakan <strong>nilai jangkar (anchor) utama</strong> dalam sistem pengukuran nilai karyawan. Anchor ini mendefinisikan batas ekspektasi paling dasar (garis start) dari perusahaan terhadap kontribusi seorang karyawan tingkat pemula.
+                  </p>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 mt-3">
+                    <h5 className="text-[12px] font-bold text-slate-700 mb-1">Cara Menentukannya:</h5>
+                    <ul className="list-disc pl-4 text-[12px] text-slate-600 space-y-1">
+                      <li>Umumnya, nilai ini diisi dengan <strong>UMR daerah setempat</strong> atau standar Gaji Pokok untuk posisi Staff (Level 1) paling junior di perusahaan Anda.</li>
+                      <li>Jika UMR adalah Rp 4.000.000, maka Baseline adalah Rp 4.000.000.</li>
+                    </ul>
+                  </div>
+                  <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100 mt-3">
+                    <p className="text-[12px] text-slate-600">
+                      <span className="font-bold text-blue-700">Kenapa ini penting?</span><br />
+                      Karena angka Baseline ini akan dijadikan standar acuan dasar (dengan multiplier absolut <code>1.0x</code>) untuk membandingkan ekspektasi kinerja karyawan di level jabatan yang lebih tinggi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-2xl p-6 hover:border-blue-200 transition-colors shadow-sm bg-white">
+                  <div className="flex items-center gap-3 mb-4 text-slate-800">
+                    <div className="p-2 bg-slate-100 rounded-lg text-purple-600"><Icon name="bar-chart-2" size={18} /></div>
+                    <h4 className="font-bold text-base">2. Value to Cost Ratio (VCR)</h4>
+                  </div>
+                  <p className="text-slate-600 text-[13px] leading-relaxed mb-3">
+                    Pada akhirnya, modul ini akan menghitung rasio <strong>Value to Cost (Efisiensi)</strong>. VCR adalah rasio perbandingan antara Nilai Rupiah Kinerja (Value) yang dihasilkan oleh Karyawan dengan nominal Gaji (Cost) yang dibayarkan oleh Perusahaan.
+                  </p>
+                  <p className="text-slate-600 text-[13px] leading-relaxed mb-3">
+                    Tujuan akhirnya adalah mengetahui <strong>apakah perusahaan untung atau rugi</strong> membayarkan gaji sebesar angka tersebut dibanding performa aktual karyawan.
+                  </p>
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 mt-3">
+                    <div className="bg-blue-50/50 border border-blue-100 px-3 py-2 rounded-lg font-mono text-xs text-blue-900 border-dashed text-center">
+                      V.C.R = Nilai Penciptaan (Rupiah) ÷ Beban Gaji Karyawan
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border border-slate-200 rounded-2xl p-6 hover:border-blue-200 transition-colors shadow-sm bg-white">
+                  <div className="flex items-center gap-3 mb-4 text-slate-800">
+                    <div className="p-2 bg-slate-100 rounded-lg text-emerald-600"><Icon name="award" size={18} /></div>
+                    <h4 className="font-bold text-base">3. Level Jabatan (Multiplier)</h4>
+                  </div>
+                  <p className="text-slate-600 text-[13px] leading-relaxed mb-3">
+                    Multiplier adalah <strong>faktor pengali ekspektasi</strong>. Pada dunia profesional, tingkat jabatan yang tinggi dituntut memberikan dampak ganda (multiplier effect) pada perusahaan, bukan sekadar bekerja lebih keras.
+                  </p>
+                  <p className="text-slate-600 text-[13px] leading-relaxed mb-3">
+                    Contoh: Meskipun sama-sama mendapatkan skor performa '100', ekspektasi nilai Rupiah ("Value Creation") dari Manajer bergaji Rp 15 Juta harus jauh lebih besar secara proporsional dibandingkan Staff bergaji Rp 4 Juta.
+                  </p>
+                  
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 mt-3">
+                    <h5 className="text-[12px] font-bold text-slate-700">Contoh Hitungan Logis Multiplier:</h5>
+                    <div className="text-[12px] text-slate-600 flex justify-between items-center border-b border-slate-200 pb-1">
+                      <span><strong>Staff (Level 1)</strong></span>
+                      <span>Gaji 4 Juta = <strong>1.0x</strong> Baseline</span>
+                    </div>
+                    <div className="text-[12px] text-slate-600 flex justify-between items-center border-b border-slate-200 pb-1">
+                      <span><strong>Supervisor (Level 2)</strong></span>
+                      <span className="flex items-center gap-1">
+                        Gaji 6 Juta = <strong>1.5x</strong> 
+                        <span className="flex items-center text-[10px] text-slate-500">
+                          (
+                          <span className="inline-flex flex-col items-center justify-center align-middle mx-0.5 leading-none">
+                            <span className="border-b border-slate-400 pb-[1px] px-0.5">6jt</span>
+                            <span className="pt-[1px] px-0.5">4jt</span>
+                          </span>
+                          )
+                        </span>
+                      </span>
+                    </div>
+                    <div className="text-[12px] text-slate-600 flex justify-between items-center border-b border-slate-200 pb-1">
+                      <span><strong>Manager (Level 4)</strong></span>
+                      <span className="flex items-center gap-1">
+                        Gaji 10 Juta = <strong>2.5x</strong>
+                        <span className="flex items-center text-[10px] text-slate-500">
+                          (
+                          <span className="inline-flex flex-col items-center justify-center align-middle mx-0.5 leading-none">
+                            <span className="border-b border-slate-400 pb-[1px] px-0.5">10jt</span>
+                            <span className="pt-[1px] px-0.5">4jt</span>
+                          </span>
+                          )
+                        </span>
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 italic mt-1 leading-snug">
+                      Angka pengali (misal: 1.5x, 2.5x) idealnya dihitung berdasarkan rasio rata-rata gaji di level jabatan tersebut dibagi dengan angka Target Baseline. Hal ini memastikan target kontribusi sebanding dengan beban gaji per level profesi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-slate-800 font-black text-lg mb-4 flex items-center gap-2">
+                  <Icon name="book-open" size={20} className="text-blue-500" />
+                  Formula & Rumus Perhitungan
+                </h4>
+                
+                <div className="bg-slate-50 border border-slate-100 p-6 rounded-2xl flex flex-col gap-6">
+                  
+                  <div className="flex flex-col gap-2 relative">
+                    <h5 className="font-bold text-[13px] text-slate-700 tracking-wide">A. VALUE PER POINT (Harga per 1 Poin Skor)</h5>
+                    <div className="bg-white px-4 py-3 border border-slate-200 rounded-xl font-mono text-sm shadow-sm text-slate-800 flex items-center justify-between">
+                      <span>Value Per Point (VPC) <span className="text-slate-400 font-sans mx-2">=</span> Baseline Salary <span className="text-slate-400 font-sans mx-1">÷</span> 75</span>
+                    </div>
+                    <p className="text-[12px] text-slate-500">Nilai skor <strong className="text-slate-700">75</strong> dianggap sebagai standar batas bawah ('Memenuhi Ekspektasi Dasar'). Rumus ini menetapkan berapa rupiah harga moneter dari 1 poin performa.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <h5 className="font-bold text-[13px] text-slate-700 tracking-wide">B. BASE KONTRIBUSI (Nilai Moneter Kontribusi)</h5>
+                    <div className="bg-white px-4 py-3 border border-slate-200 rounded-xl font-mono text-sm shadow-sm text-slate-800 flex items-center justify-between">
+                      <span>Nilai Kontribusi <span className="text-slate-400 font-sans mx-2">=</span> Skor Performa Akhir <span className="text-slate-400 font-sans mx-1">×</span> VPC <span className="text-slate-400 font-sans mx-1">×</span> Multiplier</span>
+                    </div>
+                    <p className="text-[12px] text-slate-500">Konversi dari persentase skor performa (0-100) menjadi nominal Rupiah nilai kontribusi (value) riil karyawan kepada perusahaan.</p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <h5 className="font-bold text-[13px] text-slate-700 tracking-wide">C. VALUE TO COST RATIO (Indikator Efisiensi)</h5>
+                    <div className="bg-blue-50 border border-blue-200 px-4 py-3 rounded-xl font-mono text-sm shadow-sm text-blue-900 flex items-center justify-between ring-2 ring-blue-100/50">
+                      <span>V.C.R. Ratio <span className="text-slate-400/80 font-sans mx-2">=</span> Nilai Kontribusi <span className="text-slate-400/80 font-sans mx-1">÷</span> Estimasi Gaji Karyawan</span>
+                    </div>
+                    <p className="text-[12px] text-slate-500">Goal utamanya adalah menemukan nilai komparasi ideal ratio ini. Metric absolut dan obyektif yang menjadi acuan keputusan promosi, peringatan, atau adjustment.</p>
+                  </div>
+
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-slate-800 font-black text-lg mb-4">Penjelasan Indikator VCR</h4>
+                <div className="flex flex-col gap-3">
+                  <div className="border border-rose-200 bg-rose-50/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:w-1/3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shadow-sm shadow-rose-200"></span>
+                         <span className="font-bold text-rose-800 text-sm">Sangat Kurang</span>
+                      </div>
+                      <div className="text-[11px] font-black tracking-widest text-rose-500">VCR &lt; 0.80x (&lt; 80%)</div>
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[12px] text-slate-700 font-bold mb-0.5">Overpaid / Rugi.</p>
+                      <p className="text-[11.5px] text-slate-600 leading-relaxed">Nilai kontribusi jauh lebih rendah daripada gaji yang dibayarkan. Perusahaan menanggung kerugian efisiensi (overpaying).</p>
+                    </div>
+                    <div className="sm:w-1/4 sm:text-right">
+                      <span className="inline-block bg-rose-100 text-rose-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md text-center">Layak SP / Diberhentikan</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-orange-200 bg-orange-50/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:w-1/3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shadow-sm shadow-orange-200"></span>
+                         <span className="font-bold text-orange-800 text-sm">Kurang</span>
+                      </div>
+                      <div className="text-[11px] font-black tracking-widest text-orange-500">VCR 0.80x - 0.94x</div>
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[12px] text-slate-700 font-bold mb-0.5">Underperforming.</p>
+                      <p className="text-[11.5px] text-slate-600 leading-relaxed">Kinerja masih di bawah rata-rata. Kontribusi belum sepenuhnya menutupi ekspektasi biaya gaji bulanan.</p>
+                    </div>
+                    <div className="sm:w-1/4 sm:text-right">
+                      <span className="inline-block bg-orange-100 text-orange-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md text-center">Perlu Pembinaan Intensif</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-slate-200 bg-slate-50/80 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:w-1/3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <span className="w-2.5 h-2.5 rounded-full bg-slate-500 shadow-sm shadow-slate-200"></span>
+                         <span className="font-bold text-slate-800 text-sm">Standar</span>
+                      </div>
+                      <div className="text-[11px] font-black tracking-widest text-slate-500">VCR 0.95x - 1.09x</div>
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[12px] text-slate-700 font-bold mb-0.5">Sesuai Gaji.</p>
+                      <p className="text-[11.5px] text-slate-600 leading-relaxed">Pencapaian kurang lebih seimbang dengan kapasitas gaji dan wewenangnya (BEP). Menjalankan ekspektasi yang ditetapkan.</p>
+                    </div>
+                    <div className="sm:w-1/4 sm:text-right">
+                      <span className="inline-block bg-slate-200 text-slate-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md text-center">Performa Aman / Stay</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-blue-200 bg-blue-50/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:w-1/3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shadow-sm shadow-blue-200"></span>
+                         <span className="font-bold text-blue-800 text-sm">Bagus</span>
+                      </div>
+                      <div className="text-[11px] font-black tracking-widest text-blue-500">VCR 1.10x - 1.29x</div>
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[12px] text-slate-700 font-bold mb-0.5">Di Atas Ekspektasi.</p>
+                      <p className="text-[11.5px] text-slate-600 leading-relaxed">Menghasilkan nilai (kontribusi) yang melebihi standar nilai gaji yang diterima. Mulai menguntungkan perusahaan secara nyata.</p>
+                    </div>
+                    <div className="sm:w-1/4 sm:text-right">
+                      <span className="inline-block bg-blue-100 text-blue-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md text-center">Layak Dipertahankan</span>
+                    </div>
+                  </div>
+
+                  <div className="border border-emerald-200 bg-emerald-50/50 p-4 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="flex flex-col sm:w-1/3">
+                      <div className="flex items-center gap-2 mb-1">
+                         <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-200"></span>
+                         <span className="font-bold text-emerald-800 text-sm">Sangat Bagus</span>
+                      </div>
+                      <div className="text-[11px] font-black tracking-widest text-emerald-500">VCR &ge; 1.30x (&ge; 130%)</div>
+                    </div>
+                    <div className="flex flex-col flex-1">
+                      <p className="text-[12px] text-slate-700 font-bold mb-0.5">Sangat Menguntungkan.</p>
+                      <p className="text-[11.5px] text-slate-600 leading-relaxed">Nilai kontribusi jauh melebihi kompensasi gajinya. Aset kunci perusahaan yang kinerjanya luar biasa baik.</p>
+                    </div>
+                    <div className="sm:w-1/4 sm:text-right">
+                      <span className="inline-block bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2.5 py-1.5 rounded-md text-center shadow-sm">Layak Promosi / Naik Gaji</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-8 mt-4">
+                <h4 className="text-slate-800 font-black text-xl mb-6 flex items-center gap-2">
+                  <Icon name="help-circle" size={24} className="text-blue-500" />
+                  Frequently Asked Questions (FAQ)
+                </h4>
+                <div className="space-y-4">
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">1.</span> Bagaimana jika Skor Performa 100, tapi Nilai Rupiahnya lebih kecil dari Gaji Karyawan?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">A:</span> Ini berarti <strong>target kerjanya terlalu gampang</strong>. Karyawan berhasil mengerjakan semua tugasnya (skor 100), tapi hasil kerja tersebut harganya masih di bawah nilai gaji yang dibayarkan perusahaan. Solusinya: Naikkan target tugas atau tanggung jawabnya di bulan depan agar seimbang dengan gajinya.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">2.</span> Apa artinya jika VCR (Ratio) lebih dari 100%?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">A:</span> Artinya Karyawan sangat <strong>menguntungkan (High Performer)</strong>. Nilai kontribusi yang dia hasilkan jauh lebih besar daripada gaji yang dia minta. Jika rasio sangat tinggi (misal di atas 130%), ini adalah lampu hijau bagi manajemen untuk menaikkan gaji atau memberi bonus agar karyawan bintang ini tidak pindah (resign).
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">3.</span> Kenapa kita perlu hitung ke Rupiah? Bukankah skor 1-100 saja sudah cukup?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">A:</span> Skor biasa seringkali subjektif dan membingungkan (contoh: "Apakah skor 80 berhak naik gaji?"). Dengan mengubah skor jadi Rupiah, Manajemen dan tim Keuangan bisa membuat <strong>keputusan pakai data bisnis nyata</strong>. Sangat mudah menentukan Kenaikan Gaji jika terbukti perusahaan untung puluhan juta dari karyawan tersebut.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">4.</span> Dari mana saya harus mencari angka Target Gaji Baseline?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">A:</span> Cara termudah: gunakan <strong>Gaji UMR wilayah Anda</strong> atau Gaji Pokok untuk posisi <strong>Staff Junior Level 1</strong> yang baru masuk. Angka Baseline ini ibarat "Titik Start / KM Nol" (Multiplier 1.0x) ekspektasi uang yang dikeluarkan perusahaan.
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">5.</span> Mengapa Karyawan Level Manager butuh Multiplier yang tinggi?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">A:</span> Karena Manager digaji lebih mahal. Jika gaji Manager 3x lebih besar dari Staff Junior, maka Manager <strong>wajib memberi hasil (Value) 3x lebih besar juga</strong>, minimalnya. Multiplier memastikan penilaian tetap adil—tidak peduli tinggi jabatannya—target keuntungan sebanding dengan beban gaji bulanannya.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end">
+              <button 
+                onClick={() => setIsGuideModalOpen(false)}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-[0_4px_12px_rgba(37,99,235,0.2)] transition-all active:scale-95"
+              >
+                Mengerti
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
