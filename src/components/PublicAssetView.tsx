@@ -50,16 +50,15 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
   }, [barcode]);
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center sm:p-4 bg-slate-100 animate-fadeIn">
-      <div className="bg-white sm:rounded-3xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl relative h-full sm:h-[90vh]">
-        <div className="bg-slate-800 p-4 text-white flex items-center">
-          <div className="flex items-center gap-2">
-            <Icon name="layout" size={18} />
-            <span className="font-bold text-sm tracking-wide">Detail Aset</span>
-          </div>
+    <div className="min-h-screen bg-white flex flex-col animate-fadeIn">
+      <div className="bg-slate-800 p-4 text-white flex items-center sticky top-0 z-10 shadow-md">
+        <div className="flex items-center gap-2">
+          <Icon name="layout" size={18} />
+          <span className="font-bold text-sm tracking-wide">Detail Aset</span>
         </div>
-        
-        <div className="p-6 overflow-y-auto flex-1">
+      </div>
+      
+      <div className="p-5 sm:p-8 overflow-y-auto flex-1">
           {loading ? (
              <div className="flex items-center justify-center h-full">
                <div className="w-8 h-8 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin"></div>
@@ -147,7 +146,6 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
             </>
           )}
         </div>
-      </div>
     </div>
   );
 };
