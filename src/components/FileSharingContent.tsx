@@ -66,6 +66,9 @@ export const FileSharingContent = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [newItemName, setNewItemName] = useState('');
 
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDownloading, setIsDownloading] = useState<string | null>(null);
+
   const currentFolder = items.find(i => i.id === currentFolderId);
 
   const handleAddItem = (e: React.FormEvent) => {
@@ -98,29 +101,84 @@ export const FileSharingContent = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const newItem: FileItem = {
-      id: Date.now().toString(),
-      name: file.name,
-      type: 'document',
-      itemsCount: 1,
-      isStarred: false,
-      colorScheme: 'sky',
-      collaborators: ['ME'],
-      createdAt: new Date().toLocaleDateString(),
-      parentId: currentFolderId,
-      fileUrl: URL.createObjectURL(file)
-    };
-
-    // Update parent item count if applicable
-    let updatedItems = [...items];
-    if (currentFolderId) {
-      updatedItems = updatedItems.map(item => 
-        item.id === currentFolderId ? { ...item, itemsCount: item.itemsCount + 1 } : item
-      );
+    if (file.size > 3 * 1024 * 1024) {
+      alert('Sistem saat ini membatasi ukuran file maksimal 3MB.');
+      e.target.value = '';
+      return;
     }
 
-    setItems([newItem, ...updatedItems]);
-    e.target.value = '';
+    setIsUploading(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const base64Data = ev.target?.result as string;
+      const itemId = Date.now().toString();
+      
+      try {
+        const { doc, setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'fileContents', itemId), { base64: base64Data });
+
+        const newItem: FileItem = {
+          id: itemId,
+          name: file.name,
+          type: 'document',
+          itemsCount: 1,
+          isStarred: false,
+          colorScheme: 'sky',
+          collaborators: ['ME'],
+          createdAt: new Date().toLocaleDateString(),
+          parentId: currentFolderId,
+          fileUrl: 'DB_STORED'
+        };
+
+        let updatedItems = [...items];
+        if (currentFolderId) {
+          updatedItems = updatedItems.map(item => 
+            item.id === currentFolderId ? { ...item, itemsCount: item.itemsCount + 1 } : item
+          );
+        }
+
+        setItems([newItem, ...updatedItems]);
+        logActivity('File Diunggah', { nama: file.name, ukuran: (file.size / 1024).toFixed(1) + ' KB' });
+      } catch (error) {
+        console.error("Upload error", error);
+        alert('Gagal mengunggah file ke cloud.');
+      }
+      setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDownload = async (e: React.MouseEvent, item: FileItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (item.fileUrl && item.fileUrl.startsWith('blob:')) {
+       const link = document.createElement('a');
+       link.href = item.fileUrl;
+       link.download = item.name;
+       link.click();
+       return;
+    }
+
+    setIsDownloading(item.id);
+    try {
+      const { doc, getDoc } = await import('firebase/firestore');
+      const docSnap = await getDoc(doc(db, 'fileContents', item.id));
+      if (docSnap.exists() && docSnap.data().base64) {
+        const base64Data = docSnap.data().base64;
+        const link = document.createElement('a');
+        link.href = base64Data;
+        link.download = item.name;
+        link.click();
+        logActivity('File Diunduh', { nama: item.name });
+      } else {
+        alert('File tidak ditemukan di server (Mungkin terhapus atau belum tersinkronisasi).');
+      }
+    } catch (error) {
+      console.error("Download error", error);
+      alert('Gagal membaca data file dari cloud.');
+    }
+    setIsDownloading(null);
   };
 
   const toggleStar = (e: React.MouseEvent, id: string) => {
@@ -133,7 +191,7 @@ export const FileSharingContent = () => {
     setDeleteConfirmId(id);
   };
 
-  const deleteItem = () => {
+  const deleteItem = async () => {
      if (!deleteConfirmId) return;
      const id = deleteConfirmId;
      const itemToDelete = items.find(i => i.id === id);
@@ -146,6 +204,13 @@ export const FileSharingContent = () => {
      setItems(updatedItems);
      if (currentFolderId === id) setCurrentFolderId(null);
      setDeleteConfirmId(null);
+
+     try {
+       const { doc, deleteDoc } = await import('firebase/firestore');
+       await deleteDoc(doc(db, 'fileContents', id));
+       // For a folder, we might ideally want to delete all child docs,
+       // but for this demo, single file deletion is the priority.
+     } catch(e) {}
   };
 
   const handleItemClick = (item: FileItem) => {
@@ -358,8 +423,8 @@ export const FileSharingContent = () => {
                              </button>
                              <div className="flex items-center transition-opacity">
                                {item.type === 'document' && (
-                                 <a href={item.fileUrl || '#'} download={item.name} onClick={(e) => { e.stopPropagation(); if(!item.fileUrl) { e.preventDefault(); alert('Modul demo: File nyata belum diunggah.'); } }} className="p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-500 rounded-full transition-colors mr-1" title="Download">
-                                   <Icon name="download-cloud" size={18} />
+                                 <a href="#" onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors mr-1 rounded-full ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
+                                   {isDownloading === item.id ? <div className="w-[18px] h-[18px] border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <Icon name="download-cloud" size={18} />}
                                  </a>
                                )}
                                <button onClick={(e) => confirmDelete(e, item.id)} className="p-1.5 text-slate-400 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors" title="Delete">
@@ -414,8 +479,8 @@ export const FileSharingContent = () => {
                             <Icon name="star" size={16} className={item.isStarred ? "fill-current" : ""} />
                          </button>
                          {item.type === 'document' && (
-                           <a href={item.fileUrl || '#'} download={item.name} onClick={(e) => { e.stopPropagation(); if(!item.fileUrl) { e.preventDefault(); alert('Modul demo: File nyata belum diunggah.'); } }} className="p-1.5 text-slate-400 hover:bg-blue-50 hover:text-blue-500 rounded-lg transition-colors" title="Download">
-                             <Icon name="download-cloud" size={16} />
+                           <a href="#" onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors rounded-lg ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
+                             {isDownloading === item.id ? <div className="w-[16px] h-[16px] border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <Icon name="download-cloud" size={16} />}
                            </a>
                          )}
                          <button onClick={(e) => confirmDelete(e, item.id)} className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500 rounded-lg transition-colors" title="Delete">

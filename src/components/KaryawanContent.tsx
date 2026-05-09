@@ -496,12 +496,32 @@ export const KaryawanContent = ({
                           <button 
                             className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors"
                             title="Download Dokumen"
-                            onClick={() => {
-                              // Simulate download
-                              const link = document.createElement('a');
-                              link.href = doc.url;
-                              link.download = doc.name;
-                              link.click();
+                            onClick={async () => {
+                              if (doc.url && doc.url.startsWith('DB_STORED:')) {
+                                try {
+                                  const docId = doc.url.split(':')[1];
+                                  const { doc: firestoreDoc, getDoc } = await import('firebase/firestore');
+                                  const { db } = await import('../firebase');
+                                  const docSnap = await getDoc(firestoreDoc(db, 'fileContents', docId));
+                                  if (docSnap.exists() && docSnap.data().base64) {
+                                    const base64Data = docSnap.data().base64;
+                                    const link = document.createElement('a');
+                                    link.href = base64Data;
+                                    link.download = doc.name;
+                                    link.click();
+                                  } else {
+                                    alert('File tidak ditemukan di server.');
+                                  }
+                                } catch (err) {
+                                  console.error("Download fail", err);
+                                  alert('Gagal mengunduh file dari cloud.');
+                                }
+                              } else {
+                                const link = document.createElement('a');
+                                link.href = doc.url;
+                                link.download = doc.name;
+                                link.click();
+                              }
                             }}
                           >
                             <Icon name="download" size={14} />
@@ -537,14 +557,36 @@ export const KaryawanContent = ({
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         const file = e.target.files[0];
-                        const name = file.name;
-                        const size = file.size;
-                        const url = URL.createObjectURL(file); // Mock URL for preview/download
+                        if (file.size > 3 * 1024 * 1024) {
+                          alert('Ukuran file maksimal adalah 3MB.');
+                          e.target.value = '';
+                          return;
+                        }
                         
-                        const newDocs = [...(documentUploadTarget.documents || []), { name, url, size }];
-                        const updatedEmployee = { ...documentUploadTarget, documents: newDocs };
-                        setDocumentUploadTarget(updatedEmployee);
-                        onEditEmployee(updatedEmployee);
+                        const reader = new FileReader();
+                        reader.onload = async (ev) => {
+                          const base64Data = ev.target?.result as string;
+                          try {
+                            const { doc, setDoc } = await import('firebase/firestore');
+                            const { db } = await import('../firebase');
+                            const docId = Date.now().toString();
+                            await setDoc(doc(db, 'fileContents', docId), { base64: base64Data });
+                            
+                            const name = file.name;
+                            const size = file.size;
+                            // Prepend 'DB_STORED:' to indicate it's from db and using docId as url
+                            const url = `DB_STORED:${docId}`; 
+                            
+                            const newDocs = [...(documentUploadTarget.documents || []), { name, url, size }];
+                            const updatedEmployee = { ...documentUploadTarget, documents: newDocs };
+                            setDocumentUploadTarget(updatedEmployee);
+                            onEditEmployee(updatedEmployee);
+                          } catch (error) {
+                            console.error("Upload error", error);
+                            alert('Gagal mengunggah file ke cloud.');
+                          }
+                        };
+                        reader.readAsDataURL(file);
                         
                         e.target.value = ''; // reset input
                       }
@@ -558,7 +600,7 @@ export const KaryawanContent = ({
                       <Icon name="upload-cloud" size={20} className="text-blue-500" />
                     </div>
                     <span className="text-sm font-bold text-blue-700">Pilih File untuk Diupload</span>
-                    <span className="text-[11px] font-semibold text-blue-500/70 mt-1">Maks. 5MB (PDF/JPG/PNG)</span>
+                    <span className="text-[11px] font-semibold text-blue-500/70 mt-1">Maks. 3MB (PDF/JPG/PNG)</span>
                   </label>
                 </div>
               </div>
