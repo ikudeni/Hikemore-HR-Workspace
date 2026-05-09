@@ -406,7 +406,7 @@ export const LoginView = ({
           </div>
 
           <p className="text-center text-[13px] text-slate-400 mt-auto">
-            Dengan membuat akun, Anda menyetujui <a href="#" className="underline hover:text-slate-600">Syarat Ketentuan</a> kami
+            Dengan membuat akun, Anda menyetujui <button type="button" onClick={(e) => e.preventDefault()} className="underline hover:text-slate-600">Syarat Ketentuan</button> kami
           </p>
         </div>
 

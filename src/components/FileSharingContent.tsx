@@ -432,9 +432,9 @@ export const FileSharingContent = () => {
                              </button>
                              <div className="flex items-center transition-opacity">
                                {item.type === 'document' && (
-                                 <a href="#" onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors mr-1 rounded-full ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
+                                 <button onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors mr-1 rounded-full ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
                                    {isDownloading === item.id ? <div className="w-[18px] h-[18px] border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <Icon name="download-cloud" size={18} />}
-                                 </a>
+                                 </button>
                                )}
                                <button onClick={(e) => confirmDelete(e, item.id)} className="p-1.5 text-slate-400 hover:bg-rose-100 hover:text-rose-500 rounded-full transition-colors" title="Delete">
                                   <Icon name="trash-2" size={18} />
@@ -488,9 +488,9 @@ export const FileSharingContent = () => {
                             <Icon name="star" size={16} className={item.isStarred ? "fill-current" : ""} />
                          </button>
                          {item.type === 'document' && (
-                           <a href="#" onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors rounded-lg ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
+                           <button onClick={(e) => handleDownload(e, item)} className={`relative p-1.5 transition-colors rounded-lg ${isDownloading === item.id ? 'text-blue-500 bg-blue-50' : 'text-slate-400 hover:bg-blue-50 hover:text-blue-500'}`} title="Download">
                              {isDownloading === item.id ? <div className="w-[16px] h-[16px] border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div> : <Icon name="download-cloud" size={16} />}
-                           </a>
+                           </button>
                          )}
                          <button onClick={(e) => confirmDelete(e, item.id)} className="p-1.5 text-slate-400 hover:bg-rose-50 hover:text-rose-500 rounded-lg transition-colors" title="Delete">
                             <Icon name="trash-2" size={16} />
