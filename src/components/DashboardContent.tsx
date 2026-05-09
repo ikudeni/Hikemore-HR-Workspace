@@ -385,6 +385,7 @@ export const DashboardContent = ({
   const [kontrakFilterType, setKontrakFilterType] = useState<string>('All Jenis Kontrak');
   const [kontrakFilterStatus, setKontrakFilterStatus] = useState<string>('All Status');
   const [kontrakCrossFilter, setKontrakCrossFilter] = useState<'ACTIVE' | 'EXPIRED' | 'PROBATION' | 'CRITICAL' | null>(null);
+  const [searchKontrak, setSearchKontrak] = useState<string>('');
   const [isKontrakModalOpen, setIsKontrakModalOpen] = useState(false);
   const [contractOverridesReact, setContractOverridesReact] = useState<Record<string, any>>({});
 
@@ -560,21 +561,28 @@ export const DashboardContent = ({
     return `${d}/${m}/${y}`;
   };
 
-  const expiredContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.remainingDays < 0).length, [filteredContracts]);
+  const expiredContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0).length, [filteredContracts]);
   const probationContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType === 'Kontrak Probation').length, [filteredContracts]);
-  const criticalContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.remainingDays >= 0 && r.remainingDays < 30).length, [filteredContracts]);
-  const activeContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.remainingDays >= 0).length, [filteredContracts]);
+  const criticalContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30).length, [filteredContracts]);
+  const activeContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0).length, [filteredContracts]);
 
   const crossFilteredContracts = useMemo(() => {
-    if (!kontrakCrossFilter) return filteredContracts;
-    return filteredContracts.filter(r => {
-      if (kontrakCrossFilter === 'EXPIRED') return r.contractType !== '-' && r.remainingDays < 0;
-      if (kontrakCrossFilter === 'PROBATION') return r.contractType === 'Kontrak Probation';
-      if (kontrakCrossFilter === 'CRITICAL') return r.contractType !== '-' && r.remainingDays >= 0 && r.remainingDays < 30;
-      if (kontrakCrossFilter === 'ACTIVE') return r.contractType !== '-' && r.remainingDays >= 0;
-      return true;
-    });
-  }, [filteredContracts, kontrakCrossFilter]);
+    let result = filteredContracts;
+    if (kontrakCrossFilter) {
+      result = result.filter(r => {
+        if (kontrakCrossFilter === 'EXPIRED') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0;
+        if (kontrakCrossFilter === 'PROBATION') return r.contractType === 'Kontrak Probation';
+        if (kontrakCrossFilter === 'CRITICAL') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30;
+        if (kontrakCrossFilter === 'ACTIVE') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0;
+        return true;
+      });
+    }
+    if (searchKontrak.trim()) {
+      const lowerSearch = searchKontrak.toLowerCase();
+      result = result.filter(r => r.name.toLowerCase().includes(lowerSearch));
+    }
+    return result;
+  }, [filteredContracts, kontrakCrossFilter, searchKontrak]);
 
   const overtimeDonutData = useMemo(() => {
     const dist: Record<string, { duration: number, names: Set<string> }> = {};
@@ -2035,8 +2043,18 @@ export const DashboardContent = ({
           </Card>
 
           <Card className="flex flex-col">
-            <div className="p-5 border-b border-slate-100 shrink-0">
+            <div className="p-5 border-b border-slate-100 shrink-0 flex items-center justify-between gap-4">
               <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Detail Data Kontrak</h3>
+              <div className="relative">
+                <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="Cari nama karyawan..."
+                  value={searchKontrak}
+                  onChange={(e) => setSearchKontrak(e.target.value)}
+                  className="w-full sm:w-64 pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700"
+                />
+              </div>
             </div>
             
             <div className="overflow-auto hover-scrollbar relative max-h-[530px]">
