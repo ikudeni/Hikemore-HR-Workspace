@@ -22,7 +22,7 @@ const STATUS_COLORS_MAP: Record<string, string> = {
   'Outsource': '#4FD1C5',    // Soft Teal
   'Magang': '#F472B6',       // Soft Rose
   'Daily Worker': '#FBBF24', // Soft Amber
-  'Freelance': '#38BDF8'     // Soft Sky
+  'Freelance': '#34D399'     // Soft Emerald
 };
 
 const calculateTimeDuration = (start: string, end: string) => {
