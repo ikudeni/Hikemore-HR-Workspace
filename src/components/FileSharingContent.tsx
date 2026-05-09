@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Icon } from './ui/Icon';
-import { logActivity } from '../firebase';
+import { logActivity, db } from '../firebase';
 
 type FileType = 'folder' | 'document';
 
@@ -25,7 +25,37 @@ const COLORS = {
 const AVATAR_COLORS = ['bg-amber-100 text-amber-700', 'bg-blue-100 text-blue-700', 'bg-purple-100 text-purple-700'];
 
 export const FileSharingContent = () => {
-  const [items, setItems] = useState<FileItem[]>([]);
+  const [itemsReact, setItemsReact] = useState<FileItem[]>([]);
+
+  const items = itemsReact;
+  const setItems: React.Dispatch<React.SetStateAction<FileItem[]>> = React.useCallback((valOrFn) => {
+     setItemsReact(prev => {
+        const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+        import('firebase/firestore').then(({ doc, setDoc }) => {
+          setDoc(doc(db, 'settings', 'workspaceFiles'), { items: newVal }, { merge: true }).catch(console.error);
+        });
+        return newVal;
+     });
+  }, []);
+
+  React.useEffect(() => {
+    let unsubscribeFiles: (() => void) | undefined;
+    import('firebase/firestore').then(({ doc, onSnapshot }) => {
+       const q = doc(db, 'settings', 'workspaceFiles');
+       unsubscribeFiles = onSnapshot(q, (snapshot) => {
+         if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+            const data = snapshot.data();
+            if (data.items) {
+               setItemsReact(data.items);
+            }
+         }
+       });
+    });
+    return () => {
+      if (unsubscribeFiles) unsubscribeFiles();
+    };
+  }, []);
+
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FileType | 'all'>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
