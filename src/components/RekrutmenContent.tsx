@@ -962,15 +962,20 @@ export const RekrutmenContent = ({
               
               const jobCandidates = candidates.filter(c => c.jobId === job.id);
               const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
-              let totalWeight = 0;
-              jobCandidates.forEach(c => {
-                if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return;
-                const idx = activeStages.indexOf(c.stage);
-                if (idx !== -1) totalWeight += (activeStages.length > 1 ? (idx / (activeStages.length - 1)) : 1);
-              });
-              const pct = job.quota > 0 ? Math.min(100, Math.round((totalWeight / job.quota) * 100)) : 0;
-              const progCount = jobCandidates.filter(c => c.stage !== activeStages[0] && c.stage !== activeStages[activeStages.length - 1] && c.stage !== 'Talent Pool' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
               const joined = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
+              
+              const candidateWeights = jobCandidates.map(c => {
+                if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return 0;
+                const idx = activeStages.indexOf(c.stage);
+                if (idx !== -1) {
+                   return activeStages.length > 1 ? (idx / (activeStages.length - 1)) : 1;
+                }
+                return 0;
+              }).sort((a, b) => b - a);
+              
+              const topWeightsSum = candidateWeights.slice(0, job.quota > 0 ? job.quota : 1).reduce((sum, w) => sum + w, 0);
+              const pct = job.quota > 0 ? Math.min(100, Math.round((topWeightsSum / job.quota) * 100)) : 0;
+              const progCount = jobCandidates.filter(c => c.stage !== activeStages[0] && c.stage !== activeStages[activeStages.length - 1] && c.stage !== 'Talent Pool' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
 
               return (
                 <div className="bg-white rounded-[20px] p-5 border-2 border-primary/10 flex flex-col w-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-black/5 backdrop-blur-sm">
@@ -1652,20 +1657,20 @@ export const RekrutmenContent = ({
           const jobCandidates = candidates.filter(c => c.jobId === job.id);
           const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
           
-          let totalProgressWeight = 0;
-          let activeCandidateCount = 0;
+          const joinCount = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
 
-          jobCandidates.forEach(c => {
-            if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return;
-            const stageIndex = activeStages.indexOf(c.stage);
-            if (stageIndex !== -1) {
-              const weight = activeStages.length > 1 ? (stageIndex / (activeStages.length - 1)) : 1;
-              totalProgressWeight += weight;
-              activeCandidateCount++;
+          const candidateWeights = jobCandidates.map(c => {
+            if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return 0;
+            const idx = activeStages.indexOf(c.stage);
+            if (idx !== -1) {
+               return activeStages.length > 1 ? (idx / (activeStages.length - 1)) : 1;
             }
-          });
-
-          const progressPercent = job.quota > 0 ? Math.min(100, Math.round((totalProgressWeight / job.quota) * 100)) : 0;
+            return 0;
+          }).sort((a, b) => b - a);
+          
+          const topWeightsSum = candidateWeights.slice(0, job.quota > 0 ? job.quota : 1).reduce((sum, w) => sum + w, 0);
+          const progressPercent = job.quota > 0 ? Math.min(100, Math.round((topWeightsSum / job.quota) * 100)) : 0;
+          
           const progressCount = jobCandidates.filter(c => 
             c.stage !== activeStages[0] && 
             c.stage !== activeStages[activeStages.length - 1] && 
@@ -1673,7 +1678,6 @@ export const RekrutmenContent = ({
             c.tag !== 'DITOLAK' &&
             c.tag !== 'TIDAK HADIR'
           ).length;
-          const joinCount = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
 
           return (
             <div 
