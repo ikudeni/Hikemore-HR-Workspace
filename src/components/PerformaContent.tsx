@@ -975,7 +975,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       </div>
 
       {isGuideModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
           <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden m-auto animate-scaleIn border border-slate-100">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 sticky top-0 z-10">
               <div className="flex items-center gap-4">
