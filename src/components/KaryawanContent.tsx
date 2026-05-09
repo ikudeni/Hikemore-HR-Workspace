@@ -50,7 +50,7 @@ export const KaryawanContent = ({
   const [formData, setFormData] = useState<any>({
     name: '', dob: '', joinDate: '', gender: 'Laki-Laki', religion: 'Islam',
     maritalStatus: 'Belum Menikah', edu: 'SD', major: '', pos: '',
-    dept: 'Marketing', customDept: '', customReligion: '', status: 'Karyawan', isActive: true,
+    dept: 'Marketing', customDept: '', customReligion: '', customStatus: '', customContractType: '', status: 'Karyawan', isActive: true,
     contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: ''
   });
   
@@ -64,6 +64,13 @@ export const KaryawanContent = ({
   const uniqueStatuses = useMemo(() => [...new Set(employees.map(emp => emp.status))], [employees]);
   const uniqueDepts = useMemo(() => [...new Set(employees.map(emp => emp.dept))], [employees]);
   const uniqueEdus = useMemo(() => [...new Set(employees.map(emp => emp.edu))], [employees]);
+  const uniqueContractTypes = useMemo(() => [...new Set(employees.map(emp => emp.contractType).filter(Boolean))], [employees]);
+  
+  const baseStatuses = ['Karyawan', 'Daily Worker', 'Magang', 'Kontrak', 'Outsource', 'Freelance'];
+  const statusOptions = useMemo(() => Array.from(new Set([...baseStatuses, ...uniqueStatuses, 'Lainnya'])), [uniqueStatuses]);
+  
+  const baseContractTypes = ['Kontrak Lanjutan', 'Kontrak Probation', 'Kontrak Magang', 'Kontrak Freelance'];
+  const contractTypeOptions = useMemo(() => Array.from(new Set([...baseContractTypes, ...uniqueContractTypes, 'Lainnya'])), [uniqueContractTypes]);
   
   const deptOptions = useMemo(() => Array.from(new Set([...uniqueDepts, 'Lainnya'])), [uniqueDepts]);
 
@@ -120,6 +127,8 @@ export const KaryawanContent = ({
     const finalData = { ...formData };
     if (finalData.dept === 'Lainnya') finalData.dept = finalData.customDept;
     if (finalData.religion === 'Lainnya') finalData.religion = finalData.customReligion;
+    if (finalData.status === 'Lainnya') finalData.status = finalData.customStatus;
+    if (finalData.contractType === 'Lainnya') finalData.contractType = finalData.customContractType;
     if (editingEmployeeId) onEditEmployee(finalData); 
     else onAddEmployee(finalData); 
     setIsModalOpen(false); 
@@ -137,7 +146,7 @@ export const KaryawanContent = ({
     setFormData({
       name: '', dob: '', joinDate: '', gender: 'Laki-Laki', religion: 'Islam',
       maritalStatus: 'Belum Menikah', edu: 'SD', major: '', pos: '',
-      dept: uniqueDepts.length > 0 ? uniqueDepts[0] : 'Marketing', customDept: '', customReligion: '', status: 'Karyawan', isActive: true,
+      dept: uniqueDepts.length > 0 ? uniqueDepts[0] : 'Marketing', customDept: '', customReligion: '', customStatus: '', customContractType: '', status: 'Karyawan', isActive: true,
       contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: ''
     });
     setIsModalOpen(true);
@@ -177,7 +186,7 @@ export const KaryawanContent = ({
             <CompactFormSelect 
               name="filterStatus" 
               value={filterStatus} 
-              options={['All Status', ...uniqueStatuses]} 
+              options={['All Status', ...Array.from(new Set([...baseStatuses, ...uniqueStatuses]))]} 
               onChange={(e) => setFilterStatus(e.target.value)} 
             />
           </div>
@@ -318,6 +327,18 @@ export const KaryawanContent = ({
                                 editData.customReligion = editData.religion;
                                 editData.religion = 'Lainnya';
                               }
+                              if (editData.status && !baseStatuses.includes(editData.status)) {
+                                editData.customStatus = editData.status;
+                                editData.status = 'Lainnya';
+                              }
+                              if (editData.contractType && !baseContractTypes.includes(editData.contractType)) {
+                                editData.customContractType = editData.contractType;
+                                editData.contractType = 'Lainnya';
+                              }
+                              if (!editData.customDept) editData.customDept = '';
+                              if (!editData.customReligion) editData.customReligion = '';
+                              if (!editData.customStatus) editData.customStatus = '';
+                              if (!editData.customContractType) editData.customContractType = '';
                               setFormData(editData); 
                               setIsModalOpen(true); 
                               setActionMenuOpenId(null); 
@@ -378,7 +399,7 @@ export const KaryawanContent = ({
       </div>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-fadeIn">
             <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50 rounded-t-2xl">
               <h3 className="font-bold text-lg text-slate-800">{editingEmployeeId ? 'Ubah Data Karyawan' : 'Tambah Karyawan'}</h3>
@@ -411,7 +432,22 @@ export const KaryawanContent = ({
                 <div className="md:col-span-2"><label className="block text-xs font-bold text-slate-700 mb-1">Jurusan</label><input type="text" name="major" value={formData.major} onChange={handleInputChange} placeholder="Ketik jurusan pendidikan..." className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm border-slate-200 outline-none focus:border-primary" /></div>
                 
                 <div className="md:col-span-2 border-b border-slate-100 pb-2"><h4 className="text-sm font-bold uppercase">Work Info</h4></div>
-                <FormSelect label="Status Karyawan" name="status" value={formData.status} onChange={handleInputChange} options={['Karyawan', 'Daily Worker', 'Magang', 'Kontrak', 'Outsource']} />
+                <div>
+                  <FormSelect label="Status Karyawan" name="status" value={formData.status} onChange={handleInputChange} options={statusOptions} />
+                  {formData.status === 'Lainnya' && (
+                    <div className="mt-3 animate-fadeIn">
+                      <input 
+                        type="text" 
+                        name="customStatus" 
+                        value={formData.customStatus || ''} 
+                        onChange={handleInputChange} 
+                        placeholder="Ketik status karyawan..." 
+                        required 
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all" 
+                      />
+                    </div>
+                  )}
+                </div>
                 <CustomDatePicker label="Tgl Join" name="joinDate" value={formData.joinDate} onChange={handleInputChange} required />
                 <div>
                   <FormSelect label="Departemen" name="dept" value={formData.dept} onChange={handleInputChange} options={deptOptions} />
@@ -431,10 +467,25 @@ export const KaryawanContent = ({
                 </div>
                 <div className="md:col-span-1"><label className="block text-xs font-bold text-slate-700 mb-1">Jabatan</label><input type="text" name="pos" value={formData.pos} onChange={handleInputChange} required className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm border-slate-200 outline-none focus:border-primary" /></div>
                 
-                {(formData.status === 'Kontrak' || formData.status === 'Karyawan' || formData.status === 'Magang') && (
+                {(formData.status === 'Kontrak' || formData.status === 'Karyawan' || formData.status === 'Magang' || formData.status === 'Freelance' || formData.status === 'Lainnya') && (
                   <>
                     <div className="md:col-span-2 border-b border-slate-100 pb-2 mt-2"><h4 className="text-sm font-bold uppercase">Contract Info</h4></div>
-                    <FormSelect label="Jenis Kontrak" name="contractType" value={formData.contractType || 'Kontrak Lanjutan'} onChange={handleInputChange} options={['Kontrak Lanjutan', 'Kontrak Probation', 'Kontrak Magang']} />
+                    <div>
+                      <FormSelect label="Jenis Kontrak" name="contractType" value={formData.contractType || 'Kontrak Lanjutan'} onChange={handleInputChange} options={contractTypeOptions} />
+                      {formData.contractType === 'Lainnya' && (
+                        <div className="mt-3 animate-fadeIn">
+                          <input 
+                            type="text" 
+                            name="customContractType" 
+                            value={formData.customContractType || ''} 
+                            onChange={handleInputChange} 
+                            placeholder="Ketik jenis kontrak..." 
+                            required 
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary/30 transition-all" 
+                          />
+                        </div>
+                      )}
+                    </div>
                     <div className="md:col-span-1"></div>
                     <CustomDatePicker label="Kontrak Awal" name="contractStart" value={formData.contractStart || ''} onChange={handleInputChange} required />
                     <CustomDatePicker label="Kontrak Akhir" name="contractEnd" value={formData.contractEnd || ''} onChange={handleInputChange} required />
@@ -443,15 +494,15 @@ export const KaryawanContent = ({
               </form>
             </div>
             <div className="px-6 py-5 border-t border-slate-100 flex justify-end gap-3 rounded-b-2xl">
-              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold bg-white border rounded-xl">Batal</button>
-              <button type="submit" form="addEmployeeForm" className="px-6 py-2 text-sm font-bold text-white bg-primary rounded-xl">Simpan</button>
+              <button onClick={() => setIsModalOpen(false)} className="px-5 py-2 text-sm font-bold bg-white border border-slate-200 text-slate-600 rounded-xl hover:bg-slate-50 hover:-translate-y-0.5 transition-all active:scale-95 hover:shadow-sm">Batal</button>
+              <button type="submit" form="addEmployeeForm" className="px-6 py-2 text-sm font-bold text-white bg-primary rounded-xl hover:bg-opacity-90 hover:-translate-y-0.5 transition-all active:scale-95 hover:shadow-md">Simpan</button>
             </div>
           </div>
         </div>
       )}
 
       {isUploadDocumentModalOpen && documentUploadTarget && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-[2px] p-4 animate-fadeIn">
           <div className="w-full max-w-lg bg-white rounded-[24px] shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-scaleIn">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
               <div className="flex items-center gap-4">
@@ -616,7 +667,7 @@ export const KaryawanContent = ({
       )}
 
       {isResignModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg animate-fadeIn overflow-hidden">
             <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white relative">
               <div className="flex items-center gap-4">
@@ -657,13 +708,13 @@ export const KaryawanContent = ({
             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-center gap-4">
               <button 
                 onClick={() => setIsResignModalOpen(false)} 
-                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 transition-all shadow-sm"
+                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all shadow-sm active:scale-95"
               >
                 Batal
               </button>
               <button 
                 onClick={() => { onResignEmployee(resigningEmployeeId!, resignFormData); setIsResignModalOpen(false); }} 
-                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-red-600 rounded-2xl hover:bg-red-700 transition-all shadow-xl shadow-red-200 active:scale-95"
+                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-red-600 rounded-2xl hover:bg-red-700 hover:-translate-y-0.5 transition-all shadow-xl shadow-red-200 active:scale-95"
               >
                 <Icon name="check" size={18} />
                 Konfirmasi Resign
@@ -674,7 +725,7 @@ export const KaryawanContent = ({
       )}
 
       {isCancelResignModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn">
             <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white">
               <div className="flex items-center gap-4">
@@ -698,13 +749,13 @@ export const KaryawanContent = ({
             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-center gap-4">
               <button 
                 onClick={() => setIsCancelResignModalOpen(false)} 
-                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 shadow-sm"
+                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all shadow-sm active:scale-95"
               >
                 Batal
               </button>
               <button 
                 onClick={() => { onCancelResign(targetEmployeeId!); setIsCancelResignModalOpen(false); }} 
-                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-orange-600 rounded-2xl hover:bg-orange-700 shadow-xl shadow-orange-100 active:scale-95"
+                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-orange-600 rounded-2xl hover:bg-orange-700 hover:-translate-y-0.5 transition-all shadow-xl shadow-orange-100 active:scale-95"
               >
                 <Icon name="check" size={18} />
                 Ya, Konfirmasi
@@ -715,7 +766,7 @@ export const KaryawanContent = ({
       )}
 
       {isRejoinModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="bg-white rounded-[32px] shadow-2xl w-full max-w-lg overflow-hidden animate-scaleIn">
             <div className="px-8 py-6 border-b border-slate-50 flex justify-between items-center bg-white">
               <div className="flex items-center gap-4">
@@ -739,13 +790,13 @@ export const KaryawanContent = ({
             <div className="px-8 py-6 bg-slate-50 border-t border-slate-100 flex justify-center gap-4">
               <button 
                 onClick={() => setIsRejoinModalOpen(false)} 
-                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 shadow-sm"
+                className="px-8 py-3.5 text-sm font-black bg-white border border-slate-200 rounded-2xl text-slate-600 hover:bg-slate-100 hover:-translate-y-0.5 hover:shadow-md transition-all shadow-sm active:scale-95"
               >
                 Batal
               </button>
               <button 
                 onClick={() => { onRejoinEmployee(targetEmployeeId!); setIsRejoinModalOpen(false); }} 
-                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 shadow-xl shadow-emerald-100 active:scale-95"
+                className="flex items-center gap-2 px-8 py-3.5 text-sm font-black text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 hover:-translate-y-0.5 transition-all shadow-xl shadow-emerald-100 active:scale-95"
               >
                 <Icon name="check" size={18} />
                 Ya, Konfirmasi
@@ -756,7 +807,7 @@ export const KaryawanContent = ({
       )}
 
       {employeeToDelete && (
-        <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
           <div className="w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden animate-scaleIn">
             <div className="p-8">
               <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 mx-auto">
@@ -770,13 +821,13 @@ export const KaryawanContent = ({
               <div className="flex gap-4">
                 <button 
                   onClick={() => setEmployeeToDelete(null)}
-                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black text-slate-600 hover:bg-slate-50 transition-all border border-slate-100"
+                  className="flex-1 px-6 py-4 rounded-2xl text-sm font-black text-slate-600 hover:bg-slate-50 hover:-translate-y-0.5 hover:shadow-md transition-all border border-slate-100 active:scale-95"
                 >
                   Batal
                 </button>
                 <button 
                   onClick={confirmDeleteEmployee}
-                  className="flex-1 bg-red-600 text-white px-6 py-4 rounded-2xl text-sm font-black shadow-xl shadow-red-200 active:scale-95 transition-all"
+                  className="flex-1 bg-red-600 text-white px-6 py-4 rounded-2xl text-sm font-black shadow-xl shadow-red-200 hover:-translate-y-0.5 active:scale-95 transition-all"
                 >
                   Hapus
                 </button>

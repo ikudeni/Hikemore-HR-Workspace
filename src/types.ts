@@ -29,6 +29,8 @@ export interface Employee {
   resignReason?: string;
   customDept?: string;
   customReligion?: string;
+  customStatus?: string;
+  customContractType?: string;
   contractType?: string;
   contractStart?: string;
   contractEnd?: string;
