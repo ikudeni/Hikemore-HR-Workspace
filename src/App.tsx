@@ -466,7 +466,7 @@ export default function App() {
         <div className="p-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn">
           <div className="w-full mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-sm min-h-full">
             <h2 className="text-2xl font-black tracking-tight text-slate-800 mb-6">Schedule Overview</h2>
-            <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={globalEmployees} />
+            <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={globalEmployees} jobListings={jobListings} />
           </div>
         </div>
       );

@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
-import { Schedule, Candidate, Employee } from '../types';
+import { Schedule, Candidate, Employee, JobListing } from '../types';
 
 interface ScheduleWidgetProps {
   schedules: Schedule[];
   setSchedules: React.Dispatch<React.SetStateAction<Schedule[]>>;
   candidates?: Candidate[];
   employees?: Employee[];
+  jobListings?: JobListing[];
 }
 
 type FilterTab = 'All' | 'Scheduled' | 'Completed' | 'Overdue';
 
-export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], employees = [] }: ScheduleWidgetProps) => {
+export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], employees = [], jobListings = [] }: ScheduleWidgetProps) => {
   const [filter, setFilter] = useState<FilterTab>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -143,10 +144,39 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
     return `${h.padStart(2, '0')}.${m.padStart(2, '0')}`;
   };
 
-  const getBorderColor = (type: string, status: string) => {
+  const getBorderColor = (s: Schedule, status: string) => {
     if (status === 'Overdue') return 'border-l-rose-500';
     if (status === 'Completed') return 'border-l-emerald-500';
-    return type?.includes('Interview') ? 'border-l-indigo-600' : type === 'Task' || type === 'Tugas' ? 'border-l-amber-500' : 'border-l-blue-500';
+    
+    const colors = [
+      'border-l-indigo-500',
+      'border-l-blue-500',
+      'border-l-emerald-500',
+      'border-l-amber-500',
+      'border-l-rose-500',
+      'border-l-purple-500',
+      'border-l-pink-500',
+      'border-l-cyan-500',
+      'border-l-orange-500',
+      'border-l-teal-500'
+    ];
+
+    // Try to base color on Job ID if it's a candidate interview
+    if (s.candidateId) {
+      const candidate = candidates.find(c => c.id === s.candidateId);
+      if (candidate) {
+        return colors[candidate.jobId % colors.length];
+      }
+    }
+    
+    // Otherwise base it on the schedule title
+    let hash = 0;
+    const key = (s.title || '') + (s.type || '');
+    for (let i = 0; i < key.length; i++) {
+       hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
   };
 
   const tabs: FilterTab[] = ['All', 'Scheduled', 'Completed', 'Overdue'];
@@ -216,7 +246,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                   return (
                     <div 
                       key={s.id} 
-                      className={`relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col xl:flex-row justify-between xl:items-center gap-4 transition-all hover:border-slate-300 shadow-sm ${getBorderColor(s.type, status)} border-l-4`}
+                      className={`relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col xl:flex-row justify-between xl:items-center gap-4 transition-all hover:border-slate-300 shadow-sm ${getBorderColor(s, status)} border-l-4`}
                     >
                       <div className="absolute top-3 right-3 flex flex-col gap-0.5 items-center">
                         <button 
