@@ -564,19 +564,19 @@ export const DashboardContent = ({
     return `${d}/${m}/${y}`;
   };
 
-  const expiredContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0).length, [filteredContracts]);
+  const expiredContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0 && r.contractType.toLowerCase() !== 'permanent').length, [filteredContracts]);
   const probationContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType === 'Kontrak Probation').length, [filteredContracts]);
-  const criticalContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30).length, [filteredContracts]);
-  const activeContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0).length, [filteredContracts]);
+  const criticalContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30 && r.contractType.toLowerCase() !== 'permanent').length, [filteredContracts]);
+  const activeContractsCount = useMemo(() => filteredContracts.filter(r => r.contractType !== '-' && ((r.contractEnd !== '-' && r.remainingDays >= 0) || r.contractType.toLowerCase() === 'permanent')).length, [filteredContracts]);
 
   const crossFilteredContracts = useMemo(() => {
     let result = filteredContracts;
     if (kontrakCrossFilter) {
       result = result.filter(r => {
-        if (kontrakCrossFilter === 'EXPIRED') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0;
+        if (kontrakCrossFilter === 'EXPIRED') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays < 0 && r.contractType.toLowerCase() !== 'permanent';
         if (kontrakCrossFilter === 'PROBATION') return r.contractType === 'Kontrak Probation';
-        if (kontrakCrossFilter === 'CRITICAL') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30;
-        if (kontrakCrossFilter === 'ACTIVE') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0;
+        if (kontrakCrossFilter === 'CRITICAL') return r.contractType !== '-' && r.contractEnd !== '-' && r.remainingDays >= 0 && r.remainingDays < 30 && r.contractType.toLowerCase() !== 'permanent';
+        if (kontrakCrossFilter === 'ACTIVE') return r.contractType !== '-' && ((r.contractEnd !== '-' && r.remainingDays >= 0) || r.contractType.toLowerCase() === 'permanent');
         return true;
       });
     }
