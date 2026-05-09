@@ -72,7 +72,7 @@ export interface Candidate {
   source: string;
   customSource?: string;
   stage: string;
-  tag?: 'DITERIMA' | 'DITOLAK' | 'TIDAK HADIR' | null;
+  tag?: 'DITERIMA' | 'DITOLAK' | 'TIDAK HADIR' | 'TIDAK RESPON' | null;
   rating?: number;
   appliedDate: string;
   hiredDate?: string;

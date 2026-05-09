@@ -1556,36 +1556,45 @@ export const DashboardContent = ({
                     </tr>
                   </thead>
                   <tbody className="text-sm text-slate-700 divide-y divide-slate-100 font-medium">
-                    {crossFilteredCandidates.map((c, index) => (
-                      <tr key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setRecFilter(p => ({...p, candidateId: p.candidateId === c.id ? null : c.id}))}>
-                        <td className={`px-6 py-4 sticky left-0 z-10 transition-colors ${recFilter.candidateId === c.id ? 'bg-blue-50 text-primary font-bold' : 'bg-white'}`}>
-                           <div className="flex items-center gap-3">
-                             <span className="text-xs text-slate-300 font-bold w-4">{index + 1}.</span>
-                             <span className="font-extrabold text-slate-900">{c.name}</span>
-                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-slate-500 font-bold">{getJobTitle(c.jobId)}</td>
-                        <td className="px-6 py-4 text-slate-600 font-bold">{c.stage}</td>
-                        <td className="px-6 py-4">
-                          <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md border uppercase tracking-wider ${getSourceBadgeClass(c.source)}`}>
-                            {c.source}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          {c.stage === 'Talent Pool' ? (
-                            <span className="bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TALENT POOL</span>
-                          ) : c.stage === 'Kandidat Join' || c.tag === 'DITERIMA' ? (
-                            <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITERIMA</span>
-                          ) : c.tag === 'DITOLAK' ? (
-                            <span className="bg-rose-50 text-rose-600 border border-rose-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITOLAK</span>
-                          ) : c.tag === 'TIDAK HADIR' || schedules.find(s => s.candidateId === c.id)?.attendance === 'Tidak Hadir' ? (
-                            <span className="bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TIDAK HADIR</span>
-                          ) : (
-                            <span className="text-slate-300 italic font-bold">Proses</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                      {crossFilteredCandidates.map((c, index) => {
+                        const activeSchedule = schedules.find(s => s.candidateId === c.id && s.attendance !== 'Hadir');
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setRecFilter(p => ({...p, candidateId: p.candidateId === c.id ? null : c.id}))}>
+                            <td className={`px-6 py-4 sticky left-0 z-10 transition-colors ${recFilter.candidateId === c.id ? 'bg-blue-50 text-primary font-bold' : 'bg-white'}`}>
+                               <div className="flex items-center gap-3">
+                                 <span className="text-xs text-slate-300 font-bold w-4">{index + 1}.</span>
+                                 <span className="font-extrabold text-slate-900">{c.name}</span>
+                               </div>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 font-bold">{getJobTitle(c.jobId)}</td>
+                            <td className="px-6 py-4 text-slate-600 font-bold">{c.stage}</td>
+                            <td className="px-6 py-4">
+                              <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-md border uppercase tracking-wider ${getSourceBadgeClass(c.source)}`}>
+                                {c.source}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              {c.stage === 'Talent Pool' ? (
+                                <span className="bg-slate-100 text-slate-500 border border-slate-200 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TALENT POOL</span>
+                              ) : c.stage === 'Kandidat Join' || c.tag === 'DITERIMA' ? (
+                                <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITERIMA</span>
+                              ) : c.tag === 'DITOLAK' ? (
+                                <span className="bg-rose-50 text-rose-600 border border-rose-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITOLAK</span>
+                              ) : c.tag === 'TIDAK HADIR' || activeSchedule?.attendance === 'Tidak Hadir' ? (
+                                <span className="bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TIDAK HADIR</span>
+                              ) : c.tag === 'TIDAK RESPON' ? (
+                                <span className="bg-orange-50 text-orange-600 border border-orange-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TIDAK RESPON</span>
+                              ) : activeSchedule ? (
+                                <span className="bg-indigo-50 text-indigo-600 border border-indigo-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">
+                                  SCHEDULE {activeSchedule.title.split(' - ')[0]?.toUpperCase()}
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 italic font-bold">Proses</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

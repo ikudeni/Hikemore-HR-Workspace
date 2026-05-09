@@ -375,7 +375,7 @@ export const RekrutmenContent = ({
     setTimeout(() => setCopiedPhoneId(null), 2000);
   };
 
-  const handleUpdateCandidateTag = (e: React.MouseEvent, id: number, tag: 'DITOLAK' | 'TIDAK HADIR' | null) => {
+  const handleUpdateCandidateTag = (e: React.MouseEvent, id: number, tag: 'DITOLAK' | 'TIDAK HADIR' | 'TIDAK RESPON' | null) => {
     e.stopPropagation();
     setCandidates(prev => prev.map(c => c.id === id ? { ...c, tag: c.tag === tag ? null : tag } : c));
     setActiveCandidateDropdown(null);
@@ -763,6 +763,10 @@ export const RekrutmenContent = ({
                               <span className="inline-block px-1.5 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-[8px] font-black uppercase tracking-widest text-slate-500 mb-1">
                                 TIDAK HADIR
                               </span>
+                            ) : c.tag === 'TIDAK RESPON' ? (
+                              <span className="inline-block px-1.5 py-0.5 rounded-md border border-orange-200 bg-orange-50 text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">
+                                TIDAK RESPON
+                              </span>
                             ) : activeSchedule ? (
                               <span className="inline-block px-1.5 py-0.5 rounded-md border border-indigo-200 bg-indigo-50/70 text-[8px] font-black uppercase tracking-widest text-indigo-600 mb-1">
                                 SCHEDULE {activeSchedule.title.split(' - ')[0]?.toUpperCase()}
@@ -853,8 +857,11 @@ export const RekrutmenContent = ({
                                       <button type="button" onClick={(e) => handleUpdateCandidateTag(e, c.id, 'DITOLAK')} className={`w-full text-left px-4 py-2 text-[12px] font-bold transition-colors flex items-center gap-3 ${c.tag === 'DITOLAK' ? 'bg-red-50 text-red-600' : 'text-slate-700 hover:bg-slate-50'}`}>
                                         <Icon name="x-circle" size={15} className={c.tag === 'DITOLAK' ? 'text-red-500' : 'text-slate-600'} /> Ditolak
                                       </button>
-                                      <button type="button" onClick={(e) => handleUpdateCandidateTag(e, c.id, 'TIDAK HADIR')} className={`w-full text-left px-4 py-2 text-[12px] font-bold transition-colors flex items-center gap-3 mb-1 ${c.tag === 'TIDAK HADIR' ? 'bg-slate-100 text-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}>
+                                      <button type="button" onClick={(e) => handleUpdateCandidateTag(e, c.id, 'TIDAK HADIR')} className={`w-full text-left px-4 py-2 text-[12px] font-bold transition-colors flex items-center gap-3 ${c.tag === 'TIDAK HADIR' ? 'bg-slate-100 text-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}>
                                         <Icon name="user-x" size={15} className={c.tag === 'TIDAK HADIR' ? 'text-slate-600' : 'text-slate-600'} /> Tidak Hadir
+                                      </button>
+                                      <button type="button" onClick={(e) => handleUpdateCandidateTag(e, c.id, 'TIDAK RESPON')} className={`w-full text-left px-4 py-2 text-[12px] font-bold transition-colors flex items-center gap-3 mb-1 ${c.tag === 'TIDAK RESPON' ? 'bg-orange-50 text-orange-600' : 'text-slate-700 hover:bg-slate-50'}`}>
+                                        <Icon name="message-square" size={15} className={c.tag === 'TIDAK RESPON' ? 'text-orange-500' : 'text-slate-600'} /> Tidak Respon
                                       </button>
                                       
                                       {(c.tag || activeSchedule) && (
@@ -982,10 +989,10 @@ export const RekrutmenContent = ({
               
               const jobCandidates = candidates.filter(c => c.jobId === job.id);
               const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
-              const joined = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
+              const joined = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR' && c.tag !== 'TIDAK RESPON').length;
               
               const candidateWeights = jobCandidates.map(c => {
-                if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return 0;
+                if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR' || c.tag === 'TIDAK RESPON') return 0;
                 const idx = activeStages.indexOf(c.stage);
                 if (idx !== -1) {
                    return activeStages.length > 1 ? (idx / (activeStages.length - 1)) : 1;
@@ -995,7 +1002,7 @@ export const RekrutmenContent = ({
               
               const topWeightsSum = candidateWeights.slice(0, job.quota > 0 ? job.quota : 1).reduce((sum, w) => sum + w, 0);
               const pct = job.quota > 0 ? Math.min(100, Math.round((topWeightsSum / job.quota) * 100)) : 0;
-              const progCount = jobCandidates.filter(c => c.stage !== activeStages[0] && c.stage !== activeStages[activeStages.length - 1] && c.stage !== 'Talent Pool' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
+              const progCount = jobCandidates.filter(c => c.stage !== activeStages[0] && c.stage !== activeStages[activeStages.length - 1] && c.stage !== 'Talent Pool' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR' && c.tag !== 'TIDAK RESPON').length;
 
               return (
                 <div className="bg-white rounded-[20px] p-5 border-2 border-primary/10 flex flex-col w-full shadow-[0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-black/5 backdrop-blur-sm">
@@ -1677,10 +1684,10 @@ export const RekrutmenContent = ({
           const jobCandidates = candidates.filter(c => c.jobId === job.id);
           const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
           
-          const joinCount = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR').length;
+          const joinCount = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR' && c.tag !== 'TIDAK RESPON').length;
 
           const candidateWeights = jobCandidates.map(c => {
-            if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR') return 0;
+            if (c.stage === 'Talent Pool' || c.tag === 'DITOLAK' || c.tag === 'TIDAK HADIR' || c.tag === 'TIDAK RESPON') return 0;
             const idx = activeStages.indexOf(c.stage);
             if (idx !== -1) {
                return activeStages.length > 1 ? (idx / (activeStages.length - 1)) : 1;
@@ -1696,7 +1703,8 @@ export const RekrutmenContent = ({
             c.stage !== activeStages[activeStages.length - 1] && 
             c.stage !== 'Talent Pool' &&
             c.tag !== 'DITOLAK' &&
-            c.tag !== 'TIDAK HADIR'
+            c.tag !== 'TIDAK HADIR' &&
+            c.tag !== 'TIDAK RESPON'
           ).length;
 
           return (
