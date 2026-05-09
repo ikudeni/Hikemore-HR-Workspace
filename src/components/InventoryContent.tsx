@@ -256,7 +256,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const handleDownloadSticker = (asset: Asset) => {
     const qrUrl = `${window.location.origin}${window.location.pathname}?scan=${asset.barcode}`;
     
-    QRCode.toString(qrUrl, { type: 'svg', margin: 1, width: 80, color: { dark: '#0f172a', light: '#ffffff' } }, (err, qrSvg) => {
+    QRCode.toString(qrUrl, { type: 'svg', margin: 1, width: 80, color: { dark: '#000000', light: '#ffffff' } }, (err, qrSvg) => {
       if (err) {
         console.error('Error generating QR code:', err);
         return;
@@ -267,13 +267,13 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       const svgContent = `
         <svg width="320" height="140" xmlns="http://www.w3.org/2000/svg">
           <rect width="320" height="140" fill="white" rx="15" />
-          <rect width="320" height="140" fill="none" stroke="#e2e8f0" stroke-width="4" rx="15" />
+          <rect width="320" height="140" fill="none" stroke="#000000" stroke-width="4" rx="15" />
           
           ${qrSvgAdjusted}
           
-          <text x="110" y="45" font-family="sans-serif" font-size="20" font-weight="bold" fill="#1e293b">${asset.name}</text>
-          <text x="110" y="70" font-family="sans-serif" font-size="14" fill="#64748b">${asset.category}</text>
-          <text x="110" y="105" font-family="monospace" font-size="16" font-weight="bold" fill="#0f172a">${asset.barcode}</text>
+          <text x="110" y="45" font-family="sans-serif" font-size="20" font-weight="bold" fill="#000000">${asset.name}</text>
+          <text x="110" y="70" font-family="sans-serif" font-size="14" fill="#000000">${asset.category}</text>
+          <text x="110" y="105" font-family="monospace" font-size="16" font-weight="bold" fill="#000000">${asset.barcode}</text>
         </svg>
       `;
 
