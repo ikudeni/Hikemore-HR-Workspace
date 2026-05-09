@@ -50,6 +50,7 @@ export const RekrutmenContent = ({
   const [dragOverJobId, setDragOverJobId] = useState<number | null>(null);
   const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
   const [copiedPhoneId, setCopiedPhoneId] = useState<number | null>(null);
+  const [copiedNameId, setCopiedNameId] = useState<number | null>(null);
   const [draggedCandidate, setDraggedCandidate] = useState<Candidate | null>(null);
   const [dropPlaceholder, setDropPlaceholder] = useState<{ stageId: string | null, index: number | null }>({ stageId: null, index: null });
   const [dragPosition, setDragPosition] = useState({ x: -9999, y: -9999 });
@@ -373,6 +374,13 @@ export const RekrutmenContent = ({
     navigator.clipboard.writeText(phone);
     setCopiedPhoneId(id);
     setTimeout(() => setCopiedPhoneId(null), 2000);
+  };
+
+  const handleCopyName = (e: React.MouseEvent, name: string, id: number) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(name);
+    setCopiedNameId(id);
+    setTimeout(() => setCopiedNameId(null), 2000);
   };
 
   const handleUpdateCandidateTag = (e: React.MouseEvent, id: number, tag: 'DITOLAK' | 'TIDAK HADIR' | 'TIDAK RESPON' | null) => {
@@ -772,7 +780,21 @@ export const RekrutmenContent = ({
                                 SCHEDULE {activeSchedule.title.split(' - ')[0]?.toUpperCase()}
                               </span>
                             ) : null}
-                            <p className="font-extrabold text-[13px] text-slate-800 leading-tight group-hover:text-primary transition-colors">{c.name}</p>
+                            <div 
+                              className="font-extrabold text-[13px] text-slate-800 leading-tight transition-colors flex items-center justify-between cursor-pointer group/name"
+                              onClick={(e) => handleCopyName(e, c.name, c.id)}
+                            >
+                              <span className={`transition-colors ${copiedNameId === c.id ? 'text-green-600' : 'group-hover:text-primary'}`}>
+                                {copiedNameId === c.id ? 'Disalin!' : c.name}
+                              </span>
+                              {!copiedNameId || copiedNameId !== c.id ? (
+                                <div className="opacity-0 group-hover/name:opacity-100 transition-opacity">
+                                  <Icon name="copy" size={12} className="text-slate-400 group-hover:text-primary" />
+                                </div>
+                              ) : (
+                                <Icon name="check" size={12} className="text-green-500" />
+                              )}
+                            </div>
                             <p className="text-[11px] text-slate-500 mt-1 mb-2.5">{selectedJob.title}</p>
                             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                               {[1, 2, 3, 4, 5].map((star) => (
