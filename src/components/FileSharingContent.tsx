@@ -153,10 +153,18 @@ export const FileSharingContent = () => {
     e.stopPropagation();
     
     if (item.fileUrl && item.fileUrl.startsWith('blob:')) {
-       const link = document.createElement('a');
-       link.href = item.fileUrl;
-       link.download = item.name;
-       link.click();
+       try {
+         const { downloadFile } = await import('../utils');
+         await downloadFile(item.fileUrl, item.name);
+       } catch (err) {
+         console.error(err);
+         const link = document.createElement('a');
+         link.href = item.fileUrl;
+         link.download = item.name;
+         document.body.appendChild(link);
+         link.click();
+         document.body.removeChild(link);
+       }
        return;
     }
 
@@ -166,10 +174,8 @@ export const FileSharingContent = () => {
       const docSnap = await getDoc(doc(db, 'fileContents', item.id));
       if (docSnap.exists() && docSnap.data().base64) {
         const base64Data = docSnap.data().base64;
-        const link = document.createElement('a');
-        link.href = base64Data;
-        link.download = item.name;
-        link.click();
+        const { downloadFile } = await import('../utils');
+        await downloadFile(base64Data, item.name);
         logActivity('File Diunduh', { nama: item.name });
       } else {
         alert('File tidak ditemukan di server (Mungkin terhapus atau belum tersinkronisasi).');

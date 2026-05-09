@@ -1071,10 +1071,8 @@ export const RekrutmenContent = ({
                                     const docSnap = await getDoc(firestoreDoc(db, 'fileContents', docId));
                                     if (docSnap.exists() && docSnap.data().base64) {
                                       const base64Data = docSnap.data().base64;
-                                      const link = document.createElement('a');
-                                      link.href = base64Data;
-                                      link.download = doc.name;
-                                      link.click();
+                                      const { downloadFile } = await import('../utils');
+                                      await downloadFile(base64Data, doc.name);
                                     } else {
                                       alert('File tidak ditemukan di server.');
                                     }
@@ -1083,10 +1081,18 @@ export const RekrutmenContent = ({
                                     alert('Gagal mengunduh file dari cloud.');
                                   }
                                 } else {
-                                  const link = document.createElement('a');
-                                  link.href = doc.url;
-                                  link.download = doc.name;
-                                  link.click();
+                                  try {
+                                    const { downloadFile } = await import('../utils');
+                                    await downloadFile(doc.url, doc.name);
+                                  } catch (err) {
+                                    console.error(err);
+                                    const link = document.createElement('a');
+                                    link.href = doc.url;
+                                    link.download = doc.name;
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                  }
                                 }
                               }}
                             >

@@ -62,3 +62,23 @@ export const saveToSpreadsheet = (action: string, data: any) => {
     console.warn("Gagal terhubung. Pastikan aplikasi berjalan di dalam ekosistem Google Apps Script.");
   }
 };
+
+export const downloadFile = async (dataUrl: string, fileName: string) => {
+  try {
+    const response = await fetch(dataUrl);
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("Download helper error:", error);
+    alert('Ops, terjadi kesalahan saat menyiapkan file untuk diunduh. Silakan coba lagi.');
+  }
+};
