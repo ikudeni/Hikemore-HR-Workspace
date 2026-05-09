@@ -31,6 +31,8 @@ const UnderConstructionView = ({ menuName }: { menuName: string }) => (
   </div>
 );
 
+import { removeUndefined } from './utils';
+
 export default function App() {
   const [resetOobCode, setResetOobCode] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -191,7 +193,8 @@ export default function App() {
   const setKanbanStages: React.Dispatch<React.SetStateAction<KanbanStage[]>> = useCallback((valOrFn) => {
      setKanbanStagesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'recruitmentData'), { kanbanStages: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'recruitmentData'), { kanbanStages: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -200,7 +203,8 @@ export default function App() {
   const setJobStagesMap: React.Dispatch<React.SetStateAction<Record<number, string[]>>> = useCallback((valOrFn) => {
      setJobStagesMapReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'recruitmentData'), { jobStagesMap: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'recruitmentData'), { jobStagesMap: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -209,7 +213,8 @@ export default function App() {
   const setJobListings: React.Dispatch<React.SetStateAction<JobListing[]>> = useCallback((valOrFn) => {
      setJobListingsReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'recruitmentData'), { jobListings: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'recruitmentData'), { jobListings: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -218,7 +223,8 @@ export default function App() {
   const setCandidates: React.Dispatch<React.SetStateAction<Candidate[]>> = useCallback((valOrFn) => {
      setCandidatesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'recruitmentData'), { candidates: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'recruitmentData'), { candidates: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -227,7 +233,8 @@ export default function App() {
   const setSchedules: React.Dispatch<React.SetStateAction<Schedule[]>> = useCallback((valOrFn) => {
      setSchedulesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'recruitmentData'), { schedules: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'recruitmentData'), { schedules: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -258,7 +265,8 @@ export default function App() {
   const setPerformaDataMap: React.Dispatch<React.SetStateAction<Record<string, any>>> = useCallback((valOrFn) => {
      setPerformaDataMapReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -345,7 +353,8 @@ export default function App() {
   const setDashboardLayout: React.Dispatch<React.SetStateAction<DashboardWidget[]>> = useCallback((valOrFn) => {
      setDashboardLayoutReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        setDoc(doc(db, 'settings', 'dashboardData'), { dashboardLayout: newVal }, { merge: true }).catch(console.error);
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'dashboardData'), { dashboardLayout: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
@@ -370,7 +379,8 @@ export default function App() {
     const randomId = `DEF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
     const newEmployee = { ...newEmployeeData, isActive: true };
     try {
-      await setDoc(doc(db, 'employees', randomId), newEmployee);
+      const sanitizedVal = removeUndefined(newEmployee);
+      await setDoc(doc(db, 'employees', randomId), sanitizedVal);
       logActivity('Data Karyawan Ditambahkan', { nama: newEmployee.name, nip: randomId });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `employees/${randomId}`);
@@ -380,7 +390,8 @@ export default function App() {
   const handleEditEmployee = async (updatedEmployeeData: Employee) => {
     try {
       const { id, ...data } = updatedEmployeeData;
-      await updateDoc(doc(db, 'employees', id!), data as any);
+      const sanitizedVal = removeUndefined(data);
+      await updateDoc(doc(db, 'employees', id!), sanitizedVal as any);
       logActivity('Data Karyawan Diupdate', { nama: updatedEmployeeData.name, nip: updatedEmployeeData.id! });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `employees/${updatedEmployeeData.id}`);

@@ -438,7 +438,7 @@ export const RekrutmenContent = ({
       const others = filtered.filter(c => c.stage !== dropPlaceholder.stageId);
       
       const movedOnes = movingCandidates.map(c => {
-        const resetTag = ['Kandidat Join', 'Talent Pool'].includes(dropPlaceholder.stageId!) ? undefined : c.tag;
+        const resetTag = ['Kandidat Join', 'Talent Pool'].includes(dropPlaceholder.stageId!) ? null : c.tag;
         return { ...c, stage: dropPlaceholder.stageId!, tag: resetTag };
       });
       stageCands.splice(dropPlaceholder.index!, 0, ...movedOnes);
@@ -1102,16 +1102,11 @@ export const RekrutmenContent = ({
                               className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
                               title="Hapus Dokumen"
                               onClick={() => {
-                                setCandidates(prev => prev.map(c => {
-                                  if (c.id === documentUploadTarget.id) {
-                                    const newDocs = [...(c.documents || [])];
-                                    newDocs.splice(idx, 1);
-                                    const updated = { ...c, documents: newDocs };
-                                    setDocumentUploadTarget(updated);
-                                    return updated;
-                                  }
-                                  return c;
-                                }));
+                                const newDocs = [...(documentUploadTarget.documents || [])];
+                                newDocs.splice(idx, 1);
+                                const updated = { ...documentUploadTarget, documents: newDocs };
+                                setDocumentUploadTarget(updated);
+                                setCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
                               }}
                             >
                               <Icon name="trash-2" size={14} />
@@ -1152,15 +1147,10 @@ export const RekrutmenContent = ({
                               const size = file.size;
                               const url = `DB_STORED:${docId}`;
                               
-                              setCandidates(prev => prev.map(c => {
-                                if (c.id === documentUploadTarget.id) {
-                                  const newDocs = [...(c.documents || []), { name, url, size }];
-                                  const updated = { ...c, documents: newDocs };
-                                  setDocumentUploadTarget(updated);
-                                  return updated;
-                                }
-                                return c;
-                              }));
+                              const newDocs = [...(documentUploadTarget.documents || []), { name, url, size }];
+                              const updated = { ...documentUploadTarget, documents: newDocs };
+                              setDocumentUploadTarget(updated);
+                              setCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
                             } catch (error) {
                               console.error("Upload error", error);
                               alert('Gagal mengunggah file ke cloud.');
@@ -1247,7 +1237,7 @@ export const RekrutmenContent = ({
                         onChange={(e) => {
                            const val = e.target.value;
                            if (val !== 'Lainnya') {
-                               setEditCandidateFormData({...editCandidateFormData, source: val as any, customSource: undefined});
+                               setEditCandidateFormData({...editCandidateFormData, source: val as any, customSource: ''});
                            } else {
                                setEditCandidateFormData({...editCandidateFormData, source: 'Lainnya'});
                            }

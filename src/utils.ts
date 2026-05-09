@@ -50,6 +50,20 @@ export const getSourceBadgeClass = (source: string): string => {
   return 'bg-slate-50 text-slate-500 border-slate-200/50'; 
 };
 
+export const removeUndefined = (obj: any): any => {
+  if (Array.isArray(obj)) return obj.map(removeUndefined);
+  if (obj instanceof Date) return obj;
+  if (typeof window !== 'undefined' && typeof window.File !== 'undefined' && obj instanceof window.File) return null;
+  if (obj !== null && typeof obj === 'object') {
+    if (obj.constructor !== Object) return obj;
+    return Object.keys(obj).reduce((acc, key) => {
+      if (obj[key] !== undefined) acc[key] = removeUndefined(obj[key]);
+      return acc;
+    }, {} as any);
+  }
+  return obj;
+};
+
 export const saveToSpreadsheet = (action: string, data: any) => {
   // @ts-ignore
   if (typeof google !== 'undefined' && google.script) {

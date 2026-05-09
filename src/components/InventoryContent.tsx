@@ -230,7 +230,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
         setSelectedAsset({
           ...targetAsset,
           history: newHistory,
-          ...(isRemovingActiveHolder ? { status: 'Tersedia', assignedToId: undefined } : {})
+          ...(isRemovingActiveHolder ? { status: 'Tersedia', assignedToId: null as unknown as string } : {})
         });
       }
 

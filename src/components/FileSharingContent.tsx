@@ -32,7 +32,10 @@ export const FileSharingContent = () => {
      setItemsReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         import('firebase/firestore').then(({ doc, setDoc }) => {
-          setDoc(doc(db, 'settings', 'workspaceFiles'), { items: newVal }, { merge: true }).catch(console.error);
+          import('../utils').then(({ removeUndefined }) => {
+            const sanitizedVal = removeUndefined(newVal);
+            setDoc(doc(db, 'settings', 'workspaceFiles'), { items: sanitizedVal }, { merge: true }).catch(console.error);
+          });
         });
         return newVal;
      });

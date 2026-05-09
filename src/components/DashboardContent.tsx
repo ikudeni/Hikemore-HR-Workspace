@@ -11,8 +11,10 @@ import { Icon } from './ui/Icon';
 import { TimePicker } from './ui/TimePicker';
 import { CustomDonutChartWidget } from './ui/DonutChart';
 import { EduGaugeChart } from './ui/EduGaugeChart';
-import { getSourceBadgeClass } from '../utils';
+import { getSourceBadgeClass, removeUndefined } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from '../types';
+import { db, logActivity } from '../firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const STATUS_COLORS_MAP: Record<string, string> = {
   'Karyawan': '#60A5FA',     // Soft Blue
@@ -225,7 +227,28 @@ export const DashboardContent = ({
 
   const [overtimeEntries, setOvertimeEntries] = useState<{name: string, dept: string, startTime: string, endTime: string, duration: number}[]>([]);
 
-  const [overtimeRecords, setOvertimeRecords] = useState<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number}[]>([]);
+  const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number}[]>([]);
+
+  useEffect(() => {
+    const q = doc(db, 'settings', 'overtimeRecords');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+        const data = snapshot.data();
+        if (data.records) setOvertimeRecordsReact(data.records);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const overtimeRecords = overtimeRecordsReact;
+  const setOvertimeRecords: React.Dispatch<React.SetStateAction<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number}[]>> = React.useCallback((valOrFn) => {
+    setOvertimeRecordsReact(prev => {
+      const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      const sanitizedVal = removeUndefined(newVal);
+      setDoc(doc(db, 'settings', 'overtimeRecords'), { records: sanitizedVal }, { merge: true }).catch(console.error);
+      return newVal;
+    });
+  }, []);
 
   const uniqueOvertimeDepts = useMemo(() => Array.from(new Set(employees.map(e => e.dept))), [employees]);
   const uniqueOvertimeDates = useMemo(() => Array.from(new Set(overtimeRecords.map(r => r.date))), [overtimeRecords]);
@@ -363,7 +386,28 @@ export const DashboardContent = ({
   const [kontrakFilterStatus, setKontrakFilterStatus] = useState<string>('All Status');
   const [kontrakCrossFilter, setKontrakCrossFilter] = useState<'ACTIVE' | 'EXPIRED' | 'PROBATION' | 'CRITICAL' | null>(null);
   const [isKontrakModalOpen, setIsKontrakModalOpen] = useState(false);
-  const [contractOverrides, setContractOverrides] = useState<Record<string, any>>({});
+  const [contractOverridesReact, setContractOverridesReact] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    const q = doc(db, 'settings', 'contractOverrides');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+        const data = snapshot.data();
+        if (data.overrides) setContractOverridesReact(data.overrides);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const contractOverrides = contractOverridesReact;
+  const setContractOverrides: React.Dispatch<React.SetStateAction<Record<string, any>>> = React.useCallback((valOrFn) => {
+    setContractOverridesReact(prev => {
+      const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
+      const sanitizedVal = removeUndefined(newVal);
+      setDoc(doc(db, 'settings', 'contractOverrides'), { overrides: sanitizedVal }, { merge: true }).catch(console.error);
+      return newVal;
+    });
+  }, []);
   const [kontrakForm, setKontrakForm] = useState({
     employeeId: '',
     contractType: 'Kontrak Lanjutan',
@@ -1534,6 +1578,8 @@ export const DashboardContent = ({
                             <span className="bg-emerald-50 text-emerald-600 border border-emerald-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITERIMA</span>
                           ) : c.tag === 'DITOLAK' ? (
                             <span className="bg-rose-50 text-rose-600 border border-rose-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">DITOLAK</span>
+                          ) : c.tag === 'TIDAK HADIR' || schedules.find(s => s.candidateId === c.id)?.attendance === 'Tidak Hadir' ? (
+                            <span className="bg-amber-50 text-amber-600 border border-amber-100 text-[10px] font-black px-2.5 py-0.5 rounded-lg uppercase tracking-wider">TIDAK HADIR</span>
                           ) : (
                             <span className="text-slate-300 italic font-bold">Proses</span>
                           )}
