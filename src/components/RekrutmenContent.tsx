@@ -426,11 +426,26 @@ export const RekrutmenContent = ({
     e.preventDefault();
     if (!draggedCandidate || !dropPlaceholder.stageId) return;
     
-    setCandidates(prev => {
-      const selectedIds = selectedCandidateIds.includes(draggedCandidate.id) 
-        ? selectedCandidateIds 
-        : [draggedCandidate.id];
+    const selectedIds = selectedCandidateIds.includes(draggedCandidate.id) 
+      ? selectedCandidateIds 
+      : [draggedCandidate.id];
       
+    // Mark associated schedules as 'Hadir' if candidate is moved to a new stage
+    const movingCandidatesRaw = candidates.filter(c => selectedIds.includes(c.id));
+    const stageChangedCandidateIds = movingCandidatesRaw
+      .filter(c => c.stage !== dropPlaceholder.stageId)
+      .map(c => c.id);
+
+    if (stageChangedCandidateIds.length > 0) {
+      setSchedules(prevSchedules => prevSchedules.map(s => {
+        if (s.candidateId && stageChangedCandidateIds.includes(s.candidateId) && !s.attendance) {
+          return { ...s, attendance: 'Hadir' };
+        }
+        return s;
+      }));
+    }
+
+    setCandidates(prev => {
       const movingCandidates = prev.filter(c => selectedIds.includes(c.id));
       const filtered = prev.filter(c => !selectedIds.includes(c.id));
       
@@ -842,11 +857,16 @@ export const RekrutmenContent = ({
                                         <Icon name="user-x" size={15} className={c.tag === 'TIDAK HADIR' ? 'text-slate-600' : 'text-slate-600'} /> Tidak Hadir
                                       </button>
                                       
-                                      {c.tag && (
+                                      {(c.tag || activeSchedule) && (
                                         <>
                                           <div className="border-t border-slate-50 my-1"></div>
-                                          <button type="button" onClick={(e) => handleUpdateCandidateTag(e, c.id, null)} className="w-full text-left px-4 py-2 text-[12px] font-bold text-slate-500 hover:bg-slate-50 flex items-center gap-3 transition-colors mb-1">
-                                            <Icon name="rotate-ccw" size={15} className="text-slate-400" /> Hapus Tanda
+                                          <button type="button" onClick={(e) => {
+                                            handleUpdateCandidateTag(e, c.id, null);
+                                            if (activeSchedule) {
+                                              setSchedules(prev => prev.filter(s => s.id !== activeSchedule.id));
+                                            }
+                                          }} className="w-full text-left px-4 py-2 text-[12px] font-bold text-slate-500 hover:bg-slate-50 flex items-center gap-3 transition-colors mb-1">
+                                            <Icon name="rotate-ccw" size={15} className="text-slate-400" /> Hapus Status
                                           </button>
                                         </>
                                       )}
