@@ -219,7 +219,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
       <div className="flex flex-col max-h-[600px] overflow-y-auto hover-scrollbar pr-4 pb-12">
         {Object.keys(groupedSchedules).sort().map((dateStr, index) => {
           const dateObj = new Date(dateStr);
-          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
           const dayDate = dateObj.getDate();
           const items = groupedSchedules[dateStr];
 
