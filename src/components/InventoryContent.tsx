@@ -337,8 +337,10 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const uniqueDivisions = Array.from(new Set(assets.map(getAssetDepartment)));
 
   const filteredAssets = assets.filter(asset => {
+    const pemakaiName = getEmployeeName(asset.assignedToEmpId, asset.currentAssigneeInfo).toLowerCase();
     const matchSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                        asset.barcode.toLowerCase().includes(searchQuery.toLowerCase());
+                        asset.barcode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        pemakaiName.includes(searchQuery.toLowerCase());
     const matchCategory = filterCategory === 'Semua' || asset.category === filterCategory;
     const matchStatus = filterStatus === 'Semua' || asset.status === filterStatus;
     const matchDivision = filterDivision === 'Semua' || getAssetDepartment(asset) === filterDivision;
@@ -436,7 +438,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                 <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
                   type="text" 
-                  placeholder="Cari aset atau barcode..." 
+                  placeholder="Cari aset, barcode, atau nama pemakai..." 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-sm focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none w-48 transition-all"

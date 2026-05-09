@@ -94,6 +94,7 @@ export const DashboardContent = ({
     source: null,
     candidateId: null
   });
+  const [searchRecruitmentName, setSearchRecruitmentName] = useState('');
 
   useEffect(() => {
     const leftEl = leftScrollRef.current;
@@ -205,6 +206,7 @@ export const DashboardContent = ({
   const [deleteOvertimeConfirm, setDeleteOvertimeConfirm] = useState<{isOpen: boolean, id: number | null}>({isOpen: false, id: null});
   const [overtimeFilterDept, setOvertimeFilterDept] = useState<string>('Semua Divisi');
   const [overtimeFilterName, setOvertimeFilterName] = useState<string | null>(null);
+  const [overtimeSearchName, setOvertimeSearchName] = useState<string>('');
   const [overtimeStartDate, setOvertimeStartDate] = useState<string | null>(() => {
     const today = new Date();
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
@@ -333,9 +335,10 @@ export const DashboardContent = ({
       }
 
       const matchName = !overtimeFilterName || r.name === overtimeFilterName;
-      return matchDept && matchDate && matchName;
+      const matchSearchName = r.name.toLowerCase().includes(overtimeSearchName.toLowerCase());
+      return matchDept && matchDate && matchName && matchSearchName;
     });
-  }, [overtimeRecords, overtimeFilterDept, overtimeStartDate, overtimeEndDate, overtimeFilterName]);
+  }, [overtimeRecords, overtimeFilterDept, overtimeStartDate, overtimeEndDate, overtimeFilterName, overtimeSearchName]);
 
   const dateFilteredOvertimeRecords = useMemo(() => {
     return overtimeRecords.filter(r => {
@@ -756,9 +759,10 @@ export const DashboardContent = ({
      const matchSource = !recFilter.source || c.source === recFilter.source;
      const matchCandidate = !recFilter.candidateId || c.id === recFilter.candidateId;
      const matchStage = !recFilter.stageId || c.stage === recFilter.stageId;
+     const matchName = c.name.toLowerCase().includes(searchRecruitmentName.toLowerCase());
      
-     return matchJob && matchStage && matchSource && matchCandidate;
-  }), [validCandidates, recFilter]);
+     return matchJob && matchStage && matchSource && matchCandidate && matchName;
+  }), [validCandidates, recFilter, searchRecruitmentName]);
 
   const recruitmentStats = useMemo(() => {
     const relevantCandidates = validCandidates;
@@ -1140,7 +1144,7 @@ export const DashboardContent = ({
                   </div>
                   <input 
                     type="text" 
-                    placeholder="Search Employee..." 
+                    placeholder="Cari nama karyawan..." 
                     value={employeeSearchTerm}
                     onChange={(e) => setEmployeeSearchTerm(e.target.value)}
                     className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all w-[180px] sm:w-[220px]"
@@ -1544,11 +1548,21 @@ export const DashboardContent = ({
               <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white shrink-0">
                  <h3 className="font-bold text-[15px] text-slate-800">Detail Pelamar</h3>
                  <div className="flex items-center gap-3">
-                   {(recFilter.jobId || recFilter.stageId || recFilter.source || recFilter.candidateId) && (
-                     <button onClick={() => setRecFilter({ jobId: null, stageId: null, source: null, candidateId: null })} className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1">
+                   {(recFilter.jobId || recFilter.stageId || recFilter.source || recFilter.candidateId || searchRecruitmentName !== '') && (
+                     <button onClick={() => { setRecFilter({ jobId: null, stageId: null, source: null, candidateId: null }); setSearchRecruitmentName(''); }} className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1">
                        <Icon name="x" size={12} /> Hapus Filter
                      </button>
                    )}
+                   <div className="relative">
+                     <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                     <input 
+                       type="text"
+                       placeholder="Cari nama pelamar..."
+                       value={searchRecruitmentName}
+                       onChange={(e) => setSearchRecruitmentName(e.target.value)}
+                       className="pl-9 pr-4 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700 w-[150px]"
+                     />
+                   </div>
                    <span className="text-xs font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{crossFilteredCandidates.length} Data</span>
                  </div>
               </div>
@@ -1626,20 +1640,37 @@ export const DashboardContent = ({
                   const today = new Date();
                   const defaultStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
                   const defaultEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                  const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName;
+                  const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName || overtimeSearchName !== '';
                   
-                  return hasFilters && (
-                    <button 
-                      onClick={() => {
-                        setOvertimeFilterDept('Semua Divisi');
-                        setOvertimeStartDate(defaultStart);
-                        setOvertimeEndDate(defaultEnd);
-                        setOvertimeFilterName(null);
-                      }} 
-                      className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1"
-                    >
-                      <Icon name="x" size={12} /> Hapus Filter
-                    </button>
+                  return (
+                    <>
+                      {hasFilters && (
+                        <button 
+                          onClick={() => {
+                            setOvertimeFilterDept('Semua Divisi');
+                            setOvertimeStartDate(defaultStart);
+                            setOvertimeEndDate(defaultEnd);
+                            setOvertimeFilterName(null);
+                            setOvertimeSearchName('');
+                          }} 
+                          className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1"
+                        >
+                          <Icon name="x" size={12} /> Hapus Filter
+                        </button>
+                      )}
+                      
+                      {/* Name Search for Overtime */}
+                      <div className="relative">
+                        <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                          type="text"
+                          placeholder="Cari nama karyawan..."
+                          value={overtimeSearchName}
+                          onChange={(e) => setOvertimeSearchName(e.target.value)}
+                          className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700 w-[150px]"
+                        />
+                      </div>
+                    </>
                   );
                 })()}
                 <button

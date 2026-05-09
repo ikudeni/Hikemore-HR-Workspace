@@ -28,6 +28,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
   const [filterDept, setFilterDept] = useState('All Departemen');
   const [filterLevel, setFilterLevel] = useState('All Level');
   const [filterPenilaian, setFilterPenilaian] = useState('All Penilaian');
+  const [searchPerformaName, setSearchPerformaName] = useState('');
   
   const globalSettings = performaDataMap['globalSettings'] || { baselineSalary: 3480000 };
   const baselineSalary = globalSettings.baselineSalary;
@@ -223,9 +224,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       const matchDept = filterDept === 'All Departemen' || d.dept === filterDept;
       const matchLevel = filterLevel === 'All Level' || d.levelJabatan === filterLevel;
       const matchPenilaian = filterPenilaian === 'All Penilaian' || d.classification === filterPenilaian;
-      return matchDept && matchLevel && matchPenilaian;
+      const matchSearch = d.name.toLowerCase().includes(searchPerformaName.toLowerCase());
+      return matchDept && matchLevel && matchPenilaian && matchSearch;
     });
-  }, [performaData, filterDept, filterLevel, filterPenilaian]);
+  }, [performaData, filterDept, filterLevel, filterPenilaian, searchPerformaName]);
 
   return (
     <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative">
@@ -265,19 +267,31 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
 
           {activeTab === 'dashboard' && (() => {
             const evaluatedData = filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai');
-            const isFilterActive = filterDept !== 'All Departemen' || filterLevel !== 'All Level' || filterPenilaian !== 'All Penilaian';
+            const isFilterActive = filterDept !== 'All Departemen' || filterLevel !== 'All Level' || filterPenilaian !== 'All Penilaian' || searchPerformaName !== '';
             return (
             <div className="flex flex-col gap-4">
               <div className="flex flex-wrap items-center gap-2.5 justify-end w-full">
                 {isFilterActive && (
                   <button 
-                    onClick={() => { setFilterDept('All Departemen'); setFilterLevel('All Level'); setFilterPenilaian('All Penilaian'); }} 
+                    onClick={() => { setFilterDept('All Departemen'); setFilterLevel('All Level'); setFilterPenilaian('All Penilaian'); setSearchPerformaName(''); }} 
                     className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1"
                   >
                     <Icon name="x" size={12} /> Hapus Filter
                   </button>
                 )}
                 
+                {/* Search Name Select */}
+                <div className="relative">
+                  <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text"
+                    placeholder="Cari nama karyawan..."
+                    value={searchPerformaName}
+                    onChange={(e) => setSearchPerformaName(e.target.value)}
+                    className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700 w-full sm:w-[150px]"
+                  />
+                </div>
+
                 {/* Dept Select */}
                 <div className="relative">
                   <select 
