@@ -9,8 +9,9 @@ import { Icon } from './ui/Icon';
 import { FormSelect, CompactFormSelect } from './ui/FormSelect';
 import { getSourceBadgeClass } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule } from '../types';
-import { db, logActivity, handleFirestoreError, OperationType } from '../firebase';
-import { doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { db, logActivity, handleFirestoreError, OperationType, storage } from '../firebase';
+import { doc, setDoc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 interface RekrutmenContentProps {
   employees: Employee[];
@@ -73,6 +74,9 @@ export const RekrutmenContent = ({
   
   const [isDeleteJobModalOpen, setIsDeleteJobModalOpen] = useState(false);
   const [jobToDeleteId, setJobToDeleteId] = useState<number | null>(null);
+
+  const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+  const [isDownloadingDoc, setIsDownloadingDoc] = useState<string | null>(null);
 
   const [candidateToDelete, setCandidateToDelete] = useState<number | null>(null);
   
@@ -1169,40 +1173,37 @@ export const RekrutmenContent = ({
                               className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors"
                               title="Download Dokumen"
                               onClick={async () => {
-                                if (doc.url && doc.url.startsWith('DB_STORED:')) {
-                                  try {
+                                setIsDownloadingDoc(doc.url);
+                                try {
+                                  let downloadUrl = doc.url;
+                                  if (doc.url && doc.url.startsWith('DB_STORED:')) {
                                     const docId = doc.url.split(':')[1];
-                                    const { doc: firestoreDoc, getDoc } = await import('firebase/firestore');
-                                    const { db } = await import('../firebase');
-                                    const docSnap = await getDoc(firestoreDoc(db, 'fileContents', docId));
-                                    if (docSnap.exists() && docSnap.data().base64) {
-                                      const base64Data = docSnap.data().base64;
-                                      const { downloadFile } = await import('../utils');
-                                      await downloadFile(base64Data, doc.name);
-                                    } else {
-                                      alert('File tidak ditemukan di server.');
+                                    const docSnap = await getDoc(doc(db, 'fileContents', docId));
+                                    const data = docSnap.data() as any;
+                                    if (docSnap.exists() && data?.base64) {
+                                      downloadUrl = data.base64;
                                     }
-                                  } catch (err) {
-                                    console.error("Download fail", err);
-                                    alert('Gagal mengunduh file dari cloud.');
                                   }
-                                } else {
-                                  try {
+
+                                  if (downloadUrl) {
                                     const { downloadFile } = await import('../utils');
-                                    await downloadFile(doc.url, doc.name);
-                                  } catch (err) {
-                                    console.error(err);
-                                    const link = document.createElement('a');
-                                    link.href = doc.url;
-                                    link.download = doc.name;
-                                    document.body.appendChild(link);
-                                    link.click();
-                                    document.body.removeChild(link);
+                                    await downloadFile(downloadUrl, doc.name);
+                                  } else {
+                                    alert('File tidak ditemukan.');
                                   }
+                                } catch (err) {
+                                  console.error("Download fail", err);
+                                  alert('Gagal mengunduh file.');
+                                } finally {
+                                  setIsDownloadingDoc(null);
                                 }
                               }}
                             >
-                              <Icon name="download" size={14} />
+                              {isDownloadingDoc === doc.url ? (
+                                <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                              ) : (
+                                <Icon name="download" size={14} />
+                              )}
                             </button>
                             <button 
                               className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200 transition-colors"
@@ -1231,7 +1232,7 @@ export const RekrutmenContent = ({
                       type="file" 
                       id="candidate-document-upload" 
                       className="hidden"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         if (e.target.files && e.target.files.length > 0) {
                           const file = e.target.files[0];
                           if (file.size > 3 * 1024 * 1024) {
@@ -1240,44 +1241,43 @@ export const RekrutmenContent = ({
                             return;
                           }
                           
-                          const reader = new FileReader();
-                          reader.onload = async (ev) => {
-                            const base64Data = ev.target?.result as string;
-                            try {
-                              const { doc, setDoc } = await import('firebase/firestore');
-                              const { db } = await import('../firebase');
-                              const docId = Date.now().toString();
-                              await setDoc(doc(db, 'fileContents', docId), { base64: base64Data });
-                              
-                              const name = file.name;
-                              const size = file.size;
-                              const url = `DB_STORED:${docId}`;
-                              
-                              const newDocs = [...(documentUploadTarget.documents || []), { name, url, size }];
-                              const updated = { ...documentUploadTarget, documents: newDocs };
-                              setDocumentUploadTarget(updated);
-                              setCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
-                            } catch (error) {
-                              console.error("Upload error", error);
-                              alert('Gagal mengunggah file ke cloud.');
-                            }
-                          };
-                          reader.readAsDataURL(file);
-                          
-                          e.target.value = ''; // reset input
-                        }
-                      }}
-                    />
-                    <label 
-                      htmlFor="candidate-document-upload"
-                      className="flex flex-col items-center justify-center w-full py-6 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl cursor-pointer hover:bg-blue-50/80 transition-colors group"
-                    >
-                      <div className="w-10 h-10 bg-white border border-blue-100 rounded-full flex items-center justify-center mb-2 shadow-sm group-hover:scale-110 transition-transform">
-                        <Icon name="upload-cloud" size={20} className="text-blue-500" />
-                      </div>
-                      <span className="text-sm font-bold text-blue-700">Pilih File untuk Diupload</span>
-                      <span className="text-[11px] font-semibold text-blue-500/70 mt-1">Maks. 3MB (PDF/JPG/PNG)</span>
-                    </label>
+                      setIsUploadingDoc(true);
+                      try {
+                        const { uploadFileToFirestore } = await import('../firebase');
+                        const downloadUrl = await uploadFileToFirestore(file);
+                        
+                        const name = file.name;
+                        const size = file.size;
+                        const url = downloadUrl;
+                        
+                        const newDocs = [...(documentUploadTarget.documents || []), { name, url, size }];
+                        const updated = { ...documentUploadTarget, documents: newDocs };
+                        setDocumentUploadTarget(updated);
+                        setCandidates(prev => prev.map(c => c.id === updated.id ? updated : c));
+                      } catch (error) {
+                        console.error("Upload error", error);
+                        alert(error instanceof Error ? error.message : 'Gagal mengunggah file ke cloud storage.');
+                      } finally {
+                        setIsUploadingDoc(false);
+                        e.target.value = '';
+                      }
+                    }
+                  }}
+                />
+                <label 
+                  htmlFor="candidate-document-upload"
+                  className={`flex flex-col items-center justify-center w-full py-6 border-2 border-dashed border-blue-200 bg-blue-50/30 rounded-2xl cursor-pointer hover:bg-blue-50/80 transition-colors group ${isUploadingDoc ? 'opacity-50 pointer-events-none' : ''}`}
+                >
+                  <div className="w-10 h-10 bg-white border border-blue-100 rounded-full flex items-center justify-center mb-2 shadow-sm group-hover:scale-110 transition-transform">
+                    {isUploadingDoc ? (
+                       <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                       <Icon name="upload-cloud" size={20} className="text-blue-500" />
+                    )}
+                  </div>
+                  <span className="text-sm font-bold text-blue-700">{isUploadingDoc ? 'Sedang Mengunggah...' : 'Pilih File untuk Diupload'}</span>
+                  <span className="text-[11px] font-semibold text-blue-500/70 mt-1">Maks. 3MB (PDF/JPG/PNG)</span>
+                </label>
                   </div>
                 </div>
               </div>

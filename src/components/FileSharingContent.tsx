@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from './ui/Icon';
-import { logActivity, db } from '../firebase';
+import { logActivity, db, storage } from '../firebase';
 import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { removeUndefined } from '../utils';
 
 type FileType = 'folder' | 'document';
@@ -93,7 +94,7 @@ export const FileSharingContent = () => {
     setNewItemName('');
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -104,44 +105,40 @@ export const FileSharingContent = () => {
     }
 
     setIsUploading(true);
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const base64Data = ev.target?.result as string;
-      const itemId = Date.now().toString();
+    
+    try {
+      const { uploadFileToFirestore } = await import('../firebase');
+      const downloadUrl = await uploadFileToFirestore(file);
       
-      try {
-        const { doc, setDoc } = await import('firebase/firestore');
-        await setDoc(doc(db, 'fileContents', itemId), { base64: base64Data });
+      const itemId = Date.now().toString();
+      const newItem: FileItem = {
+        id: itemId,
+        name: file.name,
+        type: 'document',
+        itemsCount: 1,
+        isStarred: false,
+        colorScheme: 'sky',
+        collaborators: ['ME'],
+        createdAt: new Date().toLocaleDateString(),
+        parentId: currentFolderId,
+        fileUrl: downloadUrl // Store real URL now
+      };
 
-        const newItem: FileItem = {
-          id: itemId,
-          name: file.name,
-          type: 'document',
-          itemsCount: 1,
-          isStarred: false,
-          colorScheme: 'sky',
-          collaborators: ['ME'],
-          createdAt: new Date().toLocaleDateString(),
-          parentId: currentFolderId,
-          fileUrl: 'DB_STORED'
-        };
-
-        let updatedItems = [...items];
-        if (currentFolderId) {
-          updatedItems = updatedItems.map(item => 
-            item.id === currentFolderId ? { ...item, itemsCount: item.itemsCount + 1 } : item
-          );
-        }
-
-        setItems([newItem, ...updatedItems]);
-        logActivity('File Diunggah', { nama: file.name, ukuran: (file.size / 1024).toFixed(1) + ' KB' });
-      } catch (error) {
-        console.error("Upload error", error);
-        alert('Gagal mengunggah file ke cloud.');
+      let updatedItems = [...items];
+      if (currentFolderId) {
+        updatedItems = updatedItems.map(item => 
+          item.id === currentFolderId ? { ...item, itemsCount: item.itemsCount + 1 } : item
+        );
       }
-      setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+
+      setItems([newItem, ...updatedItems]);
+      logActivity('File Diunggah', { nama: file.name, ukuran: (file.size / 1024).toFixed(1) + ' KB' });
+    } catch (error) {
+      console.error("Upload error", error);
+      alert(error instanceof Error ? error.message : 'Gagal mengunggah file ke cloud storage.');
+    }
+    setIsUploading(false);
+    e.target.value = '';
   };
 
   const handleDownload = async (e: React.MouseEvent, item: FileItem) => {
@@ -166,19 +163,27 @@ export const FileSharingContent = () => {
 
     setIsDownloading(item.id);
     try {
-      const { doc, getDoc } = await import('firebase/firestore');
-      const docSnap = await getDoc(doc(db, 'fileContents', item.id));
-      if (docSnap.exists() && docSnap.data().base64) {
-        const base64Data = docSnap.data().base64;
+      let downloadUrl = item.fileUrl;
+      
+      // Handle legacy DB_STORED files
+      if (item.fileUrl === 'DB_STORED') {
+        const { getDoc } = await import('firebase/firestore');
+        const docSnap = await getDoc(doc(db, 'fileContents', item.id));
+        if (docSnap.exists() && docSnap.data().base64) {
+          downloadUrl = docSnap.data().base64;
+        }
+      }
+
+      if (downloadUrl) {
         const { downloadFile } = await import('../utils');
-        await downloadFile(base64Data, item.name);
+        await downloadFile(downloadUrl, item.name);
         logActivity('File Diunduh', { nama: item.name });
       } else {
-        alert('File tidak ditemukan di server (Mungkin terhapus atau belum tersinkronisasi).');
+        alert('File tidak ditemukan di server.');
       }
     } catch (error) {
       console.error("Download error", error);
-      alert('Gagal membaca data file dari cloud.');
+      alert('Gagal mengunduh file.');
     }
     setIsDownloading(null);
   };
@@ -208,10 +213,11 @@ export const FileSharingContent = () => {
      setDeleteConfirmId(null);
 
      try {
-       const { doc, deleteDoc } = await import('firebase/firestore');
-       await deleteDoc(doc(db, 'fileContents', id));
-       // For a folder, we might ideally want to delete all child docs,
-       // but for this demo, single file deletion is the priority.
+       const { deleteDoc } = await import('firebase/firestore');
+       await deleteDoc(doc(db, 'fileContents', id)); // Cleanup legacy if exists
+       
+       // Note: To truly delete from Storage, we'd need the Storage URL path.
+       // For now, focusing on making new uploads fast.
      } catch(e) {}
   };
 

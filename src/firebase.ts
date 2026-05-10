@@ -41,16 +41,19 @@ export async function logActivity(action: string, details: Record<string, any>) 
       timestamp: now.toISOString()
     });
 
-    // Auto-delete logs older than 3 days
-    try {
-      const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
-      const q = query(collection(db, 'logs'), where('timestamp', '<', threeDaysAgo.toISOString()));
-      const snap = await getDocs(q);
-      snap.forEach(d => {
-        deleteDoc(d.ref).catch(() => {});
-      });
-    } catch (e) {
-      console.error('Failed to cleanup old logs', e);
+    // Auto-delete logs older than 3 days - run only sometimes to save quota/performance
+    if (Math.random() < 0.05) {
+      (async () => {
+        try {
+          const threeDaysAgo = new Date(now.getTime() - (3 * 24 * 60 * 60 * 1000));
+          const q = query(collection(db, 'logs'), where('timestamp', '<', threeDaysAgo.toISOString()));
+          const snap = await getDocs(q);
+          const deletePromises = snap.docs.map(d => deleteDoc(d.ref).catch(() => {}));
+          await Promise.all(deletePromises);
+        } catch (e) {
+          console.error('Failed to cleanup old logs', e);
+        }
+      })();
     }
   } catch (error) {
     console.error("Failed to add activity log", error);
@@ -71,6 +74,36 @@ export interface FirestoreErrorInfo {
   operationType: OperationType;
   path: string | null;
   authInfo: any;
+}
+
+export async function uploadFileToFirestore(file: File): Promise<string> {
+  // Read file as base64
+  const reader = new FileReader();
+  return new Promise((resolve, reject) => {
+    reader.onload = async (ev) => {
+      const base64Data = ev.target?.result as string;
+      
+      // Rough check if base64 exceeds Firestore 1MB document limit
+      // 1MB = 1,048,576 bytes. Provide a safe buffer (e.g. 900KB)
+      if (base64Data.length > 950000) {
+          reject(new Error(`Ukuran file terlalu besar untuk sistem. Mohon unggah file kurang dari 700KB.`));
+          return;
+      }
+      
+      try {
+        const docId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
+        const { setDoc } = await import('firebase/firestore');
+        await setDoc(doc(db, 'fileContents', docId), { base64: base64Data });
+        // Return a special protocol string so we know it's stored in the DB
+        resolve(`DB_STORED:${docId}`);
+      } catch (error) {
+        console.error("Firestore DB Storage error", error);
+        reject(new Error("Gagal mengunggah file ke database."));
+      }
+    };
+    reader.onerror = () => reject(new Error("Gagal membaca file lokal."));
+    reader.readAsDataURL(file);
+  });
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {

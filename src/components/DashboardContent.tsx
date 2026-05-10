@@ -244,15 +244,8 @@ export const DashboardContent = ({
   }, []);
 
   const overtimeRecords = overtimeRecordsReact;
-  const setOvertimeRecords: React.Dispatch<React.SetStateAction<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>> = useCallback((valOrFn) => {
-    setOvertimeRecordsReact(prev => {
-      const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-      const sanitizedVal = removeUndefined(newVal);
-      setDoc(doc(db, 'settings', 'overtimeRecords'), { records: sanitizedVal }, { merge: true }).catch(console.error);
-      return newVal;
-    });
-  }, []);
 
+  const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   const uniqueOvertimeDepts = useMemo(() => Array.from(new Set(employees.map(e => e.dept))), [employees]);
@@ -295,31 +288,19 @@ export const DashboardContent = ({
     }
 
     try {
-      setIsUploading(true);
-      let attachmentUrl = overtimeForm.attachment && typeof overtimeForm.attachment === 'string' ? overtimeForm.attachment : null;
-      
-      // Handle file upload if there's a new file
-      if (overtimeForm.attachment && overtimeForm.attachment instanceof File) {
-        const file = overtimeForm.attachment;
-        const storageRef = ref(storage, `overtime/${Date.now()}_${file.name}`);
-        const snapshot = await uploadBytes(storageRef, file);
-        attachmentUrl = await getDownloadURL(snapshot.ref);
-      }
-
+      setIsSaving(true);
+      const attachmentUrl = overtimeForm.attachment && typeof overtimeForm.attachment === 'string' ? overtimeForm.attachment : null;
       const docRef = doc(db, 'settings', 'overtimeRecords');
+      let updatedList = [];
       
       if (editingOvertimeId) {
-        const updatedRecords = overtimeRecords.map(r => r.id === editingOvertimeId ? { 
+        updatedList = overtimeRecords.map(r => r.id === editingOvertimeId ? { 
           ...r,
           date: overtimeForm.date,
           desc: overtimeForm.desc,
           attachment: attachmentUrl,
           ...(overtimeEntries[0] || { name: r.name, dept: r.dept, startTime: r.startTime, endTime: r.endTime, duration: r.duration })
         } : r);
-        
-        const sanitized = removeUndefined(updatedRecords);
-        await setDoc(docRef, { records: sanitized }, { merge: true });
-        setOvertimeRecordsReact(updatedRecords);
       } else {
         let maxId = Math.max(0, ...overtimeRecords.map(r => r.id));
         const newRecords = overtimeEntries.map((e, idx) => ({
@@ -329,20 +310,32 @@ export const DashboardContent = ({
           attachment: attachmentUrl,
           ...e
         }));
-        
-        if (newRecords.length > 0) {
-          const combined = [...overtimeRecords, ...newRecords];
-          const sanitized = removeUndefined(combined);
-          await setDoc(docRef, { records: sanitized }, { merge: true });
-          setOvertimeRecordsReact(combined);
-        }
+        updatedList = [...overtimeRecords, ...newRecords];
       }
+      
+      // Update UI immediately (optimistic)
+      setOvertimeRecordsReact(updatedList);
       setIsOvertimeModalOpen(false);
-      logActivity(editingOvertimeId ? 'Update Lembur' : 'Input Lembur', { date: overtimeForm.date });
+      
+      // Reset isSaving immediately after we close the modal and update local state
+      // to prevent "stuck" UI if the background sync takes a moment.
+      setIsSaving(false);
+
+      // Save to Firestore without blocking the UI
+      const sanitized = removeUndefined(updatedList);
+      setDoc(docRef, { records: sanitized }, { merge: true })
+        .then(() => {
+          logActivity(editingOvertimeId ? 'Update Lembur' : 'Input Lembur', { date: overtimeForm.date });
+        })
+        .catch(err => {
+          console.error("Failed to sync with Firestore", err);
+        });
+
     } catch (error) {
       console.error("Failed to save overtime record", error);
       alert('Gagal menyimpan data lembur: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
+      setIsSaving(false);
       setIsUploading(false);
     }
   };
@@ -351,15 +344,20 @@ export const DashboardContent = ({
     setDeleteOvertimeConfirm({ isOpen: true, id });
   };
 
-  const executeDeleteOvertime = async () => {
+  const executeDeleteOvertime = () => {
     if (deleteOvertimeConfirm.id !== null) {
       try {
         const updatedRecords = overtimeRecords.filter(r => r.id !== deleteOvertimeConfirm.id);
         const docRef = doc(db, 'settings', 'overtimeRecords');
-        await setDoc(docRef, { records: removeUndefined(updatedRecords) }, { merge: true });
+        
+        // Update UI immediately
         setOvertimeRecordsReact(updatedRecords);
         setDeleteOvertimeConfirm({ isOpen: false, id: null });
-        logActivity('Hapus Lembur', { id: deleteOvertimeConfirm.id });
+        
+        // Sync in background
+        setDoc(docRef, { records: removeUndefined(updatedRecords) }, { merge: true })
+          .then(() => logActivity('Hapus Lembur', { id: deleteOvertimeConfirm.id }))
+          .catch(console.error);
       } catch (error) {
         console.error("Failed to delete overtime record", error);
         alert('Gagal menghapus data lembur');
@@ -1956,18 +1954,33 @@ export const DashboardContent = ({
                         <td className="px-6 py-4 text-center">
                           {row.attachment ? (
                           <button
-                            onClick={() => {
+                            onClick={async () => {
                               try {
-                                const url = row.attachment instanceof File 
-                                  ? URL.createObjectURL(row.attachment) 
-                                  : typeof row.attachment === 'string' 
-                                    ? row.attachment 
-                                    : "";
-                                if (url) {
-                                  window.open(url, '_blank');
+                                if (typeof row.attachment === 'string' && row.attachment.startsWith('DB_STORED:')) {
+                                  const docId = row.attachment.split(':')[1];
+                                  const { doc, getDoc } = await import('firebase/firestore');
+                                  const { db } = await import('../firebase');
+                                  const docSnap = await getDoc(doc(db, 'fileContents', docId));
+                                  const data = docSnap.data() as any;
+                                  if (docSnap.exists() && data?.base64) {
+                                    const { downloadFile } = await import('../utils');
+                                    await downloadFile(data.base64, row.name + '_lembur');
+                                  } else {
+                                    alert('File tidak ditemukan di database.');
+                                  }
+                                } else {
+                                  const url = row.attachment instanceof File 
+                                    ? URL.createObjectURL(row.attachment) 
+                                    : typeof row.attachment === 'string' 
+                                      ? row.attachment 
+                                      : "";
+                                  if (url) {
+                                    window.open(url, '_blank');
+                                  }
                                 }
                               } catch(e) {
                                 console.error('Error opening attachment', e);
+                                alert('Oops, terjadi kesalahan saat membuka file.');
                               }
                             }}
                             className="text-blue-500 hover:text-blue-700 transition-colors p-1 bg-blue-50 hover:bg-blue-100 rounded-lg"
@@ -2359,9 +2372,26 @@ export const DashboardContent = ({
               <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
                  <label className="text-[13px] font-bold">Attachment (Form Lembur)</label>
                  <div className="border border-dashed border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center gap-2 bg-slate-50 hover:bg-white transition-colors hover:border-blue-400 group relative">
-                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={e => {
+                    <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={async (e) => {
                       if (e.target.files && e.target.files.length > 0) {
-                        setOvertimeForm({...overtimeForm, attachment: e.target.files[0]});
+                        const file = e.target.files[0];
+                        if (file.size > 700 * 1024) {
+                           alert("File terlalu besar. Maksimal ukuran file adalah 700KB.");
+                           e.target.value = '';
+                           return;
+                        }
+                        setIsUploading(true);
+                        try {
+                          const { uploadFileToFirestore } = await import('../firebase');
+                          const url = await uploadFileToFirestore(file);
+                          setOvertimeForm(prev => ({...prev, attachment: url, attachmentName: file.name}));
+                        } catch (error) {
+                          console.error("Upload error", error);
+                          alert(error instanceof Error ? error.message : "Gagal mengunggah file.");
+                        } finally {
+                          setIsUploading(false);
+                          e.target.value = '';
+                        }
                       }
                     }} />
                     <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -2370,13 +2400,13 @@ export const DashboardContent = ({
                     <div className="text-center">
                       <p className="text-sm font-bold text-blue-600">
                         {overtimeForm.attachment 
-                          ? (overtimeForm.attachment instanceof File ? overtimeForm.attachment.name : 'File Terlampir') 
+                          ? ((overtimeForm as any).attachmentName || 'File Terlampir') 
                           : 'Upload File'}
                       </p>
                       <p className="text-[11px] font-medium text-slate-500 mt-0.5 max-w-[200px] truncate">
                         {overtimeForm.attachment 
-                          ? (overtimeForm.attachment instanceof File ? `Ukuran: ${(overtimeForm.attachment.size/1024).toFixed(1)}KB` : 'File sudah diunggah') 
-                          : 'Klik atau drag drop file disini'}
+                          ? 'File sudah diunggah ke database' 
+                          : 'Maks. 700KB'}
                       </p>
                     </div>
                  </div>
@@ -2388,11 +2418,11 @@ export const DashboardContent = ({
               </button>
               <button 
                 onClick={handleSaveOvertime} 
-                disabled={isUploading}
+                disabled={isSaving || isUploading}
                 className={`px-5 py-2.5 rounded-xl font-bold text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2`}
               >
-                {isUploading && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
-                {isUploading ? 'Menyimpan...' : 'Simpan Data'}
+                {(isSaving || isUploading) && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                {isUploading ? 'Mengunggah...' : (isSaving ? 'Menyimpan...' : 'Simpan Data')}
               </button>
             </div>
           </Card>
