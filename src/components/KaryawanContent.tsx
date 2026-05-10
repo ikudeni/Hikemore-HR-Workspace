@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { Icon } from './ui/Icon';
 import { FormSelect, CompactFormSelect } from './ui/FormSelect';
 import { CustomDatePicker } from './ui/DatePicker';
@@ -322,7 +322,7 @@ export const KaryawanContent = ({
                       <button onClick={(e) => toggleActionMenu(emp.id, e)} className="flex items-center justify-between w-[95px] px-3 py-1.5 rounded-md text-xs font-bold border border-primary text-primary hover:bg-primary/10 transition-colors">
                         Action <Icon name="chevron-down" size={14} />
                       </button>
-                      {actionMenuOpenId === emp.id && ReactDOM.createPortal(
+                      {actionMenuOpenId === emp.id && createPortal(
                         <>
                           <div className="fixed inset-0 z-[9998]" onClick={() => setActionMenuOpenId(null)}></div>
                           <div className={`action-dropdown-menu fixed w-44 bg-white border border-slate-200 shadow-xl rounded-xl py-1 z-[9999] animate-fadeIn`}

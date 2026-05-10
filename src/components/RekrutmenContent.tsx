@@ -74,7 +74,7 @@ export const RekrutmenContent = ({
   const [isDeleteJobModalOpen, setIsDeleteJobModalOpen] = useState(false);
   const [jobToDeleteId, setJobToDeleteId] = useState<number | null>(null);
 
-  const [candidateToDelete, setCandidateToDelete] = useState<string | null>(null);
+  const [candidateToDelete, setCandidateToDelete] = useState<number | null>(null);
   
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [selectedCandidateForSchedule, setSelectedCandidateForSchedule] = useState<Candidate | null>(null);
@@ -140,18 +140,26 @@ export const RekrutmenContent = ({
     if (jobToDeleteId !== null) {
       const job = jobListings.find(j => j.id === jobToDeleteId);
       if (job) logActivity('Lowongan Dihapus', { posisi: job.title });
+      
+      const candidateIds = candidates.filter(c => c.jobId === jobToDeleteId).map(c => c.id);
+      
       setJobListings(prev => prev.filter(j => j.id !== jobToDeleteId));
       setCandidates(prev => prev.filter(c => c.jobId !== jobToDeleteId));
+      setSchedules(prev => prev.filter(s => !candidateIds.includes(s.candidateId)));
+      
       setIsDeleteJobModalOpen(false);
       setJobToDeleteId(null);
     }
   };
 
   const confirmDeleteCandidate = () => {
-    if (candidateToDelete) {
+    if (candidateToDelete !== null) {
       const candidate = candidates.find(c => c.id === candidateToDelete);
       if (candidate) logActivity('Kandidat Dihapus', { nama: candidate.name });
+      
       setCandidates(prev => prev.filter(cand => cand.id !== candidateToDelete));
+      setSchedules(prev => prev.filter(s => s.candidateId !== candidateToDelete));
+      
       setCandidateToDelete(null);
     }
   };

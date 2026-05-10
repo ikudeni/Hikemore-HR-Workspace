@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from './ui/Icon';
 import { logActivity, db } from '../firebase';
+import { doc, onSnapshot, setDoc } from 'firebase/firestore';
+import { removeUndefined } from '../utils';
 
 type FileType = 'folder' | 'document';
 
@@ -28,35 +30,26 @@ export const FileSharingContent = () => {
   const [itemsReact, setItemsReact] = useState<FileItem[]>([]);
 
   const items = itemsReact;
-  const setItems: React.Dispatch<React.SetStateAction<FileItem[]>> = React.useCallback((valOrFn) => {
+  const setItems: React.Dispatch<React.SetStateAction<FileItem[]>> = useCallback((valOrFn) => {
      setItemsReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
-        import('firebase/firestore').then(({ doc, setDoc }) => {
-          import('../utils').then(({ removeUndefined }) => {
-            const sanitizedVal = removeUndefined(newVal);
-            setDoc(doc(db, 'settings', 'workspaceFiles'), { items: sanitizedVal }, { merge: true }).catch(console.error);
-          });
-        });
+        const sanitizedVal = removeUndefined(newVal);
+        setDoc(doc(db, 'settings', 'workspaceFiles'), { items: sanitizedVal }, { merge: true }).catch(console.error);
         return newVal;
      });
   }, []);
 
-  React.useEffect(() => {
-    let unsubscribeFiles: (() => void) | undefined;
-    import('firebase/firestore').then(({ doc, onSnapshot }) => {
-       const q = doc(db, 'settings', 'workspaceFiles');
-       unsubscribeFiles = onSnapshot(q, (snapshot) => {
-         if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
-            const data = snapshot.data();
-            if (data.items) {
-               setItemsReact(data.items);
-            }
-         }
-       });
+  useEffect(() => {
+    const q = doc(db, 'settings', 'workspaceFiles');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+        const data = snapshot.data();
+        if (data.items) {
+           setItemsReact(data.items);
+        }
+      }
     });
-    return () => {
-      if (unsubscribeFiles) unsubscribeFiles();
-    };
+    return () => unsubscribe();
   }, []);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);

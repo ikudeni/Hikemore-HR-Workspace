@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
+import { createPortal } from 'react-dom';
 import { Card } from './Card';
 
 interface DonutData {
@@ -66,7 +66,7 @@ export const CustomDonutChartWidget = React.memo(({ title, data, action, onItemC
           </svg>
         </div>
         
-        {tooltip.show && tooltip.data && ReactDOM.createPortal(
+        {tooltip.show && tooltip.data && createPortal(
           <div className="fixed z-[9999] bg-slate-900 text-white px-3 py-2 rounded-xl shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col items-center min-w-max border border-slate-700 transition-opacity duration-150 ease-out" style={{ left: tooltip.x, top: tooltip.y - 15 }}>
             <span className="text-[10px] text-slate-300 font-medium mb-0.5">{tooltip.data.label}</span>
             <div className="flex items-end gap-1.5">

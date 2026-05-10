@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useRef, useEffect, useDeferredValue } from 'react';
-import ReactDOM from 'react-dom';
+import React, { useState, useMemo, useRef, useEffect, useDeferredValue, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { DateRangePicker } from './ui/DateRangePicker';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
@@ -13,8 +13,9 @@ import { CustomDonutChartWidget } from './ui/DonutChart';
 import { EduGaugeChart } from './ui/EduGaugeChart';
 import { getSourceBadgeClass, removeUndefined } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from '../types';
-import { db, logActivity } from '../firebase';
+import { db, logActivity, storage } from '../firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const STATUS_COLORS_MAP: Record<string, string> = {
   'Karyawan': '#60A5FA',     // Soft Blue
@@ -229,7 +230,7 @@ export const DashboardContent = ({
 
   const [overtimeEntries, setOvertimeEntries] = useState<{name: string, dept: string, startTime: string, endTime: string, duration: number}[]>([]);
 
-  const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number}[]>([]);
+  const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>([]);
 
   useEffect(() => {
     const q = doc(db, 'settings', 'overtimeRecords');
@@ -243,7 +244,7 @@ export const DashboardContent = ({
   }, []);
 
   const overtimeRecords = overtimeRecordsReact;
-  const setOvertimeRecords: React.Dispatch<React.SetStateAction<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number}[]>> = React.useCallback((valOrFn) => {
+  const setOvertimeRecords: React.Dispatch<React.SetStateAction<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>> = useCallback((valOrFn) => {
     setOvertimeRecordsReact(prev => {
       const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
       const sanitizedVal = removeUndefined(newVal);
@@ -251,6 +252,8 @@ export const DashboardContent = ({
       return newVal;
     });
   }, []);
+
+  const [isUploading, setIsUploading] = useState(false);
 
   const uniqueOvertimeDepts = useMemo(() => Array.from(new Set(employees.map(e => e.dept))), [employees]);
   const uniqueOvertimeDates = useMemo(() => Array.from(new Set(overtimeRecords.map(r => r.date))), [overtimeRecords]);
@@ -285,39 +288,82 @@ export const DashboardContent = ({
     setIsOvertimeModalOpen(true);
   };
 
-  const handleSaveOvertime = () => {
-    if (editingOvertimeId) {
-      setOvertimeRecords(prev => prev.map(r => r.id === editingOvertimeId ? { 
-        ...r,
-        date: overtimeForm.date,
-        desc: overtimeForm.desc,
-        attachment: overtimeForm.attachment,
-        ...(overtimeEntries[0] || { name: r.name, dept: r.dept, startTime: r.startTime, endTime: r.endTime, duration: r.duration })
-      } : r));
-    } else {
-      let maxId = Math.max(0, ...overtimeRecords.map(r => r.id));
-      const newRecords = overtimeEntries.map((e, idx) => ({
-        id: maxId + 1 + idx,
-        date: overtimeForm.date,
-        desc: overtimeForm.desc,
-        attachment: overtimeForm.attachment,
-        ...e
-      }));
-      if (newRecords.length > 0) {
-        setOvertimeRecords(prev => [...prev, ...newRecords]);
-      }
+  const handleSaveOvertime = async () => {
+    if (!overtimeForm.date) {
+      alert('Silakan pilih tanggal lembur');
+      return;
     }
-    setIsOvertimeModalOpen(false);
+
+    try {
+      setIsUploading(true);
+      let attachmentUrl = overtimeForm.attachment && typeof overtimeForm.attachment === 'string' ? overtimeForm.attachment : null;
+      
+      // Handle file upload if there's a new file
+      if (overtimeForm.attachment && overtimeForm.attachment instanceof File) {
+        const file = overtimeForm.attachment;
+        const storageRef = ref(storage, `overtime/${Date.now()}_${file.name}`);
+        const snapshot = await uploadBytes(storageRef, file);
+        attachmentUrl = await getDownloadURL(snapshot.ref);
+      }
+
+      const docRef = doc(db, 'settings', 'overtimeRecords');
+      
+      if (editingOvertimeId) {
+        const updatedRecords = overtimeRecords.map(r => r.id === editingOvertimeId ? { 
+          ...r,
+          date: overtimeForm.date,
+          desc: overtimeForm.desc,
+          attachment: attachmentUrl,
+          ...(overtimeEntries[0] || { name: r.name, dept: r.dept, startTime: r.startTime, endTime: r.endTime, duration: r.duration })
+        } : r);
+        
+        const sanitized = removeUndefined(updatedRecords);
+        await setDoc(docRef, { records: sanitized }, { merge: true });
+        setOvertimeRecordsReact(updatedRecords);
+      } else {
+        let maxId = Math.max(0, ...overtimeRecords.map(r => r.id));
+        const newRecords = overtimeEntries.map((e, idx) => ({
+          id: maxId + 1 + idx,
+          date: overtimeForm.date,
+          desc: overtimeForm.desc,
+          attachment: attachmentUrl,
+          ...e
+        }));
+        
+        if (newRecords.length > 0) {
+          const combined = [...overtimeRecords, ...newRecords];
+          const sanitized = removeUndefined(combined);
+          await setDoc(docRef, { records: sanitized }, { merge: true });
+          setOvertimeRecordsReact(combined);
+        }
+      }
+      setIsOvertimeModalOpen(false);
+      logActivity(editingOvertimeId ? 'Update Lembur' : 'Input Lembur', { date: overtimeForm.date });
+    } catch (error) {
+      console.error("Failed to save overtime record", error);
+      alert('Gagal menyimpan data lembur: ' + (error instanceof Error ? error.message : String(error)));
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const confirmDeleteOvertime = (id: number) => {
     setDeleteOvertimeConfirm({ isOpen: true, id });
   };
 
-  const executeDeleteOvertime = () => {
+  const executeDeleteOvertime = async () => {
     if (deleteOvertimeConfirm.id !== null) {
-      setOvertimeRecords(prev => prev.filter(r => r.id !== deleteOvertimeConfirm.id));
-      setDeleteOvertimeConfirm({ isOpen: false, id: null });
+      try {
+        const updatedRecords = overtimeRecords.filter(r => r.id !== deleteOvertimeConfirm.id);
+        const docRef = doc(db, 'settings', 'overtimeRecords');
+        await setDoc(docRef, { records: removeUndefined(updatedRecords) }, { merge: true });
+        setOvertimeRecordsReact(updatedRecords);
+        setDeleteOvertimeConfirm({ isOpen: false, id: null });
+        logActivity('Hapus Lembur', { id: deleteOvertimeConfirm.id });
+      } catch (error) {
+        console.error("Failed to delete overtime record", error);
+        alert('Gagal menghapus data lembur');
+      }
     }
   };
 
@@ -2143,7 +2189,7 @@ export const DashboardContent = ({
         </div>
       )}
 
-      {draggedPipelineJobId !== null && ReactDOM.createPortal(
+      {draggedPipelineJobId !== null && createPortal(
         <div 
           ref={customPipelineDragRef}
           className="fixed z-[10000] pointer-events-none bg-white shadow-2xl rounded-2xl border border-slate-200 px-6 py-4 flex items-center gap-4 transition-transform duration-75"
@@ -2168,7 +2214,7 @@ export const DashboardContent = ({
         document.body
       )}
 
-      {isOvertimeModalOpen && ReactDOM.createPortal(
+      {isOvertimeModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center animate-fadeIn">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsOvertimeModalOpen(false)}></div>
           <Card className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full">
@@ -2322,8 +2368,16 @@ export const DashboardContent = ({
                       <Icon name="upload-cloud" size={20} />
                     </div>
                     <div className="text-center">
-                      <p className="text-sm font-bold text-blue-600">{overtimeForm.attachment ? overtimeForm.attachment.name : 'Upload File'}</p>
-                      <p className="text-[11px] font-medium text-slate-500 mt-0.5 max-w-[200px] truncate">{overtimeForm.attachment ? `Ukuran: ${(overtimeForm.attachment.size/1024).toFixed(1)}KB` : 'Klik atau drag drop file disini'}</p>
+                      <p className="text-sm font-bold text-blue-600">
+                        {overtimeForm.attachment 
+                          ? (overtimeForm.attachment instanceof File ? overtimeForm.attachment.name : 'File Terlampir') 
+                          : 'Upload File'}
+                      </p>
+                      <p className="text-[11px] font-medium text-slate-500 mt-0.5 max-w-[200px] truncate">
+                        {overtimeForm.attachment 
+                          ? (overtimeForm.attachment instanceof File ? `Ukuran: ${(overtimeForm.attachment.size/1024).toFixed(1)}KB` : 'File sudah diunggah') 
+                          : 'Klik atau drag drop file disini'}
+                      </p>
                     </div>
                  </div>
               </div>
@@ -2332,8 +2386,13 @@ export const DashboardContent = ({
               <button onClick={() => setIsOvertimeModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-[13px] text-slate-600 hover:bg-slate-200 transition-colors">
                 Batal
               </button>
-              <button onClick={handleSaveOvertime} className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 active:scale-95">
-                Simpan Data
+              <button 
+                onClick={handleSaveOvertime} 
+                disabled={isUploading}
+                className={`px-5 py-2.5 rounded-xl font-bold text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 flex items-center gap-2`}
+              >
+                {isUploading && <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>}
+                {isUploading ? 'Menyimpan...' : 'Simpan Data'}
               </button>
             </div>
           </Card>
@@ -2341,7 +2400,7 @@ export const DashboardContent = ({
         document.body
       )}
 
-      {isKontrakModalOpen && ReactDOM.createPortal(
+      {isKontrakModalOpen && createPortal(
         <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center animate-fadeIn">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsKontrakModalOpen(false)}></div>
           <Card className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full">
@@ -2431,7 +2490,7 @@ export const DashboardContent = ({
         document.body
       )}
 
-      {deleteOvertimeConfirm.isOpen && ReactDOM.createPortal(
+      {deleteOvertimeConfirm.isOpen && createPortal(
         <div className="fixed inset-0 z-[10000] p-4 flex items-center justify-center animate-fadeIn">
           <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setDeleteOvertimeConfirm({ isOpen: false, id: null })}></div>
           <Card className="relative w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl p-6 text-center flex flex-col items-center gap-4 animate-scaleUp">
@@ -2455,7 +2514,7 @@ export const DashboardContent = ({
         document.body
       )}
 
-      {barTooltip.show && barTooltip.data && ReactDOM.createPortal(
+      {barTooltip.show && barTooltip.data && createPortal(
         <div className="fixed z-[9999] bg-slate-900 text-white p-3 rounded-xl shadow-xl pointer-events-none transform -translate-x-1/2 -translate-y-full flex flex-col min-w-[150px] border border-slate-700 transition-opacity duration-150 ease-out" style={{ left: barTooltip.x, top: barTooltip.y - 15 }}>
           <div className="font-bold text-xs mb-2 pb-2 border-b border-slate-700 text-slate-200">{barTooltip.data.label}</div>
           <div className="flex flex-col gap-2 mb-2">

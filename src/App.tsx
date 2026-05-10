@@ -17,7 +17,7 @@ import { SettingsContent } from './components/SettingsContent';
 import { ActivityLogDropdown } from './components/ActivityLogDropdown';
 import { ProfileDropdown } from './components/ProfileDropdown';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from './types';
-import { calculateDuration, calculateAge } from './utils';
+import { calculateDuration, calculateAge, removeUndefined } from './utils';
 import { auth, db, handleFirestoreError, OperationType, logActivity } from './firebase';
 import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ResetPasswordView } from './components/ResetPasswordView';
@@ -30,8 +30,6 @@ const UnderConstructionView = ({ menuName }: { menuName: string }) => (
     <p className="text-sm text-slate-500">Modul ini sedang dalam tahap pengembangan.</p>
   </div>
 );
-
-import { removeUndefined } from './utils';
 
 export default function App() {
   const [resetOobCode, setResetOobCode] = useState<string | null>(() => {
