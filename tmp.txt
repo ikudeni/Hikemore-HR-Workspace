@@ -1,0 +1,15 @@
+19:  performaDataMap: Record<string, any>;
+23:export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, performaDataMap, setPerformaDataMap }) => {
+34:  const globalSettings = performaDataMap['globalSettings'] || { baselineSalary: 3480000 };
+87:  }, [activeTab, employees, performaDataMap]);
+128:  const performaData = useMemo(() => {
+130:      const data = performaDataMap[emp.id] || {
+217:  }, [employees, performaDataMap, baselineSalary]);
+219:  const uniqueDepts = useMemo(() => Array.from(new Set(performaData.map(d => d.dept))).sort(), [performaData]);
+220:  const uniqueLevels = useMemo(() => Array.from(new Set(performaData.map(d => d.levelJabatan))).sort(), [performaData]);
+221:  const uniquePenilaian = useMemo(() => Array.from(new Set(performaData.map(d => d.classification))).filter(c => c !== 'Belum Dinilai').sort(), [performaData]);
+224:    return performaData.filter(d => {
+231:  }, [performaData, filterDept, filterLevel, filterPenilaian, searchPerformaName]);
+551:                    {performaData.length === 0 && (
+622:                    {performaDataMap[emp.id] && (
+634:                const data = performaDataMap[selectedEmpId] || { grit: 0, growth: 0, prof: 0, sus: 0, telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0 };

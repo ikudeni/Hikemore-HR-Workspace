@@ -125,11 +125,64 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
     handleGlobalSettingChange('jobLevels', newList);
   };
 
+  const getGuessedLevelId = (pos: string) => {
+    if (!pos) return 'Staff';
+    const p = pos.toLowerCase();
+    if (p.includes('head') || p.includes('manager') || p.includes('direktur') || p.includes('cfo') || p.includes('ceo')) return 'Head Department';
+    if (p.includes('supervisor') || p.includes('spv')) return 'Supervisor';
+    if (p.includes('kepala') || p.includes('store manager')) return 'Kepala Toko';
+    if (p.includes('senior')) return 'Senior Staff';
+    return 'Staff';
+  };
+
+  const handleAutoGenerateJobLevels = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    if (employees.length === 0) {
+      handleGlobalSettingChange('jobLevels', DEFAULT_JOB_LEVELS);
+      return;
+    }
+
+    // Hitung rata-rata gaji per kategori level untuk dijadikan multiplier
+    const levelStats: Record<string, { totalSalary: number, count: number }> = {};
+    
+    employees.forEach(emp => {
+      const level = getGuessedLevelId(emp.pos);
+      const data = performaDataMap[emp.id];
+      if (data && data.gaji && data.gaji > 0) {
+        if (!levelStats[level]) levelStats[level] = { totalSalary: 0, count: 0 };
+        levelStats[level].totalSalary += data.gaji;
+        levelStats[level].count += 1;
+      }
+    });
+
+    const newJobLevels: { id: string, label: string, multiplier: number }[] = [];
+
+    // Gunakan standar default dari DEFAULT_JOB_LEVELS, tapi timpa multiplier-nya jika ada data gaji sesungguhnya
+    DEFAULT_JOB_LEVELS.forEach(gl => {
+      let calcMultiplier = gl.multiplier;
+      if (levelStats[gl.id] && levelStats[gl.id].count > 0 && baselineSalary > 0) {
+        const avgGaji = levelStats[gl.id].totalSalary / levelStats[gl.id].count;
+        calcMultiplier = Number((avgGaji / baselineSalary).toFixed(2));
+      }
+      
+      newJobLevels.push({
+        id: gl.id,
+        label: `${gl.id} (${calcMultiplier}x)`,
+        multiplier: calcMultiplier
+      });
+    });
+
+    newJobLevels.sort((a, b) => a.multiplier - b.multiplier);
+    handleGlobalSettingChange('jobLevels', newJobLevels);
+  };
+
   const performaData = useMemo(() => {
     return employees.map(emp => {
       const data = performaDataMap[emp.id] || {
         grit: 0, growth: 0, prof: 0, sus: 0,
-        telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0, levelJabatan: 'HO - Staff / Admin'
+        telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0, levelJabatan: ''
       };
 
       const safeCalc = (keys: string[]) => {
@@ -154,7 +207,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       const nilaiAkhir = kompetensiScore + kedisiplinanScore;
       
       const gaji = data.gaji || 0;
-      const levelJabatan = data.levelJabatan || 'HO - Staff / Admin';
+      const levelJabatan = data.levelJabatan || '';
       const multiplier = getMultiplier(levelJabatan, data.customMultiplier);
       const displayJabatan = levelJabatan === 'Custom' && data.customLevelName 
         ? `${data.customLevelName} (${multiplier}x)`
@@ -180,7 +233,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       
       let classification = '';
       let rekomendasi = '';
-      if (gaji === 0 || nilaiAkhir <= 0) {
+      if (gaji === 0 || kompetensiScore === 0 || !data.levelJabatan) {
         classification = 'Belum Dinilai';
         rekomendasi = '-';
       }
@@ -500,8 +553,9 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         </td>
                         <td className="px-4 py-2 whitespace-nowrap">
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-800">{d.department}</span>
-                            <span className="text-[11px] text-slate-500 font-medium">{d.levelJabatan}</span>
+                            <span className="text-[11px] text-slate-500 font-medium">
+                              {d.levelJabatan || '-'}
+                            </span>
                           </div>
                         </td>
                         <td className="px-4 py-2 text-center">{d.kompetensiScore.toFixed(1)}</td>
@@ -619,7 +673,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         <p className="text-[11px] font-medium text-slate-400 mt-0.5 truncate">{emp.pos}</p>
                       </div>
                     </div>
-                    {performaDataMap[emp.id] && (
+                    {performaData.find(d => d.id === emp.id)?.classification !== 'Belum Dinilai' && (
                       <div className="w-2 h-2 rounded-full bg-emerald-400 ml-2 shrink-0"></div>
                     )}
                   </button>
@@ -631,7 +685,13 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
             <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] overflow-y-auto hide-scrollbar pb-8">
               {selectedEmpId ? (() => {
                 const emp = employees.find(e => e.id === selectedEmpId)!;
-                const data = performaDataMap[selectedEmpId] || { grit: 0, growth: 0, prof: 0, sus: 0, telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0 };
+
+                const storedData = performaDataMap[selectedEmpId];
+                const data = storedData || { 
+                  grit: 0, growth: 0, prof: 0, sus: 0, 
+                  telat: 0, ijin: 0, mangkir: 0, sp: 0, gaji: 0,
+                  levelJabatan: ''
+                };
                 
                 const handleChange = (field: string, value: number | string) => {
                   setPerformaDataMap(prev => ({
@@ -681,21 +741,43 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
                           <div>
                             <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Tanggal Mulai (Dari)</label>
-                            <input 
-                              type="date"
-                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans"
-                              value={data.periodeStart || ''}
-                              onChange={(e) => handleChange('periodeStart', e.target.value)}
-                            />
+                            <div className="relative">
+                              <input 
+                                type="date"
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl pl-4 pr-[70px] py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans [&::-webkit-clear-button]:hidden"
+                                value={data.periodeStart || ''}
+                                onChange={(e) => handleChange('periodeStart', e.target.value)}
+                              />
+                              {data.periodeStart && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChange('periodeStart', '')}
+                                  className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors p-1 z-10 hover:bg-slate-200/50 rounded-md"
+                                >
+                                  <Icon name="x" size={16} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                           <div>
                             <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Tanggal Selesai (Sampai)</label>
-                            <input 
-                              type="date"
-                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans"
-                              value={data.periodeEnd || ''}
-                              onChange={(e) => handleChange('periodeEnd', e.target.value)}
-                            />
+                            <div className="relative">
+                              <input 
+                                type="date"
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl pl-4 pr-[70px] py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans [&::-webkit-clear-button]:hidden"
+                                value={data.periodeEnd || ''}
+                                onChange={(e) => handleChange('periodeEnd', e.target.value)}
+                              />
+                              {data.periodeEnd && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChange('periodeEnd', '')}
+                                  className="absolute right-12 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors p-1 z-10 hover:bg-slate-200/50 rounded-md"
+                                >
+                                  <Icon name="x" size={16} />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -709,16 +791,27 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
                           <div>
                             <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Estimasi Gaji Bulanan (Rp)</label>
-                            <input 
-                              type="text" 
-                              className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all"
-                              value={data.gaji ? data.gaji.toLocaleString('id-ID') : ''}
-                              onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '');
-                                handleChange('gaji', parseInt(val) || 0);
-                              }}
-                              placeholder="Contoh: 8.000.000"
-                            />
+                            <div className="relative">
+                              <input 
+                                type="text" 
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl pl-4 pr-10 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all"
+                                value={data.gaji ? data.gaji.toLocaleString('id-ID') : ''}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/\D/g, '');
+                                  handleChange('gaji', parseInt(val) || 0);
+                                }}
+                                placeholder="Contoh: 8.000.000"
+                              />
+                              {data.gaji ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChange('gaji', 0)}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors p-1"
+                                >
+                                  <Icon name="x" size={16} />
+                                </button>
+                              ) : null}
+                            </div>
                           </div>
                           <div>
                             <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Level Jabatan (Multiplier Ekspektasi)</label>
@@ -750,7 +843,19 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                                     Silahkan pilih
                                   </div>
                                   <div className="max-h-60 overflow-y-auto py-1">
-                                    <div className="px-4 py-2 text-[10px] font-black text-blue-500 uppercase tracking-widest">Level Jabatan</div>
+                                    <div className="px-4 py-2 text-[10px] items-center flex justify-between font-black text-blue-500 uppercase tracking-widest">
+                                      <span>Level Jabatan</span>
+                                      <button 
+                                        type="button"
+                                        onClick={handleAutoGenerateJobLevels} 
+                                        className="text-[9px] bg-blue-100 text-blue-700 px-2.5 py-1 rounded-md cursor-pointer hover:bg-blue-200 transition-colors"
+                                      >
+                                        Auto Generate
+                                      </button>
+                                    </div>
+                                    {jobLevels.length === 0 && (
+                                      <div className="px-4 py-3 text-xs text-slate-400 text-center italic">Belum ada data. Klik Auto Generate atau buat baru di bawah.</div>
+                                    )}
                                     {jobLevels.map((lvl: any) => (
                                       <div 
                                         key={lvl.id}
