@@ -155,10 +155,10 @@ export const LoginView = ({
 
   return (
     <div className="min-h-screen bg-[#f7f8f9] flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col lg:flex-row w-full max-w-6xl min-h-[640px] xl:min-h-[720px] overflow-hidden border border-slate-100">
+      <div className="bg-white rounded-[2rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col md:flex-row w-full max-w-6xl min-h-[640px] xl:min-h-[720px] overflow-hidden border border-slate-100">
         
         {/* Left Form Side */}
-        <div className="flex-1 flex flex-col justify-between p-8 xl:p-14 lg:max-w-[480px] w-full shrink-0 relative bg-white">
+        <div className="flex-1 flex flex-col justify-between p-8 xl:p-14 md:max-w-[480px] w-full shrink-0 relative bg-white">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-8 h-8 bg-slate-900 flex items-center justify-center rounded-lg p-1.5 shadow-sm">
               <img src="/logo.svg" alt="Hikemore Logo" className="w-full h-full object-contain filter invert brightness-0" />
@@ -411,7 +411,7 @@ export const LoginView = ({
         </div>
 
         {/* Right Design Side */}
-        <div className="hidden lg:block lg:flex-1 p-3">
+        <div className="hidden md:block md:flex-1 p-3">
           <div className="w-full h-full bg-[#0958d9] rounded-[24px] relative overflow-hidden flex flex-col shadow-[inset_0_2px_20px_rgba(0,0,0,0.1)]">
             {/* Background circular decorations */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
@@ -423,7 +423,7 @@ export const LoginView = ({
             <div className="relative z-10 p-12 text-white">
               <div className="flex items-center gap-2 mb-8 opacity-80">
                 <div className="w-6 h-6 rounded-md flex items-center justify-center">
-                   <img src="/logo.svg" alt="Hikemore Logo" className="w-full h-full object-contain filter brightness-0 invert" />
+                  <img src="/logo.svg" alt="Hikemore Logo" className="w-full h-full object-contain filter brightness-0 invert" />
                 </div>
                 <span className="font-semibold text-sm tracking-wide text-white uppercase">HIKEMORE</span>
               </div>
@@ -552,6 +552,7 @@ export const LoginView = ({
 
               </div>
             </div>
+
           </div>
         </div>
         
