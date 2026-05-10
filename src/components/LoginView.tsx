@@ -423,7 +423,7 @@ export const LoginView = ({
             <div className="relative z-10 p-12 text-white">
               <div className="flex items-center gap-2 mb-8 opacity-80">
                 <div className="w-6 h-6 rounded-md flex items-center justify-center">
-                  <img src="/logo.svg" alt="Hikemore Logo" className="w-full h-full object-contain filter brightness-0 invert" />
+                   <img src="/logo.svg" alt="Hikemore Logo" className="w-full h-full object-contain filter brightness-0 invert" />
                 </div>
                 <span className="font-semibold text-sm tracking-wide text-white uppercase">HIKEMORE</span>
               </div>
@@ -552,7 +552,6 @@ export const LoginView = ({
 
               </div>
             </div>
-
           </div>
         </div>
         
