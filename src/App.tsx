@@ -31,6 +31,14 @@ const UnderConstructionView = ({ menuName }: { menuName: string }) => (
   </div>
 );
 
+const saveTimeouts: Record<string, NodeJS.Timeout> = {};
+const debouncedSetDoc = (key: string, docRef: any, data: any, options: any) => {
+  if (saveTimeouts[key]) clearTimeout(saveTimeouts[key]);
+  saveTimeouts[key] = setTimeout(() => {
+    setDoc(docRef, data, options).catch(console.error);
+  }, 1000);
+};
+
 export default function App() {
   const [resetOobCode, setResetOobCode] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -192,7 +200,7 @@ export default function App() {
      setKanbanStagesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'recruitmentData'), { kanbanStages: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('kanbanStages', doc(db, 'settings', 'recruitmentData'), { kanbanStages: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -202,7 +210,7 @@ export default function App() {
      setJobStagesMapReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'recruitmentData'), { jobStagesMap: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('jobStagesMap', doc(db, 'settings', 'recruitmentData'), { jobStagesMap: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -212,7 +220,7 @@ export default function App() {
      setJobListingsReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'recruitmentData'), { jobListings: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('jobListings', doc(db, 'settings', 'recruitmentData'), { jobListings: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -222,7 +230,7 @@ export default function App() {
      setCandidatesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'recruitmentData'), { candidates: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('candidates', doc(db, 'settings', 'recruitmentData'), { candidates: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -232,7 +240,7 @@ export default function App() {
      setSchedulesReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'recruitmentData'), { schedules: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('schedules', doc(db, 'settings', 'recruitmentData'), { schedules: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -264,7 +272,7 @@ export default function App() {
      setPerformaDataMapReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('performaData', doc(db, 'settings', 'performaData'), { performaDataMap: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);
@@ -352,7 +360,7 @@ export default function App() {
      setDashboardLayoutReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        setDoc(doc(db, 'settings', 'dashboardData'), { dashboardLayout: sanitizedVal }, { merge: true }).catch(console.error);
+        debouncedSetDoc('dashboardLayout', doc(db, 'settings', 'dashboardData'), { dashboardLayout: sanitizedVal }, { merge: true });
         return newVal;
      });
   }, []);

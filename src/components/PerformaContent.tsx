@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { logActivity } from '../firebase';
 import { Employee } from '../types';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, ReferenceLine } from 'recharts';
 
 // Leverage complexity berdasarkan Jabatan (Hikemore)
 const DEFAULT_JOB_LEVELS = [
@@ -23,6 +23,7 @@ interface PerformaContentProps {
 export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, performaDataMap, setPerformaDataMap }) => {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'input'>('dashboard');
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
+  const [reportPreviewData, setReportPreviewData] = useState<any | null>(null);
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(employees.length > 0 ? employees[0].id : null);
   
   const [filterDept, setFilterDept] = useState('All Departemen');
@@ -195,7 +196,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       const prof = safeCalc(['prof_1', 'prof_2', 'prof_3', 'prof_4', 'prof_5']);
       const sus = safeCalc(['sus_1', 'sus_2', 'sus_3', 'sus_4', 'sus_5']);
       
-      const kompetensiScore = (grit * 0.3) + (growth * 0.2) + (prof * 0.3) + (sus * 0.2); // max 125
+      const wGrit = data.weight_grit ?? 30;
+      const wGrowth = data.weight_growth ?? 20;
+      const wProf = data.weight_prof ?? 30;
+      const wSus = data.weight_sus ?? 20;
+      
+      const kompetensiScore = (grit * (wGrit/100)) + (growth * (wGrowth/100)) + (prof * (wProf/100)) + (sus * (wSus/100)); // max 125
       
       const telat = data.telat || 0;
       const ijin = data.ijin || 0;
@@ -243,7 +249,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
       }
       else if (vcr >= 1.10) {
         classification = 'Bagus (Di Atas Ekspektasi)';
-        rekomendasi = 'Layak Dipertahankan / Bonus';
+        rekomendasi = 'Layak Dipertahankan';
       }
       else if (vcr >= 0.95) {
         classification = 'Standar (Sesuai Gaji)';
@@ -262,6 +268,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
         ...emp,
         periodeStart: data.periodeStart || '',
         periodeEnd: data.periodeEnd || '',
+        namaPenilai: data.namaPenilai || '',
         grit, growth, prof, sus, kompetensiScore,
         telat, ijin, mangkir, sp, kedisiplinanScore,
         nilaiAkhir, gaji, levelJabatan: displayJabatan, nilaiKontribusi, vcr, classification, rekomendasi
@@ -277,7 +284,14 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
     return performaData.filter(d => {
       const matchDept = filterDept === 'All Departemen' || d.dept === filterDept;
       const matchLevel = filterLevel === 'All Level' || d.levelJabatan === filterLevel;
-      const matchPenilaian = filterPenilaian === 'All Penilaian' || d.classification === filterPenilaian;
+      
+      let matchPenilaian = true;
+      if (filterPenilaian === 'Sudah Dinilai') {
+        matchPenilaian = d.classification !== 'Belum Dinilai';
+      } else if (filterPenilaian !== 'All Penilaian') {
+        matchPenilaian = d.classification === filterPenilaian;
+      }
+      
       const matchSearch = d.name.toLowerCase().includes(searchPerformaName.toLowerCase());
       return matchDept && matchLevel && matchPenilaian && matchSearch;
     });
@@ -380,13 +394,15 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                     onChange={e => setFilterPenilaian(e.target.value)}
                   >
                     <option value="All Penilaian">Semua Penilaian</option>
+                    <option value="Sudah Dinilai">Sudah Dinilai</option>
+                    <option value="Belum Dinilai">Belum Dinilai</option>
                     {uniquePenilaian.map(p => <option key={p as string} value={p as string}>{p as string}</option>)}
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="relative bg-blue-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(59,130,246,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(59,130,246,0.15)] border border-blue-100/50 group cursor-default">
                   <div className="relative z-10 flex justify-between items-center w-full">
                     <div className="flex flex-col justify-center">
@@ -402,50 +418,58 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                   <div className="absolute bottom-0 right-0 w-10 h-10 bg-blue-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
                 </div>
 
-                <div className="relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(16,185,129,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(16,185,129,0.15)] border border-emerald-100/50 group cursor-default">
+                <div className="relative bg-purple-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(168,85,247,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(168,85,247,0.15)] border border-purple-100/50 group cursor-default">
                   <div className="relative z-10 flex justify-between items-center w-full">
                     <div className="flex flex-col justify-center">
-                      <p className="text-[10px] font-black text-emerald-500 mb-1 uppercase tracking-widest">Efisien (Valuable)</p>
-                      <p className="text-[32px] leading-none font-black text-emerald-950">
-                        {evaluatedData.filter(p => p.classification.startsWith('Sangat Bagus') || p.classification.startsWith('Bagus')).length}
+                      <p className="text-[10px] font-black text-purple-500 mb-1 uppercase tracking-widest">Rata-Rata Nilai Akhir</p>
+                      <p className="text-[32px] leading-none font-black text-purple-950">
+                        {evaluatedData.length > 0 ? (evaluatedData.reduce((acc, curr) => acc + curr.nilaiAkhir, 0) / evaluatedData.length).toFixed(1) : '0.0'}
                       </p>
                     </div>
-                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-emerald-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
-                      <Icon name="trending-up" size={20} />
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-purple-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
+                      <Icon name="award" size={20} />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-purple-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </div>
+
+                <button 
+                  onClick={() => setFilterPenilaian(filterPenilaian === 'Sudah Dinilai' ? 'All Penilaian' : 'Sudah Dinilai')}
+                  className={`text-left relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] ${filterPenilaian === 'Sudah Dinilai' ? 'ring-2 ring-offset-2 ring-emerald-500 scale-[1.02]' : 'hover:scale-[1.02]'} shadow-[0_2px_10px_-2px_rgba(16,185,129,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(16,185,129,0.15)] border border-emerald-100/50 group`}
+                >
+                  <div className="relative z-10 flex justify-between items-center w-full">
+                    <div className="flex flex-col justify-center">
+                      <p className="text-[10px] font-black text-emerald-500 mb-1 uppercase tracking-widest">Sudah Dinilai</p>
+                      <p className="text-[32px] leading-none font-black text-emerald-950">
+                        {evaluatedData.length}
+                        <span className="text-sm text-emerald-600 font-bold ml-1 uppercase tracking-widest leading-none">Orang</span>
+                      </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-emerald-500 shadow-sm shrink-0 transition-transform">
+                      <Icon name="check-circle" size={20} />
                     </div>
                   </div>
                   <div className="absolute bottom-0 right-0 w-10 h-10 bg-emerald-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
-                </div>
+                </button>
 
-                <div className="relative bg-slate-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-slate-200 group cursor-default">
+                <button 
+                  onClick={() => setFilterPenilaian(filterPenilaian === 'Belum Dinilai' ? 'All Penilaian' : 'Belum Dinilai')}
+                  className={`text-left relative bg-amber-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] ${filterPenilaian === 'Belum Dinilai' ? 'ring-2 ring-offset-2 ring-amber-500 scale-[1.02]' : 'hover:scale-[1.02]'} shadow-[0_2px_10px_-2px_rgba(245,158,11,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(245,158,11,0.15)] border border-amber-100/50 group`}
+                >
                   <div className="relative z-10 flex justify-between items-center w-full">
                     <div className="flex flex-col justify-center">
-                      <p className="text-[10px] font-black text-slate-500 mb-1 uppercase tracking-widest">Sesuai (Fair)</p>
-                      <p className="text-[32px] leading-none font-black text-slate-800">
-                        {evaluatedData.filter(p => p.classification.startsWith('Standar')).length}
+                      <p className="text-[10px] font-black text-amber-500 mb-1 uppercase tracking-widest">Belum Dinilai</p>
+                      <p className="text-[32px] leading-none font-black text-amber-950">
+                        {filteredPerformaData.length - evaluatedData.length}
+                        <span className="text-sm text-amber-600 font-bold ml-1 uppercase tracking-widest leading-none">Orang</span>
                       </p>
                     </div>
-                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-slate-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
-                      <Icon name="minus" size={20} />
+                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-amber-500 shadow-sm shrink-0 transition-transform">
+                      <Icon name="clock" size={20} />
                     </div>
                   </div>
-                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-slate-400" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
-                </div>
-
-                <div className="relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-[0_2px_10px_-2px_rgba(244,63,94,0.1)] hover:shadow-[0_4px_15px_-3px_rgba(244,63,94,0.15)] border border-rose-100/50 group cursor-default">
-                  <div className="relative z-10 flex justify-between items-center w-full">
-                    <div className="flex flex-col justify-center">
-                      <p className="text-[10px] font-black text-rose-500 mb-1 uppercase tracking-widest">Beban (Overpaid)</p>
-                      <p className="text-[32px] leading-none font-black text-rose-950">
-                        {evaluatedData.filter(p => p.classification.startsWith('Kurang') || p.classification.startsWith('Sangat Kurang')).length}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-rose-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
-                      <Icon name="trending-down" size={20} />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-rose-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
-                </div>
+                  <div className="absolute bottom-0 right-0 w-10 h-10 bg-amber-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
+                </button>
               </div>
             </div>
             );
@@ -454,63 +478,128 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
 
         {activeTab === 'dashboard' ? (
           <>
-            {/* Scatter Plot untuk Rekomendasi Visualisasi */}
-            <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="font-extrabold text-slate-800">Visualisasi Evaluasi Kinerja vs Cost Salary</h3>
-                  <p className="text-sm font-medium text-slate-500">
-                    Scatter plot efektif untuk membandingkan cost salary terhadap evaluasi kinerja (core value).
-                  </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Scatter Plot untuk Rekomendasi Visualisasi */}
+              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Evaluasi Kinerja vs Cost Salary</h3>
+                    <p className="text-sm font-medium text-slate-500">
+                      Scatter plot membandingkan cost terhadap evaluasi kinerja.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1 w-full min-h-[250px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis type="number" dataKey="nilaiAkhir" name="Skor Akhir" domain={[0, 130]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} label={{ value: 'Nilai Akhir (Total Performa)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} />
+                      <YAxis type="number" dataKey="gaji" name="Gaji" tickFormatter={(v) => `Rp ${(v/1000000).toFixed(0)}Jt`} domain={[0, Math.max(10000000, ...filteredPerformaData.map(d => d.gaji || 0))]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
+                      <RechartsTooltip 
+                        cursor={{ strokeDasharray: '3 3' }} 
+                        formatter={(value: number, name: string) => name === 'Gaji' ? `Rp ${value.toLocaleString('id-ID')}` : value}
+                        content={({ payload }) => {
+                          if (payload && payload.length) {
+                            const data = payload[0].payload;
+                            if (data.dummy) return null;
+                            return (
+                              <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px] z-50">
+                                <p className="font-bold text-slate-800 mb-1">{data.name}</p>
+                                <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">{data.levelJabatan}</p>
+                                <div className="space-y-1 mb-2">
+                                  <p className="text-slate-500 flex justify-between"><span>Nilai Akhir:</span> <span className="font-bold text-slate-800">{data.nilaiAkhir.toFixed(1)}</span></p>
+                                  <p className="text-slate-500 flex justify-between"><span>Gaji Aktual:</span> <span className="font-bold text-slate-800">Rp {data.gaji.toLocaleString('id-ID')}</span></p>
+                                  <p className="text-slate-500 flex justify-between"><span>Nilai Kontribusi:</span> <span className="font-bold text-emerald-600">Rp {Math.round(data.nilaiKontribusi).toLocaleString('id-ID')}</span></p>
+                                </div>
+                                <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
+                                  <p className="text-slate-500 flex justify-between items-center">
+                                    <span>Kesimpulan:</span> 
+                                    <span className="font-bold" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                      {data.classification.split(' (')[0]}
+                                    </span>
+                                  </p>
+                                  {data.rekomendasi && data.rekomendasi !== '-' && (
+                                    <p className="text-[10px] font-bold text-right" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                      ({data.rekomendasi})
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Scatter name="Karyawan" data={filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]}>
+                        {(filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]).map((entry: any, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.dummy ? 'transparent' : entry.classification.startsWith('Sangat Bagus') ? '#10b981' : entry.classification.startsWith('Bagus') ? '#3b82f6' : entry.classification.startsWith('Standar') ? '#64748b' : entry.classification.startsWith('Kurang') && !entry.classification.startsWith('Sangat') ? '#f97316' : entry.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'} />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
                 </div>
               </div>
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis type="number" dataKey="nilaiAkhir" name="Skor Akhir" domain={[0, 130]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} label={{ value: 'Nilai Akhir (Total Performa)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} />
-                    <YAxis type="number" dataKey="gaji" name="Gaji" tickFormatter={(v) => `Rp ${(v/1000000).toFixed(0)}Jt`} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
-                    <RechartsTooltip 
-                      cursor={{ strokeDasharray: '3 3' }} 
-                      formatter={(value: number, name: string) => name === 'Gaji' ? `Rp ${value.toLocaleString('id-ID')}` : value}
-                      content={({ payload }) => {
-                        if (payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px]">
-                              <p className="font-bold text-slate-800 mb-1">{data.name}</p>
-                              <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">{data.levelJabatan}</p>
-                              <div className="space-y-1 mb-2">
-                                <p className="text-slate-500 flex justify-between"><span>Nilai Akhir:</span> <span className="font-bold text-slate-800">{data.nilaiAkhir.toFixed(1)}</span></p>
-                                <p className="text-slate-500 flex justify-between"><span>Gaji Aktual:</span> <span className="font-bold text-slate-800">Rp {data.gaji.toLocaleString('id-ID')}</span></p>
-                                <p className="text-slate-500 flex justify-between"><span>Nilai Kontribusi:</span> <span className="font-bold text-emerald-600">Rp {Math.round(data.nilaiKontribusi).toLocaleString('id-ID')}</span></p>
-                              </div>
-                              <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
-                                <p className="text-slate-500 flex justify-between items-center">
-                                  <span>Kesimpulan:</span> 
-                                  <span className="font-bold" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
-                                    {data.classification.split(' (')[0]}
-                                  </span>
-                                </p>
-                                {data.rekomendasi && data.rekomendasi !== '-' && (
-                                  <p className="text-[10px] font-bold text-right" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
-                                    ({data.rekomendasi})
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Scatter name="Karyawan" data={filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai')}>
-                      {filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.classification.startsWith('Sangat Bagus') ? '#10b981' : entry.classification.startsWith('Bagus') ? '#3b82f6' : entry.classification.startsWith('Standar') ? '#64748b' : entry.classification.startsWith('Kurang') && !entry.classification.startsWith('Sangat') ? '#f97316' : entry.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'} />
-                      ))}
-                    </Scatter>
-                  </ScatterChart>
-                </ResponsiveContainer>
+
+              {/* 9 Box Grid Distribution */}
+              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
+                <div className="flex items-center justify-between mb-5 shrink-0">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Distribusi Kategori Kesimpulan</h3>
+                    <p className="text-sm font-medium text-slate-500">
+                      Pemetaan jumlah individu berdasarkan kesimpulan performa vs cost. Klik untuk filter.
+                    </p>
+                  </div>
+                  {filterPenilaian !== 'All Penilaian' && (
+                    <button 
+                      onClick={() => setFilterPenilaian('All Penilaian')}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-3 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+                    >
+                      <Icon name="x" size={14} /> Clear Filter
+                    </button>
+                  )}
+                </div>
+                
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-6 gap-3 auto-rows-fr">
+                  {[
+                   { id: 'Sangat Bagus (Sangat Menguntungkan)', label: 'Sangat Bagus', badge: 'Sangat Menguntungkan', bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700', icon: 'zap', gridClass: 'col-span-2 sm:col-span-3' },
+                   { id: 'Bagus (Di Atas Ekspektasi)', label: 'Bagus', badge: 'Di Atas Ekspektasi', bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-700', icon: 'trending-up', gridClass: 'col-span-2 sm:col-span-3' },
+                   { id: 'Standar (Sesuai Gaji)', label: 'Standar', badge: 'Sesuai Gaji', bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700', icon: 'minus', gridClass: 'col-span-2 sm:col-span-2' },
+                   { id: 'Kurang (Underperforming)', label: 'Kurang', badge: 'Underperforming', bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', icon: 'alert-triangle', gridClass: 'col-span-1 sm:col-span-2' },
+                   { id: 'Sangat Kurang (Overpaid / Rugi)', label: 'Sangat Kurang', badge: 'Overpaid / Rugi', bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', icon: 'x-circle', gridClass: 'col-span-1 sm:col-span-2' },
+                  ].map(cat => {
+                    // Coba hitung berdasarkan filter yang lain agar akurat
+                    const count = performaData.filter(d => {
+                      const matchDept = filterDept === 'All Departemen' || d.dept === filterDept;
+                      const matchLevel = filterLevel === 'All Level' || d.levelJabatan === filterLevel;
+                      const matchSearch = d.name.toLowerCase().includes(searchPerformaName.toLowerCase());
+                      return d.classification === cat.id && matchDept && matchLevel && matchSearch;
+                    }).length;
+                    
+                    const isSelected = filterPenilaian === cat.id;
+
+                    return (
+                      <button 
+                         key={cat.id} 
+                         onClick={() => setFilterPenilaian(isSelected ? 'All Penilaian' : cat.id)}
+                         className={`p-4 rounded-xl border text-left transition-all ${isSelected ? `ring-2 ring-offset-1 ${cat.border.replace('border-', 'ring-')}` : 'hover:scale-[1.02]'} ${cat.bg} ${cat.border} flex flex-col justify-between ${cat.gridClass}`}
+                      >
+                         <div>
+                           <div className="flex items-center gap-1.5 mb-2">
+                             <Icon name={cat.icon as any} size={14} className={cat.text} />
+                             <span className={`text-[9px] font-black uppercase tracking-wider ${cat.text}`}>{cat.badge}</span>
+                           </div>
+                           <h4 className={`text-sm font-extrabold ${cat.text} leading-tight`}>{cat.label}</h4>
+                         </div>
+                         <div className="mt-4 flex items-end justify-between w-full">
+                           <div className="flex items-baseline gap-1">
+                             <span className={`text-4xl font-black ${cat.text} leading-none`}>{count}</span>
+                           </div>
+                           <span className={`text-[10px] font-bold ${cat.text} uppercase tracking-widest opacity-80 mb-1`}>Orang</span>
+                         </div>
+                      </button>
+                    )
+                  })}
+                </div>
               </div>
             </div>
 
@@ -535,6 +624,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Analitik Gaji & Value</th>
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Value-To-Cost Ratio</th>
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Kesimpulan Penilaian</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Penilai</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Dokumen Report</th>
                     </tr>
                   </thead>
                   <tbody className="text-sm font-medium text-slate-700 divide-y divide-slate-100">
@@ -559,7 +650,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                           </div>
                         </td>
                         <td className="px-4 py-2 text-center">{d.kompetensiScore.toFixed(1)}</td>
-                        <td className="px-4 py-2 text-red-500 text-center">{d.kedisiplinanScore}</td>
+                        <td className="px-4 py-2 text-red-500 text-center font-bold">-{Math.abs(d.kedisiplinanScore)}</td>
                         <td className="px-4 py-2 font-bold text-slate-900 text-center">{d.nilaiAkhir.toFixed(1)}</td>
                         <td className="px-4 py-2">
                           <div className="flex flex-col gap-1 w-32 py-1 mx-auto">
@@ -600,11 +691,27 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                             </span>
                           </div>
                         </td>
+                        <td className="px-4 py-2 text-center whitespace-nowrap">
+                          <span className="text-xs font-bold text-slate-700">{d.namaPenilai || '-'}</span>
+                        </td>
+                        <td className="px-4 py-2 text-center whitespace-nowrap">
+                          {d.classification !== 'Belum Dinilai' ? (
+                            <button
+                              onClick={() => setReportPreviewData(d)}
+                              className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-100 hover:text-blue-700 transition-all border border-blue-200 inline-flex items-center gap-1.5 shadow-sm"
+                            >
+                              <Icon name="file-text" size={14} />
+                              Lihat PDF
+                            </button>
+                          ) : (
+                            <span className="text-[11px] font-bold text-slate-400">-</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {performaData.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="px-4 py-8 text-center text-slate-400">Belum ada data evaluasi</td>
+                        <td colSpan={10} className="px-4 py-8 text-center text-slate-400">Belum ada data evaluasi</td>
                       </tr>
                     )}
                   </tbody>
@@ -699,6 +806,39 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                     [selectedEmpId]: { ...data, [field]: value }
                   }));
                 };
+                
+                // Kalkulasi total real-time
+                const safeCalc = (keys: string[]) => {
+                  const sum = keys.reduce((acc, k) => acc + (data[k as keyof typeof data] || 0), 0) as number;
+                  return sum / keys.length;
+                };
+
+                const gritVal = safeCalc(['grit_1', 'grit_2', 'grit_3', 'grit_4', 'grit_5']);
+                const growthVal = safeCalc(['growth_1', 'growth_2', 'growth_3', 'growth_4', 'growth_5']);
+                const profVal = safeCalc(['prof_1', 'prof_2', 'prof_3', 'prof_4', 'prof_5']);
+                const susVal = safeCalc(['sus_1', 'sus_2', 'sus_3', 'sus_4', 'sus_5']);
+                
+                const wGrit = data.weight_grit ?? 30;
+                const wGrowth = data.weight_growth ?? 20;
+                const wProf = data.weight_prof ?? 30;
+                const wSus = data.weight_sus ?? 20;
+                
+                const totalKompetensi = (gritVal * (wGrit/100)) + (growthVal * (wGrowth/100)) + (profVal * (wProf/100)) + (susVal * (wSus/100)); // max 125
+                
+                const telat = data.telat || 0;
+                const ijin = data.ijin || 0;
+                const mangkir = data.mangkir || 0;
+                const sp = data.sp || 0;
+                
+                const pengurangMap: Record<string, number> = {
+                  telat: telat * 1,
+                  ijin: ijin * 1,
+                  mangkir: mangkir * 3,
+                  sp: sp * 5
+                };
+                
+                const totalPengurang = Object.values(pengurangMap).reduce((a, b) => a + b, 0);
+                const nilaiAkhirRealTime = Math.max(0, totalKompetensi - totalPengurang);
 
                 return (
                   <div>
@@ -720,7 +860,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest flex items-center gap-2">
                             <Icon name="calendar" size={16} className="text-blue-500" />
-                            Periode Penilaian
+                            Periode & Penilai
                           </h4>
                           {(emp.contractStart || emp.contractEnd) && (
                             <button
@@ -738,7 +878,28 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                             </button>
                           )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl">
+                          <div>
+                            <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Nama Penilai</label>
+                            <div className="relative">
+                              <input 
+                                type="text"
+                                className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-bold rounded-xl pl-4 pr-10 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100 transition-all font-sans"
+                                value={data.namaPenilai || ''}
+                                onChange={(e) => handleChange('namaPenilai', e.target.value)}
+                                placeholder="Tulis nama penilai..."
+                              />
+                              {data.namaPenilai && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleChange('namaPenilai', '')}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors p-1 z-10 hover:bg-slate-200/50 rounded-md"
+                                >
+                                  <Icon name="x" size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </div>
                           <div>
                             <label className="block text-[11px] font-black tracking-widest text-slate-400 uppercase mb-2">Tanggal Mulai (Dari)</label>
                             <div className="relative">
@@ -920,7 +1081,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                           </h4>
                           {[
                             { 
-                              id: 'grit', label: 'Grit (Ketekunan)', bobot: '30%', 
+                              id: 'grit', label: 'Grit (Ketekunan)', bobotKey: 'weight_grit', defaultBobot: 30, 
                               desc1: 'Sangat mudah menyerah, menolak tugas.', 
                               desc2: 'Kurang tekun, inisiatif minim, banyak alasan.', 
                               desc3: 'Penyelesaian standar, inisiatif butuh arahan.', 
@@ -935,7 +1096,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               ]
                             },
                             { 
-                              id: 'growth', label: 'Growth (Pertumbuhan)', bobot: '20%', 
+                              id: 'growth', label: 'Growth (Pertumbuhan)', bobotKey: 'weight_growth', defaultBobot: 20, 
                               desc1: 'Menolak masukan, performa terus menurun.', 
                               desc2: 'Kurang proaktif, mengulang kesalahan sama.', 
                               desc3: 'Belajar bila diminta, terbuka terhadap masukan ringan.', 
@@ -950,7 +1111,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               ]
                             },
                             { 
-                              id: 'prof', label: 'Professionalism', bobot: '30%', 
+                              id: 'prof', label: 'Professionalism', bobotKey: 'weight_prof', defaultBobot: 30, 
                               desc1: 'Sering melanggar aturan, tidak bertanggung jawab.', 
                               desc2: 'Kurang tanggap, komunikasi seadanya, perlu diawasi.', 
                               desc3: 'Tanggung jawab tercapai, komunikasi cukup, patuh.', 
@@ -965,7 +1126,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               ]
                             },
                             { 
-                              id: 'sus', label: 'Sustainable (Adaptasi)', bobot: '20%', 
+                              id: 'sus', label: 'Sustainable (Adaptasi)', bobotKey: 'weight_sus', defaultBobot: 20, 
                               desc1: 'Menolak keras perubahan, banyak mengeluh.', 
                               desc2: 'Lambat beradaptasi, sering bingung metode baru.', 
                               desc3: 'Bisa beradaptasi bila diajari, kualitas stabil.', 
@@ -987,7 +1148,20 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               <div className="flex justify-between items-center mb-4">
                                 <div className="flex flex-col">
                                   <label className="text-sm font-black tracking-widest text-slate-800 uppercase">{komp.label}</label>
-                                  <span className="text-[11px] font-bold text-slate-500">Bobot {komp.bobot} • Skor Rata-rata: {hasSelections ? avgScore.toFixed(1) : '-'}</span>
+                                  <span className="text-[11px] font-bold text-slate-500">Skor Rata-rata: {hasSelections ? avgScore.toFixed(1) : '-'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-sm bg-white border border-slate-200 pl-3 pr-1 py-1 rounded-lg shadow-sm">
+                                  <span className="font-bold text-slate-500 text-xs uppercase tracking-wider">Bobot:</span>
+                                  <div className="flex items-center relative w-16">
+                                    <input 
+                                      type="number" 
+                                      min="0" max="100" 
+                                      className="w-full text-right font-black text-blue-600 outline-none pr-4 py-1 [&::-webkit-inner-spin-button]:appearance-none leading-none bg-transparent"
+                                      value={data[komp.bobotKey as keyof typeof data] ?? komp.defaultBobot}
+                                      onChange={(e) => handleChange(komp.bobotKey, e.target.value === '' ? '' : parseInt(e.target.value))}
+                                    />
+                                    <span className="absolute right-1 text-slate-400 font-bold pointer-events-none">%</span>
+                                  </div>
                                 </div>
                               </div>
                               
@@ -1018,44 +1192,66 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                                 {komp.questions.map((q, idx) => (
                                   <div key={q.id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-slate-200">
                                     <label className="text-[13px] font-semibold text-slate-700 flex-1 pr-4">{idx + 1}. {q.text}</label>
-                                    <div className="w-36 md:w-44 flex-shrink-0 relative">
-                                      <select 
-                                        className={`appearance-none w-full bg-slate-50 border border-slate-200 font-bold rounded-lg pl-3 pr-16 py-2 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-[13px] cursor-pointer ${data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? 'text-slate-500' : 'text-slate-800'}`}
-                                        value={data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? '' : data[q.id as keyof typeof data]}
-                                        onChange={(e) => {
-                                          if (e.target.value === '') {
-                                            handleChange(q.id, '');
-                                          } else {
-                                            handleChange(q.id, parseInt(e.target.value) || 0);
-                                          }
-                                        }}
-                                      >
-                                        <option value="" disabled>Silahkan pilih</option>
-                                        <option value="125">5 - Sangat Bagus</option>
-                                        <option value="100">4 - Bagus</option>
-                                        <option value="75">3 - Standar / Cukup</option>
-                                        <option value="50">2 - Kurang</option>
-                                        <option value="25">1 - Sangat Kurang</option>
-                                        <option value="0">Tidak Ada</option>
-                                      </select>
-                                      <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
-                                        {(data[q.id as keyof typeof data] !== undefined && data[q.id as keyof typeof data] !== '') && (
-                                          <button
-                                            type="button"
-                                            onClick={() => handleChange(q.id, '')}
-                                            className="text-red-400 hover:text-red-600 transition-colors p-1 z-10 relative cursor-pointer"
-                                            title="Kosongkan nilai"
-                                          >
-                                            <Icon name="x" size={14} />
-                                          </button>
-                                        )}
-                                        <div className="pointer-events-none text-slate-400">
-                                          <Icon name="chevron-down" size={14} />
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-14 h-9 bg-blue-50/80 border border-blue-100 rounded-lg flex items-center justify-center text-[13px] font-black text-blue-600 shadow-sm">
+                                        {data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? '-' : data[q.id as keyof typeof data]}
+                                      </div>
+                                      <div className="w-36 md:w-44 flex-shrink-0 relative">
+                                        <select 
+                                          className={`appearance-none w-full bg-slate-50 border border-slate-200 font-bold rounded-lg pl-3 pr-16 py-2 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-[13px] cursor-pointer ${data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? 'text-slate-500' : 'text-slate-800'}`}
+                                          value={data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === '' ? '' : data[q.id as keyof typeof data]}
+                                          onChange={(e) => {
+                                            if (e.target.value === '') {
+                                              handleChange(q.id, '');
+                                            } else {
+                                              handleChange(q.id, parseInt(e.target.value) || 0);
+                                            }
+                                          }}
+                                        >
+                                          <option value="" disabled>Silahkan pilih</option>
+                                          <option value="125">5 - Sangat Bagus</option>
+                                          <option value="100">4 - Bagus</option>
+                                          <option value="75">3 - Standar / Cukup</option>
+                                          <option value="50">2 - Kurang</option>
+                                          <option value="25">1 - Sangat Kurang</option>
+                                          <option value="0">Tidak Ada</option>
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                          {(data[q.id as keyof typeof data] !== undefined && data[q.id as keyof typeof data] !== '') && (
+                                            <button
+                                              type="button"
+                                              onClick={() => handleChange(q.id, '')}
+                                              className="text-red-400 hover:text-red-600 transition-colors p-1 z-10 relative cursor-pointer"
+                                              title="Kosongkan nilai"
+                                            >
+                                              <Icon name="x" size={14} />
+                                            </button>
+                                          )}
+                                          <div className="pointer-events-none text-slate-400">
+                                            <Icon name="chevron-down" size={14} />
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
                                   </div>
                                 ))}
+                              </div>
+                              
+                              <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50/50 p-4 rounded-xl border border-blue-100/60 flex items-center justify-between shadow-sm">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm">
+                                    <Icon name="sigma" size={20} />
+                                  </div>
+                                  <div>
+                                    <h5 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-tight">Total Nilai {komp.label.split(' ')[0]}</h5>
+                                    <p className="text-[11px] font-bold text-slate-500 mt-0.5">Rata-rata ({hasSelections ? avgScore.toFixed(1) : '-'}) × Bobot {data[komp.bobotKey as keyof typeof data] ?? komp.defaultBobot}%</p>
+                                  </div>
+                                </div>
+                                <div className="flex items-end gap-1">
+                                  <span className="text-3xl font-black text-blue-600 leading-none">
+                                    {hasSelections ? (avgScore * ((data[komp.bobotKey as keyof typeof data] ?? komp.defaultBobot) / 100)).toFixed(1) : '0.0'}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                           )})}
@@ -1078,17 +1274,57 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                                 <label className="text-[11px] font-black tracking-widest text-slate-500 uppercase">{dis.label}</label>
                                 <span className="text-[10px] font-bold text-rose-400 bg-rose-50 px-2 py-0.5 rounded-md">{dis.penalty}</span>
                               </div>
-                              <input 
-                                type="number"
-                                min="0" 
-                                className="w-full bg-white border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 transition-all"
-                                value={data[dis.id as keyof typeof data] === 0 ? 0 : (data[dis.id as keyof typeof data] || '')}
-                                onChange={(e) => handleChange(dis.id, e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
-                                placeholder="0"
-                              />
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <input 
+                                    type="number"
+                                    min="0" 
+                                    className="w-full bg-white border border-slate-200 text-slate-800 font-bold rounded-xl px-4 py-2.5 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 transition-all"
+                                    value={data[dis.id as keyof typeof data] === 0 ? 0 : (data[dis.id as keyof typeof data] || '')}
+                                    onChange={(e) => handleChange(dis.id, e.target.value === '' ? '' : parseInt(e.target.value) || 0)}
+                                    placeholder="0"
+                                  />
+                                </div>
+                                <div className="w-16 h-[46px] rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center font-black text-rose-600 shadow-sm">
+                                  -{pengurangMap[dis.id] || 0}
+                                </div>
+                              </div>
                             </div>
                           ))}
+                          
+                          <div className="mt-4 pt-2 bg-gradient-to-r from-rose-50 to-orange-50/50 p-4 rounded-xl border border-rose-100/60 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-rose-500 shadow-sm">
+                                <Icon name="minus-circle" size={20} />
+                              </div>
+                              <div>
+                                <h5 className="text-sm font-black text-slate-800 uppercase tracking-widest leading-tight">Total Potongan</h5>
+                                <p className="text-[11px] font-bold text-slate-500 mt-0.5">Pengurang Kedisiplinan</p>
+                              </div>
+                            </div>
+                            <div className="flex items-end gap-1">
+                              <span className="text-3xl font-black text-rose-600 leading-none">
+                                -{totalPengurang}
+                              </span>
+                            </div>
+                          </div>
+
                         </div>
+                        
+                        <div className="mt-8 bg-slate-800 p-6 rounded-2xl flex items-center justify-between shadow-lg relative overflow-hidden">
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full blur-3xl opacity-20 -translate-y-1/2 translate-x-1/4"></div>
+                          <div className="relative z-10 flex flex-col">
+                            <label className="text-slate-400 font-bold text-[11px] uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><Icon name="check-circle" size={14} className="text-emerald-400" /> TOTAL NILAI AKHIR (VCR)</label>
+                            <span className="text-white font-black text-4xl">{nilaiAkhirRealTime.toFixed(1)}</span>
+                          </div>
+                          <div className="relative z-10 flex items-center gap-3 text-right">
+                            <div className="flex flex-col text-right">
+                              <span className="text-slate-300 font-bold text-xs">Total Kompetensi: <span className="text-white">{totalKompetensi.toFixed(1)}</span></span>
+                              <span className="text-slate-300 font-bold text-xs mt-0.5 border-b border-dashed border-slate-600 pb-1">Total Pengurang: <span className="text-rose-400">-{totalPengurang}</span></span>
+                            </div>
+                          </div>
+                        </div>
+
                       </div>
                     </div>
                   </div>
@@ -1106,6 +1342,256 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
         )}
 
       </div>
+
+      {reportPreviewData && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
+          <div className="bg-white shadow-2xl w-full max-w-[800px] flex flex-col my-auto animate-scaleIn rounded-xl">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden rounded-t-xl sticky top-0 z-50">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Icon name="file-text" size={16} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-800 tracking-tight text-sm">Pratinjau Dokumen Report</h3>
+                  <p className="text-xs font-bold text-slate-400">PDF Assessment Karyawan</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => window.print()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2"
+                >
+                  <Icon name="download" size={14} />
+                  Cetak / Unduh PDF
+                </button>
+                <button 
+                  onClick={() => setReportPreviewData(null)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                >
+                  <Icon name="x" size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-auto bg-slate-100 p-8 flex justify-center print:bg-white print:p-0 print:overflow-visible my-[max(0px,auto)] min-h-[calc(100vh-100px)] hide-scrollbar">
+              {/* PDF Document Styling container */}
+              <div id="pdf-report-content" className="bg-white w-[210mm] min-h-[297mm] shadow-md border border-slate-200 print:shadow-none print:border-none print:w-full print:h-auto p-12 text-slate-800 mx-auto relative font-sans break-inside-avoid">
+                {/* Header Section */}
+                <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
+                  <div className="flex items-center gap-3">
+                    <img src="/logo.svg" alt="Hikemore Logo" className="w-16 h-16 object-contain text-slate-900" style={{ filter: "grayscale(100%) brightness(0%)" }} />
+                    <div className="font-sans">
+                      <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none">HIKEMORE</h1>
+                      <p className="text-[12px] font-bold tracking-widest text-slate-500 uppercase">HR Workspace</p>
+                    </div>
+                  </div>
+                  <div className="text-right flex justify-end">
+                    <h2 className="text-3xl font-black tracking-widest text-slate-900 uppercase">RAHASIA</h2>
+                  </div>
+                </div>
+
+                <div className="mb-8">
+                  {/* Identitas Diri */}
+                  <div className="w-full bg-slate-200 px-3 py-1.5 mb-2">
+                    <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">Identitas Diri</h3>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-12 px-2 text-sm">
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Nama</span>
+                      <span className="font-medium text-slate-900">: {reportPreviewData.name}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Departemen</span>
+                      <span className="font-medium text-slate-900">: {reportPreviewData.dept}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Jabatan & Level</span>
+                      <span className="font-medium text-slate-900">: {reportPreviewData.levelJabatan}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Periode Evaluasi</span>
+                      <span className="font-medium text-slate-900">: {(reportPreviewData.periodeStart && reportPreviewData.periodeEnd) ? `${reportPreviewData.periodeStart} - ${reportPreviewData.periodeEnd}` : '-'}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Email</span>
+                      <span className="font-medium text-slate-900">: {reportPreviewData.email}</span>
+                    </div>
+                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                      <span className="font-semibold text-slate-700">Tanggal Cetak</span>
+                      <span className="font-medium text-slate-900">: {new Date().toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Content Sections */}
+                <div className="space-y-6">
+                  {/* Standar Evaluasi */}
+                  <div className="w-full bg-slate-200 px-3 py-1.5 flex flex-col justify-center items-center mt-2">
+                     <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">Deskripsi Profil Kinerja</h3>
+                     <p className="text-[10px] font-medium text-slate-600">Standar Klasifikasi: (≥100 : Sangat Baik), (80-99 : Baik), (60-79 : Cukup), (40-59 : Kurang), (&lt;40 : Sangat Kurang)</p>
+                  </div>
+                  
+                  <div className="flex bg-slate-100 border-x border-b border-t-2 border-slate-300">
+                     <div className="flex-1 p-2 px-3">
+                        <p className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Klasifikasi Kinerja</p>
+                        <p className="text-[11px] text-slate-600 font-medium">Berdasarkan kalkulasi matriks evaluasi</p>
+                     </div>
+                     <div className="bg-white border-l border-slate-300 p-2 flex items-center justify-center min-w-[200px]">
+                        <p className={`text-base font-black uppercase tracking-widest ${reportPreviewData.classification.startsWith('Sangat Bagus') ? 'text-emerald-600' : reportPreviewData.classification.startsWith('Bagus') ? 'text-blue-600' : reportPreviewData.classification.startsWith('Standar') ? 'text-slate-700' : reportPreviewData.classification.startsWith('Kurang') && !reportPreviewData.classification.startsWith('Sangat') ? 'text-amber-600' : reportPreviewData.classification.startsWith('Sangat Kurang') ? 'text-rose-600' : 'text-slate-800'}`}>
+                           {reportPreviewData.classification}
+                        </p>
+                     </div>
+                  </div>
+
+                  <div className="flex bg-slate-100 border-x border-b border-slate-300 mt-[-24px]">
+                     <div className="flex-1 p-2 px-3">
+                        <p className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">Tindakan / Rekomendasi</p>
+                        <p className="text-[11px] text-slate-600 font-medium">Saran tindak lanjut</p>
+                     </div>
+                     <div className="bg-white border-l border-slate-300 p-2 flex items-center justify-center min-w-[200px] text-center px-4">
+                        <p className="text-sm font-bold text-slate-800 leading-tight">
+                           {reportPreviewData.rekomendasi}
+                        </p>
+                     </div>
+                  </div>
+
+                  <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
+                    <thead>
+                      <tr className="bg-slate-200">
+                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12">No</th>
+                        <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700">Area Asesmen & Performa</th>
+                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28">Kategori</th>
+                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28">Skor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="bg-slate-50">
+                        <td colSpan={4} className="py-1.5 px-3 border border-slate-300 text-xs font-bold text-blue-800 uppercase tracking-widest">
+                           Core Value Kompetensi (+)
+                        </td>
+                      </tr>
+                      {['Grit (Ketekunan)', 'Growth Mindset', 'Proactivity', 'Sustainability'].map((label, idx) => {
+                        const key = ['grit', 'growth', 'prof', 'sus'][idx] as keyof typeof reportPreviewData;
+                        const val = reportPreviewData[key] || 0;
+                        return (
+                          <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-500">0{idx + 1}</td>
+                            <td className="py-1 px-3 border border-slate-300">
+                               <p className="font-bold text-slate-800 leading-snug">{label}</p>
+                            </td>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-600 bg-slate-100/50">Sangat Tinggi</td>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-black text-slate-900 bg-slate-100">+{val}</td>
+                          </tr>
+                        );
+                      })}
+
+                      <tr className="bg-slate-50">
+                        <td colSpan={4} className="py-1.5 px-3 border border-slate-300 text-xs font-bold text-rose-800 uppercase tracking-widest">
+                           Pelanggaran Kedisiplinan (-)
+                        </td>
+                      </tr>
+                      {[
+                        { label: 'Terlambat / Menunda Pekerjaan', key: 'telat', mul: 0.5 },
+                        { label: 'Izin / Sakit / Tidak Valid', key: 'ijin', mul: 1 },
+                        { label: 'Mangkir / Lepas Tanggung Jawab', key: 'mangkir', mul: 3 },
+                        { label: 'Diberikan Surat Peringatan', key: 'sp', mul: 5 },
+                      ].map((item, idx) => {
+                        const val = reportPreviewData[item.key as keyof typeof reportPreviewData] || 0;
+                        const dec = val * item.mul;
+                        return (
+                          <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}`}>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-500">0{idx + 5}</td>
+                            <td className="py-1 px-3 border border-slate-300">
+                               <p className="font-bold text-slate-800 leading-snug">{item.label}</p>
+                            </td>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-600 bg-slate-100/50">Kasus: {val}</td>
+                            <td className="py-1 px-3 border border-slate-300 text-center font-black text-rose-600 bg-slate-100">-{dec}</td>
+                          </tr>
+                        );
+                      })}
+
+                      <tr>
+                        <td colSpan={3} className="py-3 px-3 border border-slate-300 text-right font-black uppercase text-slate-900 bg-slate-200">
+                           Total Skor Kalkulasi
+                        </td>
+                        <td className="py-3 px-3 border border-slate-300 text-center font-black text-2xl text-slate-900 bg-slate-100">
+                           {reportPreviewData.nilaiAkhir}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Grafik Visualisasi */}
+                  <div className="w-full flex gap-6 mt-6 pt-4 border-t-2 border-slate-900 border-dashed">
+                     <div className="flex-1 max-w-[280px]">
+                        <div className="w-full bg-slate-200 px-3 py-1.5 flex flex-col justify-center items-start mb-2">
+                           <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">Corak Profile</h3>
+                        </div>
+                        <p className="text-xs font-medium text-slate-600 leading-relaxed text-justify mb-4">
+                           Distribusi proporsi antara kekuatan kompetensi Core Value dan pengaruh dari poin negatif kedisiplinan.
+                        </p>
+                        <div className="bg-slate-100 border border-slate-300 p-2 text-center text-xs font-bold text-slate-700 uppercase">
+                          Kecenderungan Evaluasi
+                        </div>
+                        <div className="bg-white border-x border-b border-slate-300 p-3 text-center text-sm font-black text-blue-700">
+                          {reportPreviewData.nilaiAkhir >= 80 ? 'Positif / Konstruktif' : reportPreviewData.nilaiAkhir >= 60 ? 'Seimbang / Standar' : 'Butuh Perbaikan Ekstra'}
+                        </div>
+                     </div>
+                     <div className="flex-1 bg-slate-50 border border-slate-300 rounded p-4 h-[200px] flex items-center justify-center relative break-inside-avoid">
+                        <div className="absolute top-2 left-3">
+                           <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Visualisasi Kurva Nilai</span>
+                        </div>
+                        <ResponsiveContainer width="90%" height="80%">
+                           <LineChart data={[
+                              { name: 'GRT', score: reportPreviewData.grit || 0 },
+                              { name: 'GWM', score: reportPreviewData.growth || 0 },
+                              { name: 'PRO', score: reportPreviewData.prof || 0 },
+                              { name: 'SUS', score: reportPreviewData.sus || 0 },
+                              { name: 'TLT', score: ((reportPreviewData.telat || 0) * 0.5) * -1 },
+                              { name: 'IJN', score: ((reportPreviewData.ijin || 0) * 1) * -1 },
+                              { name: 'MGK', score: ((reportPreviewData.mangkir || 0) * 3) * -1 },
+                              { name: 'SPR', score: ((reportPreviewData.sp || 0) * 5) * -1 },
+                           ]} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#cbd5e1" />
+                              <XAxis dataKey="name" axisLine={true} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 9, fontWeight: 'bold', fill: '#64748b' }} domain={[-15, 20]} />
+                              <ReferenceLine y={0} stroke="#475569" strokeDasharray="3 3" />
+                              <Line type="monotone" dataKey="score" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4, fill: '#1e40af', strokeWidth: 1 }} isAnimationActive={false} />
+                           </LineChart>
+                        </ResponsiveContainer>
+                     </div>
+                  </div>
+
+                  {/* Summary / Analysis Text */}
+                  <div className="pt-6">
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed text-justify mb-4">
+                      Berdasarkan hasil evaluasi yang dilakukan selama periode berjalan, saudara/i <strong className="text-slate-900 font-bold">{reportPreviewData.name}</strong> memperoleh total skor akhir sebesar <strong className="text-slate-900 font-bold">{reportPreviewData.nilaiAkhir}</strong>. Nilai ini merupakan akumulasi dari performa core value sebesar {reportPreviewData.kompetensiScore} dan pemotongan poin kedisiplinan sebesar {(reportPreviewData.telat * 0.5) + (reportPreviewData.ijin * 1) + (reportPreviewData.mangkir * 3) + (reportPreviewData.sp * 5)}. 
+                    </p>
+                    <p className="text-xs font-medium text-slate-600 leading-relaxed text-justify">
+                      *Dokumen ini merupakan hasil cetak otomatis dari sistem HR Workspace <strong>Hikemore</strong>. Data yang tertera telah divalidasi berdasarkan input dari akun penilai terdaftar. Laporan ini bersifat rahasia dan hanya digunakan untuk keperluan internal perusahaan.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer / Signature */}
+                <div className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-end">
+                   <div className="text-[10px] text-slate-500">
+                      <p>Hikemore HR Workspace</p>
+                      <p>Email: hc.hikemore@gmail.com</p>
+                      <p>Report ID: {Math.random().toString(36).substr(2, 9).toUpperCase()}-{new Date().getFullYear()}</p>
+                   </div>
+                   <div className="text-center w-48">
+                      <p className="text-xs font-semibold text-slate-500 mb-16">Penilai,</p>
+                      <div className="border-b border-slate-800 w-full mb-2"></div>
+                      <p className="text-sm font-black text-slate-900">{reportPreviewData.namaPenilai || '...........................................'}</p>
+                   </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isGuideModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">

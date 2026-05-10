@@ -13,7 +13,7 @@ import {
   MessageCircle, ExternalLink, Smartphone, Video, MapPin, Monitor,
   File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
   Info, HelpCircle, FolderPlus, User, DollarSign, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
-  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key
+  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle
 } from 'lucide-react';
 
 const iconMap = {
@@ -100,7 +100,9 @@ const iconMap = {
   'book-open': BookOpen,
   'shield': Shield,
   'eye': Eye,
-  'eye-off': EyeOff
+  'eye-off': EyeOff,
+  'sigma': Sigma,
+  'minus-circle': MinusCircle
 };
 
 interface IconProps {
