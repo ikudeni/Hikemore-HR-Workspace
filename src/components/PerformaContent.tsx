@@ -29,6 +29,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
   const [filterLevel, setFilterLevel] = useState('All Level');
   const [filterPenilaian, setFilterPenilaian] = useState('All Penilaian');
   const [searchPerformaName, setSearchPerformaName] = useState('');
+  const [inputEmpSearch, setInputEmpSearch] = useState('');
   
   const globalSettings = performaDataMap['globalSettings'] || { baselineSalary: 3480000 };
   const baselineSalary = globalSettings.baselineSalary;
@@ -591,22 +592,35 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
             <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4 h-[calc(100vh-320px)] min-h-[600px]">
               {/* Left Sidebar: Employee List */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-100 bg-slate-50">
+              <div className="p-4 border-b border-slate-100 bg-slate-50 flex flex-col gap-3">
                 <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-widest">Pilih Karyawan</h3>
+                <div className="relative">
+                  <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input 
+                    type="text"
+                    placeholder="Cari nama karyawan..."
+                    value={inputEmpSearch}
+                    onChange={(e) => setInputEmpSearch(e.target.value)}
+                    className="pl-9 pr-3 py-2 w-full bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700"
+                  />
+                </div>
               </div>
               <div className="overflow-y-auto flex-1 p-2 space-y-1 hide-scrollbar">
-                {employees.map(emp => (
+                {employees.filter(emp => emp.name.toLowerCase().includes(inputEmpSearch.toLowerCase())).map((emp, index) => (
                   <button
                     key={emp.id}
                     onClick={() => setSelectedEmpId(emp.id)}
                     className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between ${selectedEmpId === emp.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'}`}
                   >
-                    <div>
-                      <p className="font-bold text-[13px]">{emp.name}</p>
-                      <p className="text-[11px] font-medium text-slate-400 mt-0.5">{emp.pos}</p>
+                    <div className="w-full flex gap-3 items-start overflow-hidden">
+                      <span className={`text-[12px] font-bold mt-0.5 shrink-0 ${selectedEmpId === emp.id ? 'text-blue-500' : 'text-slate-400'}`}>{index + 1}.</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-[13px] truncate">{emp.name}</p>
+                        <p className="text-[11px] font-medium text-slate-400 mt-0.5 truncate">{emp.pos}</p>
+                      </div>
                     </div>
                     {performaDataMap[emp.id] && (
-                      <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
+                      <div className="w-2 h-2 rounded-full bg-emerald-400 ml-2 shrink-0"></div>
                     )}
                   </button>
                 ))}

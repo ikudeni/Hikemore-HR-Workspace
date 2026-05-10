@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
+import { SearchableSelect } from './ui/FormSelect';
 import { QRCodeSVG } from 'qrcode.react';
 import QRCode from 'qrcode';
 import { Employee } from '../types';
@@ -808,18 +809,17 @@ export function InventoryContent({ employees }: InventoryContentProps) {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Pilih Karyawan</label>
-                  <select 
-                    className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium appearance-none"
+                  <SearchableSelect
+                    label="Pilih Karyawan"
+                    placeholder="-- Pilih Karyawan --"
                     value={assignEmployeeId}
-                    onChange={(e) => setAssignEmployeeId(e.target.value)}
+                    onChange={(val) => setAssignEmployeeId(val)}
+                    options={employees.filter(e => e.isActive).map(emp => ({
+                      value: emp.id,
+                      label: `${emp.name} (${emp.pos})`
+                    }))}
                     required
-                  >
-                    <option value="" disabled>-- Pilih Karyawan --</option>
-                    {employees.filter(e => e.isActive).map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.pos})</option>
-                    ))}
-                  </select>
+                  />
                 </div>
               </div>
 

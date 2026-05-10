@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom';
 import { DateRangePicker } from './ui/DateRangePicker';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
+import { SearchableSelect } from './ui/FormSelect';
 import { TimePicker } from './ui/TimePicker';
 import { CustomDonutChartWidget } from './ui/DonutChart';
 import { EduGaugeChart } from './ui/EduGaugeChart';
@@ -1702,18 +1703,6 @@ export const DashboardContent = ({
                           <Icon name="x" size={12} /> Hapus Filter
                         </button>
                       )}
-                      
-                      {/* Name Search for Overtime */}
-                      <div className="relative">
-                        <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input 
-                          type="text"
-                          placeholder="Cari nama karyawan..."
-                          value={overtimeSearchName}
-                          onChange={(e) => setOvertimeSearchName(e.target.value)}
-                          className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700 w-[150px]"
-                        />
-                      </div>
                     </>
                   );
                 })()}
@@ -1926,8 +1915,18 @@ export const DashboardContent = ({
           </div>
 
           <Card className="flex flex-col p-0 overflow-hidden flex-1">
-            <div className="p-6 border-b border-slate-100 bg-white shrink-0">
+            <div className="p-4 sm:p-6 border-b border-slate-100 bg-white shrink-0 flex flex-col justify-between sm:flex-row sm:items-center gap-4">
               <h3 className="font-extrabold text-[15px] text-slate-800">Data Rincian Lembur Karyawan</h3>
+              <div className="relative">
+                <Icon name="search" size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text"
+                  placeholder="Cari nama karyawan..."
+                  value={overtimeSearchName}
+                  onChange={(e) => setOvertimeSearchName(e.target.value)}
+                  className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700 w-full sm:w-[250px]"
+                />
+              </div>
             </div>
             <div className="flex-1 overflow-auto hover-scrollbar max-h-[385px]">
               <table className="w-full text-left whitespace-nowrap">
@@ -2278,29 +2277,19 @@ export const DashboardContent = ({
                   </button>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
-                      <label className="text-[13px] font-bold">Nama Karyawan</label>
-                      <div className="relative">
-                        <select 
-                          className="appearance-none w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
-                          value={entry.name}
-                          onChange={e => {
-                            const selectedName = e.target.value;
-                            const relatedEmp = employees.find(emp => emp.name === selectedName);
-                            const newEntries = [...overtimeEntries];
-                            newEntries[index].name = selectedName;
-                            if (relatedEmp) newEntries[index].dept = relatedEmp.dept;
-                            setOvertimeEntries(newEntries);
-                          }}
-                        >
-                          <option value="" disabled>Pilih Karyawan</option>
-                          {employees.map(emp => (
-                            <option key={emp.id} value={emp.name}>{emp.name}</option>
-                          ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <Icon name="chevron-down" size={14} />
-                        </div>
-                      </div>
+                      <SearchableSelect 
+                        label="Nama Karyawan"
+                        placeholder="Pilih Karyawan"
+                        value={entry.name}
+                        options={employees.map(emp => ({ value: emp.name, label: emp.name }))}
+                        onChange={(selectedName) => {
+                          const relatedEmp = employees.find(emp => emp.name === selectedName);
+                          const newEntries = [...overtimeEntries];
+                          newEntries[index].name = selectedName;
+                          if (relatedEmp) newEntries[index].dept = relatedEmp.dept;
+                          setOvertimeEntries(newEntries);
+                        }}
+                      />
                     </div>
                     
                     <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
@@ -2453,22 +2442,13 @@ export const DashboardContent = ({
             </div>
             <div className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4">
               <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
-                <label className="text-[13px] font-bold">Nama Karyawan</label>
-                <div className="relative">
-                  <select 
-                    className="appearance-none w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800" 
-                    value={kontrakForm.employeeId} 
-                    onChange={e => setKontrakForm({...kontrakForm, employeeId: e.target.value})}
-                  >
-                    <option value="" disabled>Pilih Karyawan</option>
-                    {employees.map(emp => (
-                      <option key={emp.id} value={emp.id}>{emp.name}</option>
-                    ))}
-                  </select>
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                    <Icon name="chevron-down" size={16} />
-                  </div>
-                </div>
+                <SearchableSelect 
+                  label="Nama Karyawan"
+                  placeholder="Pilih Karyawan"
+                  value={kontrakForm.employeeId}
+                  options={employees.map(emp => ({ value: emp.id, label: emp.name }))}
+                  onChange={val => setKontrakForm({...kontrakForm, employeeId: val})}
+                />
               </div>
 
               <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
