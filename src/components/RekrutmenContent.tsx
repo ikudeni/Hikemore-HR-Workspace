@@ -52,10 +52,10 @@ export const RekrutmenContent = ({
   const [copiedPhoneId, setCopiedPhoneId] = useState<number | null>(null);
   const [copiedNameId, setCopiedNameId] = useState<number | null>(null);
   const [draggedCandidate, setDraggedCandidate] = useState<Candidate | null>(null);
-  const [dropPlaceholder, setDropPlaceholder] = useState<{ stageId: string | null, index: number | null }>({ stageId: null, index: null });
+  const [dropPlaceholder, setDropPlaceholder] = useState<{ stageId: string | null, index: number | null, height: number | null }>({ stageId: null, index: null, height: null });
   const [dragPosition, setDragPosition] = useState({ x: -9999, y: -9999 });
   const [stageDropIndex, setStageDropIndex] = useState<number | null>(null);
-  const dragOffset = useRef({ x: 0, y: 0, width: 0 });
+  const dragOffset = useRef({ x: 0, y: 0, width: 0, height: 0 });
   const customDragRef = useRef<HTMLDivElement>(null);
   const customStageDragRef = useRef<HTMLDivElement>(null);
   const customJobDragRef = useRef<HTMLDivElement>(null);
@@ -403,7 +403,7 @@ export const RekrutmenContent = ({
     }
 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width };
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width, height: rect.height };
     setDragPosition({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y });
     e.dataTransfer.effectAllowed = 'move';
     const img = new Image();
@@ -413,7 +413,7 @@ export const RekrutmenContent = ({
         setDraggedCandidate(candidate);
         const stageCands = candidates.filter(c => c.stage === candidate.stage);
         const idx = stageCands.findIndex(c => c.id === candidate.id);
-        setDropPlaceholder({ stageId: candidate.stage, index: idx });
+        setDropPlaceholder({ stageId: candidate.stage, index: idx, height: rect.height });
     }, 0);
   };
 
@@ -427,7 +427,7 @@ export const RekrutmenContent = ({
         const rect = cards[i].getBoundingClientRect();
         if (e.clientY < rect.top + rect.height / 2) { insertIndex = i; break; }
     }
-    setDropPlaceholder(prev => (prev.stageId === stageId && prev.index === insertIndex) ? prev : { stageId, index: insertIndex });
+    setDropPlaceholder(prev => (prev.stageId === stageId && prev.index === insertIndex) ? prev : { ...prev, stageId, index: insertIndex });
   };
   
   const handleCandDrop = (e: React.DragEvent, targetStage: string) => {
@@ -470,14 +470,14 @@ export const RekrutmenContent = ({
     });
     
     setDraggedCandidate(null); 
-    setDropPlaceholder({ stageId: null, index: null }); 
+    setDropPlaceholder({ stageId: null, index: null, height: null }); 
     setDragOverStageId(null);
     setSelectedCandidateIds([]);
   };
 
   const handleCandDragEnd = () => {
     setDraggedCandidate(null);
-    setDropPlaceholder({ stageId: null, index: null });
+    setDropPlaceholder({ stageId: null, index: null, height: null });
     setDragPosition({ x: -9999, y: -9999 });
     setDragOverStageId(null);
   };
@@ -631,13 +631,20 @@ export const RekrutmenContent = ({
                   });
               }
 
-              let renderList: any[] = [...stageCands];
+              const movingIds = draggedCandidate 
+                ? (selectedCandidateIds.includes(draggedCandidate.id) ? selectedCandidateIds : [draggedCandidate.id])
+                : [];
+              const visibleStageCands = stageCands.filter(c => !movingIds.includes(c.id));
+              const hiddenStageCands = stageCands.filter(c => movingIds.includes(c.id));
+
+              let renderList: any[] = [...visibleStageCands];
               
               if (draggedCandidate && dropPlaceholder.stageId === stageId) {
                  renderList.splice(dropPlaceholder.index!, 0, { isPlaceholder: true });
               }
               
-              const isEmpty = renderList.length === 0 && activeAddFormStage !== stageId;
+              const finalRenderList = [...renderList, ...hiddenStageCands.map(c => ({ ...c, isHiddenDragSource: true }))];
+              const isEmpty = visibleStageCands.length === 0 && activeAddFormStage !== stageId;
               const isDraggedStage = draggedStageId === stageId;
 
               return (
@@ -733,11 +740,13 @@ export const RekrutmenContent = ({
                     </div>
                   )}
                   
-                  {renderList.map((c, i) => {
+                  {finalRenderList.map((c, i) => {
                     if (c.isPlaceholder) {
-                      return <div key={`placeholder-${i}`} className="h-24 bg-slate-100/80 rounded-xl border border-transparent"></div>;
+                      return <div key={`placeholder-${i}`} className="bg-slate-100/80 rounded-xl border border-transparent transition-all duration-200" style={{ height: dropPlaceholder.height || 96 }}></div>;
                     }
-                    const isDraggedSource = draggedCandidate?.id === c.id;
+                    if (c.isHiddenDragSource) {
+                      return <div key={c.id} className="hidden kanban-card hidden-card"></div>;
+                    }
                     const isSelected = selectedCandidateIds.includes(c.id);
                     
                     const activeSchedule = schedules.find(s => s.candidateId === c.id && s.attendance !== 'Hadir');
@@ -755,7 +764,7 @@ export const RekrutmenContent = ({
                             );
                           }
                         }}
-                        className={isDraggedSource ? 'opacity-0 w-0 h-0 m-0 p-0 overflow-hidden kanban-card hidden-card pointer-events-none border-0' : `kanban-card bg-white rounded-xl p-3 shadow-sm border-2 group cursor-grab relative transition-all active:scale-95 active:cursor-grabbing ${isSelected ? 'border-primary ring-4 ring-primary/10 shadow-md translate-x-1' : 'border-slate-100 hover:border-primary/20 hover:shadow-md'} ${activeCandidateDropdown === c.id ? 'z-50' : 'z-10'}`}
+                        className={`kanban-card bg-white rounded-xl p-3 shadow-sm border-2 group cursor-grab relative transition-all duration-200 active:scale-95 active:cursor-grabbing ${isSelected ? 'border-primary ring-4 ring-primary/10 shadow-md translate-x-1' : 'border-slate-100 hover:border-primary/20 hover:shadow-md'} ${activeCandidateDropdown === c.id ? 'z-50' : 'z-10'}`}
                       >
                         <div className="flex justify-between items-start mb-3">
                           <div>
@@ -959,8 +968,43 @@ export const RekrutmenContent = ({
             )}
             <div className="flex justify-between items-start mb-3">
               <div>
+                {(() => {
+                  const activeSchedule = schedules.find(s => s.candidateId === draggedCandidate.id && s.attendance !== 'Hadir');
+                  if (draggedCandidate.stage === 'Kandidat Join') {
+                    return (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md border border-emerald-300 bg-emerald-50/50 text-[8px] font-black uppercase tracking-widest text-emerald-500 mb-1">
+                        DITERIMA
+                      </span>
+                    );
+                  } else if (draggedCandidate.tag === 'DITOLAK') {
+                    return (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md border border-red-200 bg-red-50 text-[8px] font-black uppercase tracking-widest text-red-500 mb-1">
+                        DITOLAK
+                      </span>
+                    );
+                  } else if (draggedCandidate.tag === 'TIDAK HADIR' || activeSchedule?.attendance === 'Tidak Hadir') {
+                    return (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md border border-slate-200 bg-slate-50 text-[8px] font-black uppercase tracking-widest text-slate-500 mb-1">
+                        TIDAK HADIR
+                      </span>
+                    );
+                  } else if (draggedCandidate.tag === 'TIDAK RESPON') {
+                    return (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md border border-orange-200 bg-orange-50 text-[8px] font-black uppercase tracking-widest text-orange-500 mb-1">
+                        TIDAK RESPON
+                      </span>
+                    );
+                  } else if (activeSchedule) {
+                    return (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md border border-indigo-200 bg-indigo-50/70 text-[8px] font-black uppercase tracking-widest text-indigo-600 mb-1">
+                        SCHEDULE {activeSchedule.title.split(' - ')[0]?.toUpperCase()}
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
                 <p className="font-extrabold text-[13px] text-slate-800 leading-tight">{draggedCandidate.name}</p>
-                <p className="text-[11px] text-slate-500 mt-1">{selectedJob.title}</p>
+                <p className="text-[11px] text-slate-500 mt-1 uppercase tracking-tight font-bold opacity-70">{selectedJob.title}</p>
               </div>
               <div className="relative">
                 <button className="text-slate-400 p-1 rounded-md">

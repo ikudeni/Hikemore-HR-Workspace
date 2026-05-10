@@ -2112,15 +2112,15 @@ export const DashboardContent = ({
                       <td className="px-5 py-3.5">{row.dept}</td>
                       <td className="px-5 py-3.5 text-slate-500 font-medium">
                         <span className={`inline-flex px-2 py-1 rounded-md text-[11px] font-bold ${
-                          row.status === 'Karyawan' ? 'bg-blue-100 text-blue-700' :
-                          row.status === 'Kontrak' ? 'bg-purple-100 text-purple-700' :
-                          row.status === 'Outsource' ? 'bg-teal-100 text-teal-700' :
-                          row.status === 'Magang' ? 'bg-rose-100 text-rose-700' :
-                          row.status === 'Daily Worker' ? 'bg-amber-100 text-amber-700' :
-                          row.status === 'Freelance' ? 'bg-sky-100 text-sky-700' :
-                          'bg-slate-100 text-slate-700'
+                          row.status === 'Karyawan' || row.status === 'Permanent' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
+                          row.status === 'Kontrak' ? 'bg-purple-50 text-purple-600 border border-purple-200' :
+                          row.status === 'Outsource' ? 'bg-teal-50 text-teal-600 border border-teal-200' :
+                          row.status === 'Magang' ? 'bg-pink-50 text-pink-600 border border-pink-200' :
+                          row.status === 'Daily Worker' || row.status === 'DW' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
+                          row.status === 'Freelance' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
+                          'bg-slate-50 text-slate-600 border border-slate-200'
                         }`}>
-                          {row.status}
+                          {row.status === 'Daily Worker' ? 'DW' : row.status}
                         </span>
                       </td>
                       <td className="px-5 py-3.5">{row.contractType}</td>
