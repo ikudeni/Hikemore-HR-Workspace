@@ -32,10 +32,14 @@ const UnderConstructionView = ({ menuName }: { menuName: string }) => (
 );
 
 const saveTimeouts: Record<string, NodeJS.Timeout> = {};
-const debouncedSetDoc = (key: string, docRef: any, data: any, options: any) => {
+const debouncedSetDoc = (key: string, docRef: any, data: any, options?: any) => {
   if (saveTimeouts[key]) clearTimeout(saveTimeouts[key]);
   saveTimeouts[key] = setTimeout(() => {
-    setDoc(docRef, data, options).catch(console.error);
+    if (options) {
+      setDoc(docRef, data, options).catch(console.error);
+    } else {
+      setDoc(docRef, data).catch(console.error);
+    }
   }, 1000);
 };
 
@@ -272,7 +276,7 @@ export default function App() {
      setPerformaDataMapReact(prev => {
         const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
         const sanitizedVal = removeUndefined(newVal);
-        debouncedSetDoc('performaData', doc(db, 'settings', 'performaData'), { performaDataMap: sanitizedVal }, { merge: true });
+        debouncedSetDoc('performaData', doc(db, 'settings', 'performaData'), { performaDataMap: sanitizedVal });
         return newVal;
      });
   }, []);
