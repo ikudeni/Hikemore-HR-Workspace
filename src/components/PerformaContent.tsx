@@ -617,8 +617,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                 <table className="min-w-max w-full text-left border-collapse whitespace-nowrap">
                   <thead className="bg-slate-50 sticky top-0 z-20 shadow-sm shadow-slate-100">
                     <tr>
-                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest sticky left-0 z-20 bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Karyawan</th>
-                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest">Jabatan & Level</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center sticky left-0 z-20 bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">Nama Karyawan</th>
+                      <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Jabatan & Level</th>
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Core Value</th>
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Kedisiplinan</th>
                       <th className="px-4 py-2 text-[11px] font-black text-slate-500 uppercase tracking-widest text-center">Nilai Akhir</th>
@@ -643,12 +643,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-2 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-[11px] text-slate-500 font-medium">
-                              {d.levelJabatan || '-'}
-                            </span>
-                          </div>
+                        <td className="px-4 py-2 whitespace-nowrap text-center">
+                          <span className="text-[11px] text-slate-500 font-medium">
+                            {d.levelJabatan || '-'}
+                          </span>
                         </td>
                         <td className="px-4 py-2 text-center">{d.kompetensiScore.toFixed(1)}</td>
                         <td className="px-4 py-2 text-red-500 text-center font-bold">-{Math.abs(d.kedisiplinanScore)}</td>
