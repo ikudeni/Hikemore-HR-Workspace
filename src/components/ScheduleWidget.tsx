@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
 import { Schedule, Candidate, Employee, JobListing } from '../types';
@@ -15,6 +15,8 @@ type FilterTab = 'All' | 'Scheduled' | 'Completed' | 'Overdue';
 
 export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], employees = [], jobListings = [] }: ScheduleWidgetProps) => {
   const [filter, setFilter] = useState<FilterTab>('All');
+  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
+
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
@@ -48,10 +50,12 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {
       const status = getStatus(s);
+      const isDateMatch = selectedDateFilter ? s.date === selectedDateFilter : true;
+      if (!isDateMatch) return false;
       if (filter === 'All') return true;
       return status === filter;
     });
-  }, [schedules, filter]);
+  }, [schedules, filter, selectedDateFilter]);
 
   const stats = useMemo(() => {
     return {
@@ -182,10 +186,20 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const tabs: FilterTab[] = ['All', 'Scheduled', 'Completed', 'Overdue'];
 
   return (
-    <div className="w-full flex flex-col pt-4">
+    <div className="w-full flex flex-col pt-2">
+      <div className="flex items-center justify-between mb-4 border-b border-slate-200 pb-4">
+        <h3 className="text-xl font-black text-slate-800">Schedule</h3>
+        <button 
+          onClick={openAddModal}
+          className="flex items-center justify-center w-8 h-8 bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100 hover:text-slate-800 transition-all rounded-full shadow-sm"
+        >
+          <Icon name={"plus" as any} size={16} />
+        </button>
+      </div>
+
       {/* Header and Tabs */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-        <div className="flex gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+        <div className="flex flex-wrap gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
           {tabs.map(tab => (
             <button
               key={tab}
@@ -207,12 +221,24 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
             </button>
           ))}
         </div>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#314BF5] text-white text-sm font-bold hover:bg-blue-600 transition-all rounded-xl shadow-sm hover:shadow"
-        >
-          <Icon name={"plus" as any} size={16} /> Add Schedule
-        </button>
+        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
+          <Icon name="calendar" size={16} className="text-slate-400" />
+          <input
+            type="date"
+            value={selectedDateFilter || ''}
+            onChange={(e) => setSelectedDateFilter(e.target.value || null)}
+            className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
+          />
+          {selectedDateFilter && (
+            <button
+              onClick={() => setSelectedDateFilter(null)}
+              className="text-slate-400 hover:text-rose-500 transition-colors"
+              title="Clear Filter"
+            >
+              <Icon name="x" size={16} />
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Timeline List */}
