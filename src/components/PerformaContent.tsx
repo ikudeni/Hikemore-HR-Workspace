@@ -31,6 +31,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
   const [filterPenilaian, setFilterPenilaian] = useState('All Penilaian');
   const [searchPerformaName, setSearchPerformaName] = useState('');
   const [inputEmpSearch, setInputEmpSearch] = useState('');
+  const [dataToClear, setDataToClear] = useState<string | null>(null);
   
   const globalSettings = performaDataMap['globalSettings'] || { baselineSalary: 3480000 };
   const baselineSalary = globalSettings.baselineSalary;
@@ -852,6 +853,14 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                           <p className="text-sm font-bold text-slate-500">{emp.pos} • {emp.dept}</p>
                         </div>
                       </div>
+                      <button
+                        onClick={() => setDataToClear(selectedEmpId)}
+                        className="text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-2 rounded-lg transition-colors flex items-center gap-1 cursor-pointer shadow-sm"
+                        title="Reset/Hapus Data Penilaian Karyawan Ini"
+                      >
+                        <Icon name="trash-2" size={14} />
+                        Clear Data
+                      </button>
                     </div>
                     
                     <div className="p-8 space-y-8">
@@ -1909,6 +1918,49 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
           </div>
         </div>
       )}
+
+      {/* Clear Data Confirmation Modal */}
+      {dataToClear && (() => {
+        const empToClear = employees.find(e => e.id === dataToClear);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setDataToClear(null)}></div>
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative animate-scaleIn overflow-hidden">
+              <div className="p-6">
+                <div className="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center text-red-600 mb-6 mx-auto">
+                  <Icon name="alert-triangle" size={32} />
+                </div>
+                <h3 className="text-xl font-black text-slate-800 text-center mb-2 px-4">Clear Data Penilaian?</h3>
+                <p className="text-slate-500 text-center text-sm leading-relaxed mb-8 px-6">
+                  Apakah Anda yakin ingin menghapus seluruh data penilaian, skor core value, dan poin pelanggaran untuk <strong className="text-slate-700">{empToClear?.name}</strong>? Data ini akan kembali menjadi "Belum Dinilai".
+                </p>
+                
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setDataToClear(null)}
+                    className="flex-1 px-4 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setPerformaDataMap((prev: Record<string, any>) => {
+                        const newData = { ...prev };
+                        delete newData[dataToClear];
+                        return newData;
+                      });
+                      setDataToClear(null);
+                    }}
+                    className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-[0_4px_12px_rgba(220,38,38,0.2)]"
+                  >
+                    Ya, Hapus
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };
