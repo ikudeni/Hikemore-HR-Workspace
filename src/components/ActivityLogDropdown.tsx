@@ -28,7 +28,9 @@ function formatDate(dateString: string) {
 export function ActivityLogDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [logs, setLogs] = useState<AppLog[]>([]);
+  const [hasNew, setHasNew] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const isInitialRender = useRef(true);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -49,7 +51,13 @@ export function ActivityLogDropdown() {
         id: doc.id,
         ...doc.data()
       })) as AppLog[];
+      
       setLogs(newLogs);
+      
+      if (!isInitialRender.current && snapshot.docChanges().some(change => change.type === 'added')) {
+        setHasNew(true);
+      }
+      isInitialRender.current = false;
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'logs');
     });
@@ -60,10 +68,13 @@ export function ActivityLogDropdown() {
   return (
     <div className="relative" ref={dropdownRef}>
       <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
+        onClick={() => { setIsOpen(!isOpen); setHasNew(false); }}
+        className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors relative"
       >
         <Icon name="clock" size={20} />
+        {hasNew && (
+          <span className="absolute top-2.5 right-2 w-2 h-2 bg-blue-500 rounded-full border border-white animate-pulse"></span>
+        )}
       </button>
 
       {isOpen && (
