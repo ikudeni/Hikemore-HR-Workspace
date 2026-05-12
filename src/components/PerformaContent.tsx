@@ -804,6 +804,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                     ...prev,
                     [selectedEmpId]: { ...data, [field]: value }
                   }));
+                  // logActivity debounced roughly
+                  logActivity('Update Penilaian Performa', { karyawan: emp?.name || selectedEmpId, field });
                 };
                 
                 // Kalkulasi total real-time
@@ -1947,6 +1949,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         delete newData[dataToClear];
                         return newData;
                       });
+                      const empName = employees.find(e => e.id === dataToClear)?.name || dataToClear;
+                      logActivity('Hapus Data Penilaian', { karyawan: empName });
                       setDataToClear(null);
                     }}
                     className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-[0_4px_12px_rgba(220,38,38,0.2)]"

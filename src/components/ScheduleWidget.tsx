@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
 import { Schedule, Candidate, Employee, JobListing } from '../types';
+import { logActivity } from '../firebase';
 
 interface ScheduleWidgetProps {
   schedules: Schedule[];
@@ -112,12 +113,14 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
     e.preventDefault();
     if (editingScheduleId !== null) {
       setSchedules(prev => prev.map(s => s.id === editingScheduleId ? { ...formData as Schedule, id: editingScheduleId } : s));
+      logActivity('Jadwal Diupdate', { judul: formData.title });
     } else {
       const newSchedule: Schedule = {
         ...formData as Schedule,
         id: Date.now(),
       };
       setSchedules(prev => [...prev, newSchedule]);
+      logActivity('Jadwal Dibuat', { judul: formData.title });
     }
     setIsAddModalOpen(false);
     setFormData({
@@ -140,6 +143,8 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
     const isConfirmed = window.confirm('Apakah Anda yakin ingin menghapus jadwal ini?');
     if (isConfirmed) {
       setSchedules(prev => prev.filter(s => s.id !== id));
+      const s = schedules.find(x => x.id === id);
+      if (s) logActivity('Jadwal Dihapus', { judul: s.title });
     }
   };
 
@@ -340,20 +345,20 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                                )}
                                  <div className="flex gap-2 mt-3 xl:justify-end w-full">
                                    {s.attendance === 'Hadir' || s.attendance === 'Selesai' ? (
-                                     <button onClick={() => setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch))} className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-emerald-200 transition-colors" title="Batal">
+                                     <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch)); logActivity('Batal Kehadiran/Tugas Jadwal', { judul: s.title }); }} className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-emerald-200 transition-colors" title="Batal">
                                        <Icon name="check-circle" size={12} /> {s.type === 'Task' ? 'Selesai' : 'Hadir'}
                                      </button>
                                    ) : s.attendance === 'Tidak Hadir' ? (
-                                     <button onClick={() => setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch))} className="text-[10px] bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-rose-200 transition-colors" title="Batal">
+                                     <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch)); logActivity('Batal Kehadiran/Tugas Jadwal', { judul: s.title }); }} className="text-[10px] bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-rose-200 transition-colors" title="Batal">
                                        <Icon name="x-circle" size={12} /> Tidak Hadir
                                      </button>
                                    ) : (
                                      <>
-                                       <button onClick={() => setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: s.type === 'Task' ? 'Selesai' : 'Hadir' } : sch))} className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-emerald-200" title={s.type === 'Task' ? 'Tandai Selesai' : 'Tandai Hadir'}>
+                                       <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: s.type === 'Task' ? 'Selesai' : 'Hadir' } : sch)); logActivity(s.type === 'Task' ? 'Tugas Selesai' : 'Jadwal Dihadiri', { judul: s.title }); }} className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-emerald-200" title={s.type === 'Task' ? 'Tandai Selesai' : 'Tandai Hadir'}>
                                          <Icon name="check" size={12} /> {s.type === 'Task' ? 'Selesai' : 'Hadir'}
                                        </button>
                                        {s.type !== 'Task' && (
-                                         <button onClick={() => setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: 'Tidak Hadir' } : sch))} className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-rose-200" title="Tandai Tidak Hadir">
+                                         <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: 'Tidak Hadir' } : sch)); logActivity('Jadwal Tidak Dihadiri', { judul: s.title }); }} className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-rose-200" title="Tandai Tidak Hadir">
                                            <Icon name="x" size={12} /> Tidak Hadir
                                          </button>
                                        )}
@@ -546,6 +551,8 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                 <button 
                   onClick={() => { 
                     setSchedules(prev => prev.filter(s => s.id !== deleteConfirmId)); 
+                    const s = schedules.find(x => x.id === deleteConfirmId);
+                    if (s) logActivity('Jadwal Dihapus', { judul: s.title });
                     setDeleteConfirmId(null); 
                   }} 
                   className="flex-1 px-4 py-3 bg-rose-500 text-white font-bold rounded-xl hover:bg-rose-600 transition-colors"

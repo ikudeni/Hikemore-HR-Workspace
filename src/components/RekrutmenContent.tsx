@@ -398,6 +398,8 @@ export const RekrutmenContent = ({
   const handleUpdateCandidateTag = (e: React.MouseEvent, id: number, tag: 'DITOLAK' | 'TIDAK HADIR' | 'TIDAK RESPON' | null) => {
     e.stopPropagation();
     setCandidates(prev => prev.map(c => c.id === id ? { ...c, tag: c.tag === tag ? null : tag } : c));
+    const cand = candidates.find(c => c.id === id);
+    if (cand) logActivity('Status Kandidat Diubah', { nama: cand.name, status: tag || 'Dihapus' });
     setActiveCandidateDropdown(null);
   };
 
@@ -478,6 +480,10 @@ export const RekrutmenContent = ({
       });
       stageCands.splice(dropPlaceholder.index!, 0, ...movedOnes);
       
+      movingCandidates.forEach(c => {
+        logActivity('Kandidat Dipindah Stage', { nama: c.name, stage_baru: kanbanStages.find(s => s.id === dropPlaceholder.stageId)?.label || dropPlaceholder.stageId });
+      });
+
       return [...others, ...stageCands];
     });
     
@@ -578,6 +584,7 @@ export const RekrutmenContent = ({
       appliedDate: new Date().toISOString().split('T')[0]
     };
     setCandidates(prev => [newCand, ...prev]);
+    logActivity('Kandidat Ditambahkan', { nama: newCand.name, posisi: jobListings.find(j => j.id === newCand.jobId)?.title || 'Unknown' });
     setAddCandidateFormData({ name: '', phone: '', source: 'Glints', customSource: '', stage: '' });
     setActiveAddFormStage(null);
   };
@@ -1301,6 +1308,7 @@ export const RekrutmenContent = ({
                   onSubmit={(e) => {
                     e.preventDefault();
                     setCandidates(prev => prev.map(c => c.id === editCandidateFormData.id ? editCandidateFormData : c));
+                    logActivity('Kandidat Diupdate', { nama: editCandidateFormData.name });
                     setIsEditCandidateModalOpen(false);
                     setEditCandidateFormData(null);
                   }}
@@ -1851,30 +1859,21 @@ export const RekrutmenContent = ({
 
                    <div className="h-[1px] w-full bg-slate-100 mb-4"></div>
 
-                   <div className="mt-auto flex justify-between items-end">
-                     <div className="flex items-center gap-2">
-                       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-transparent ${job.catBg} ${job.catText}`}>
-                         <div className={`w-1 h-1 rounded-full ${job.catDot}`}></div>
-                         <span className="text-[10px] font-bold">{job.dept}</span>
-                       </div>
-                       <div className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white">
-                         <span className="text-[10px] font-bold text-slate-600 truncate max-w-[50px] inline-block">
-                           {job.status === 'Daily Worker' ? 'DW' : job.status}
+                   <div className="mt-auto flex flex-col gap-4">
+                     <div className="flex flex-col gap-2 w-full">
+                       <div className="flex justify-between items-center w-full">
+                         <span className="text-[11px] font-bold text-slate-500">Progress</span>
+                         <span className={`text-[11px] font-black ${
+                           progressPercent === 0 ? 'text-slate-400' : 
+                           progressPercent <= 25 ? 'text-rose-500' :
+                           progressPercent <= 50 ? 'text-orange-500' :
+                           progressPercent <= 75 ? 'text-amber-500' :
+                           progressPercent <= 99 ? 'text-blue-500' : 'text-emerald-500'
+                         }`}>
+                           {progressPercent}%
                          </span>
                        </div>
-                     </div>
-
-                     <div className="flex flex-col items-end gap-1.5 w-24">
-                       <span className={`text-[10px] font-black ${
-                         progressPercent === 0 ? 'text-slate-400' : 
-                         progressPercent <= 25 ? 'text-rose-500' :
-                         progressPercent <= 50 ? 'text-orange-500' :
-                         progressPercent <= 75 ? 'text-amber-500' :
-                         progressPercent <= 99 ? 'text-blue-500' : 'text-emerald-500'
-                       }`}>
-                         {progressPercent}%
-                       </span>
-                       <div className="w-full h-1 bg-slate-100 rounded-full overflow-hidden">
+                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                          <div 
                            className={`h-full rounded-full transition-all duration-1000 ${
                              progressPercent === 0 ? 'bg-transparent' : 
@@ -1887,6 +1886,21 @@ export const RekrutmenContent = ({
                          ></div>
                        </div>
                      </div>
+                     <div className="flex justify-between items-end">
+                     <div className="flex items-center gap-2">
+                       <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl border border-transparent ${job.catBg} ${job.catText}`}>
+                         <div className={`w-1 h-1 rounded-full ${job.catDot}`}></div>
+                         <span className="text-[10px] font-bold">{job.dept}</span>
+                       </div>
+                       <div className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white">
+                         <span className="text-[10px] font-bold text-slate-600 truncate max-w-[50px] inline-block">
+                           {job.status === 'Daily Worker' ? 'DW' : job.status}
+                         </span>
+                       </div>
+                     </div>
+
+                      {/* Old progress bar removed */}
+                   </div>
                    </div>
                  </div>
                ) : null}
