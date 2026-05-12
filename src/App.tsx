@@ -15,6 +15,7 @@ import { InventoryContent } from './components/InventoryContent';
 import { LoginView } from './components/LoginView';
 import { SettingsContent } from './components/SettingsContent';
 import { ActivityLogDropdown } from './components/ActivityLogDropdown';
+import { NotificationDropdown } from './components/NotificationDropdown';
 import { ProfileDropdown } from './components/ProfileDropdown';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from './types';
 import { calculateDuration, calculateAge, removeUndefined } from './utils';
@@ -645,6 +646,7 @@ export default function App() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">{activeMenu}</h1>
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
+              <NotificationDropdown employees={globalEmployees} />
               <ActivityLogDropdown />
               <ProfileDropdown currentUser={currentUser} onLogoutRequest={() => setIsLogoutModalOpen(true)} />
             </div>
