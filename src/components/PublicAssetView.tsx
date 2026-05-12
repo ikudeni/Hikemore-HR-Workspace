@@ -59,14 +59,11 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
 
   return (
     <div className="h-[100dvh] bg-white flex flex-col animate-fadeIn overflow-hidden">
-      <div className="bg-slate-800 p-4 text-white flex shrink-0 items-center justify-between sticky top-0 z-10 shadow-md">
+      <div className="bg-slate-800 p-4 text-white flex shrink-0 items-center sticky top-0 z-10 shadow-md">
         <div className="flex items-center gap-2">
           <Icon name="layout" size={18} />
           <span className="font-bold text-sm tracking-wide">Detail Aset</span>
         </div>
-        <button onClick={onClose} className="text-slate-300 hover:text-white transition-colors">
-          <Icon name="x-circle" size={20} />
-        </button>
       </div>
       
       <div className="p-5 sm:p-8 overflow-y-auto flex-1 relative hide-scrollbar pb-24">
