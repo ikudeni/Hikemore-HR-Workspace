@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { db } from '../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
+import { AsyncImage } from './ui/AsyncImage';
 
 interface AssetHistory {
   id: string;
@@ -10,6 +11,8 @@ interface AssetHistory {
   dateAssigned: string;
   dateReturned?: string;
   notes?: string;
+  giverName?: string;
+  proofImageUrl?: string;
 }
 
 interface Asset {
@@ -27,6 +30,7 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
   const [asset, setAsset] = useState<Asset | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchAsset = async () => {
@@ -111,12 +115,12 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
               </h3>
               
               <div className="space-y-4 relative before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
-                {asset.history.length === 0 ? (
+                {!(asset.history && asset.history.length > 0) ? (
                   <div className="text-center p-6 text-sm text-slate-500 italic border border-slate-100 rounded-xl bg-slate-50 relative z-10">
                     Belum ada histori pemakaian.
                   </div>
                 ) : (
-                  asset.history.slice().reverse().map((hist, idx) => (
+                  (asset.history || []).slice().reverse().map((hist, idx) => (
                     <div key={hist.id} className="relative flex items-start gap-4">
                       <div className="w-10 h-10 rounded-full bg-white border-4 border-slate-100 flex-shrink-0 flex items-center justify-center z-10 text-slate-400">
                         {idx === 0 && !hist.dateReturned ? (
@@ -125,18 +129,53 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
                           <div className="w-2 h-2 rounded-full bg-slate-300"></div>
                         )}
                       </div>
-                      <div className="flex-1 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm z-10">
+                      <div 
+                        className={`flex-1 bg-white border border-slate-100 rounded-2xl p-4 shadow-sm z-10 transition-all ${idx === 0 && !hist.dateReturned ? 'border-blue-200 bg-blue-50/50' : 'hover:shadow-md'} ${(hist.giverName || hist.proofImageUrl) ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (hist.giverName || hist.proofImageUrl) {
+                            setExpandedHistoryIds(prev => 
+                              prev.includes(hist.id) ? prev.filter(id => id !== hist.id) : [...prev, hist.id]
+                            );
+                          }
+                        }}
+                      >
                         <div className="flex items-center justify-between mb-1">
                           <span className="font-bold text-slate-800 text-sm">{hist.employeeNameSnapshot}</span>
                           <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-lg border border-slate-100">{hist.dateAssigned}</span>
                         </div>
-                        <div className="text-xs text-slate-500 mb-2">
-                          Status: {hist.dateReturned ? (
-                            <span className="text-slate-600 font-medium">Dikembalikan tanggal {hist.dateReturned}</span>
-                          ) : (
-                            <span className="text-blue-600 font-medium">Sedang memegang aset</span>
+                        <div className="text-xs text-slate-500 mb-2 flex flex-row items-center justify-between">
+                          <div>
+                            Status: {hist.dateReturned ? (
+                              <span className="text-slate-600 font-medium">Dikembalikan tanggal {hist.dateReturned}</span>
+                            ) : (
+                              <span className="text-blue-600 font-medium">Sedang memegang aset</span>
+                            )}
+                          </div>
+                          {(hist.giverName || hist.proofImageUrl) && (
+                            <div className="text-slate-400 ml-2">
+                              <Icon name={expandedHistoryIds.includes(hist.id) ? "chevron-up" : "chevron-down"} size={16} />
+                            </div>
                           )}
                         </div>
+                        
+                        {(hist.giverName || hist.proofImageUrl) && expandedHistoryIds.includes(hist.id) && (
+                          <div className="mt-3 pt-3 border-t border-slate-200 flex flex-col gap-3 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+                            {hist.giverName && (
+                              <div className="text-[12px] text-slate-600 bg-white/50 p-2 rounded-lg border border-slate-100">
+                                <span className="font-medium">Diberikan oleh:</span> <span className="font-bold text-slate-800 ml-1">{hist.giverName}</span>
+                              </div>
+                            )}
+                            {hist.proofImageUrl && (
+                              <div>
+                                <span className="text-[11px] font-bold text-slate-500 mb-2 block uppercase tracking-wider">Foto Bukti</span>
+                                <div className="block w-full max-w-sm rounded-xl overflow-hidden border-2 border-slate-100 shadow-sm transition-all relative">
+                                  <AsyncImage src={hist.proofImageUrl} alt="Bukti Penugasan" className="w-full h-auto object-cover" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
                         {hist.notes && (
                           <p className="text-xs mt-2 text-slate-600 bg-yellow-50 p-2.5 rounded-xl border border-yellow-100 leading-relaxed font-medium">
                             "{hist.notes}"
