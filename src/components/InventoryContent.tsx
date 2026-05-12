@@ -350,9 +350,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       const emp = employees.find(e => e.id === asset.assignedToId);
       if (emp) return emp.dept;
     }
-    if (asset.category === 'Laptop' || asset.category === 'Komputer' || asset.category === 'Elektronik') return 'IT';
-    if (asset.category === 'Kendaraan') return 'Operasional';
-    return 'Umum';
+    return '-';
   };
 
   const getEmployeeName = (empId?: string, fallback?: string) => {
@@ -361,10 +359,10 @@ export function InventoryContent({ employees }: InventoryContentProps) {
     return emp ? emp.name : (fallback || 'Karyawan Dihapus');
   };
 
-  const uniqueDivisionsCount = new Set(assets.map(getAssetDepartment)).size;
+  const uniqueDivisionsCount = new Set(assets.map(getAssetDepartment).filter(dept => dept !== '-')).size;
 
   const uniqueCategories = Array.from(new Set(assets.map(a => a.category)));
-  const uniqueDivisions = Array.from(new Set(assets.map(getAssetDepartment)));
+  const uniqueDivisions = Array.from(new Set(assets.map(getAssetDepartment).filter(dept => dept !== '-')));
 
   const filteredAssets = assets.filter(asset => {
     const pemakaiName = getEmployeeName(asset.assignedToEmpId, asset.currentAssigneeInfo).toLowerCase();
