@@ -1134,7 +1134,7 @@ export const DashboardContent = ({
                         <span 
                           key={s.label} 
                           style={{ width: `${s.percentage}%`, opacity: isFaded ? 0.2 : 1 }} 
-                          className="text-[11px] font-black text-slate-400 text-center whitespace-nowrap overflow-hidden transition-opacity duration-300"
+                          className="text-[11px] font-black text-slate-400 text-center whitespace-nowrap overflow-visible transition-opacity duration-300"
                         >
                           {Math.round(s.percentage)}%
                         </span>
