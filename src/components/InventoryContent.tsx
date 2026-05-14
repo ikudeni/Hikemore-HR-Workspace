@@ -148,8 +148,8 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             employeeNameSnapshot: targetEmployee?.name || 'Unknown', 
             dateAssigned: todayStr, 
             notes: 'Assigned via system',
-            giverName: assignGiver,
-            proofImageUrl: uploadedUrl || undefined
+            giverName: assignGiver || null,
+            proofImageUrl: uploadedUrl || null
           }
         ]
       });
@@ -365,7 +365,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const uniqueDivisions = Array.from(new Set(assets.map(getAssetDepartment).filter(dept => dept !== '-')));
 
   const filteredAssets = assets.filter(asset => {
-    const pemakaiName = getEmployeeName(asset.assignedToEmpId, asset.currentAssigneeInfo).toLowerCase();
+    const pemakaiName = getEmployeeName(asset.assignedToId).toLowerCase();
     const matchSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                         asset.barcode.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         pemakaiName.includes(searchQuery.toLowerCase());
