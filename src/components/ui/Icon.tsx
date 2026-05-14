@@ -13,10 +13,11 @@ import {
   MessageCircle, ExternalLink, Smartphone, Video, MapPin, Monitor,
   File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
   Info, HelpCircle, FolderPlus, User, DollarSign, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
-  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle
+  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle, Network
 } from 'lucide-react';
 
 const iconMap = {
+  'network': Network,
   'dollar-sign': DollarSign,
   'award': Award,
   'users': Users,

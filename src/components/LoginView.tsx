@@ -82,7 +82,7 @@ export const LoginView = ({
       try {
         const docSnap = await Promise.race([
           getDoc(docRef),
-          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 3000))
+          new Promise<null>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 4000))
         ]);
         if (docSnap && docSnap.exists()) {
           firestoreUsers = docSnap.data().records || {};
@@ -108,6 +108,10 @@ export const LoginView = ({
         users['hrdhikemore'] = { username: 'hrdhikemore', password: 'password123', name: 'HRD Hikemore' };
         updatedFirestore = true;
       }
+      if (!users['ikudeni']) {
+        users['ikudeni'] = { username: 'ikudeni', password: 'password123', name: 'Iku Deni' };
+        updatedFirestore = true;
+      }
 
       if (isSignUp) {
         if (!name.trim()) throw new Error('Nama harus diisi');
@@ -117,6 +121,9 @@ export const LoginView = ({
         if (password.length < 6) {
           throw new Error('Password minimal 6 karakter');
         }
+        if (fetchFailed) {
+            throw new Error('Gagal terhubung ke server database. Tolong pastikan koneksi internet Anda stabil.');
+        }
         
         users[username] = { username, password, name };
         updatedFirestore = true;
@@ -125,6 +132,10 @@ export const LoginView = ({
         localStorage.setItem('currentUser', JSON.stringify(user));
         setJustSignedUp(true);
       } else {
+        if (fetchFailed && !users[username]) {
+            throw new Error('Koneksi ke database lambat atau terputus. Mohon coba lagi beberapa saat lalu pastikan adblocker/antivirus dimatikan.');
+        }
+
         const user = users[username];
         
         // Cek fallback auth whitelist (jika admin sudah menambahkannya tapi belum ada password di users)

@@ -11,6 +11,7 @@ import { RekrutmenContent } from './components/RekrutmenContent';
 import { ScheduleWidget } from './components/ScheduleWidget';
 import { FileSharingContent } from './components/FileSharingContent';
 import { PerformaContent } from './components/PerformaContent';
+import { OrganizationContent } from './components/OrganizationContent';
 import { InventoryContent } from './components/InventoryContent';
 import { LoginView } from './components/LoginView';
 import { SettingsContent } from './components/SettingsContent';
@@ -460,6 +461,7 @@ export default function App() {
       { name: 'Schedule', icon: 'calendar' as const },
       { name: 'File Sharing', icon: 'folder' as const },
       { name: 'Inventory', icon: 'box' as const },
+      { name: 'Organization', icon: 'network' as const },
     ]},
     { label: 'Settings', items: [
       ...(isSuperAdmin ? [{ name: 'Akses Akun', icon: 'shield' as const }] : []),
@@ -468,21 +470,23 @@ export default function App() {
   ];
 
   const renderContent = () => {
+    const regularEmployees = globalEmployees.filter(e => !e.isExternal && !e.isVirtualExternal);
     switch (activeMenu) {
-      case 'Dashboard': return <DashboardContent layout={dashboardLayout} setLayout={setDashboardLayout} employees={globalEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} jobStagesMap={jobStagesMap} candidates={candidates} schedules={schedules} setSchedules={setSchedules} />;
-      case 'Karyawan': return <KaryawanContent employees={globalEmployees} onAddEmployee={handleAddEmployee} onEditEmployee={handleEditEmployee} onResignEmployee={handleResignEmployee} onCancelResign={handleCancelResign} onRejoinEmployee={handleRejoinEmployee} onDeleteEmployee={handleDeleteEmployee} />;
-      case 'Performa': return <PerformaContent employees={globalEmployees} performaDataMap={performaDataMap} setPerformaDataMap={setPerformaDataMap} />;
-      case 'Rekrutmen': return <RekrutmenContent employees={globalEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} setKanbanStages={setKanbanStages} jobStagesMap={jobStagesMap} setJobStagesMap={setJobStagesMap} candidates={candidates} setCandidates={setCandidates} schedules={schedules} setSchedules={setSchedules} />;
+      case 'Dashboard': return <DashboardContent layout={dashboardLayout} setLayout={setDashboardLayout} employees={regularEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} jobStagesMap={jobStagesMap} candidates={candidates} schedules={schedules} setSchedules={setSchedules} />;
+      case 'Karyawan': return <KaryawanContent employees={regularEmployees} onAddEmployee={handleAddEmployee} onEditEmployee={handleEditEmployee} onResignEmployee={handleResignEmployee} onCancelResign={handleCancelResign} onRejoinEmployee={handleRejoinEmployee} onDeleteEmployee={handleDeleteEmployee} />;
+      case 'Organization': return <OrganizationContent employees={globalEmployees} />;
+      case 'Performa': return <PerformaContent employees={regularEmployees} performaDataMap={performaDataMap} setPerformaDataMap={setPerformaDataMap} />;
+      case 'Rekrutmen': return <RekrutmenContent employees={regularEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} setKanbanStages={setKanbanStages} jobStagesMap={jobStagesMap} setJobStagesMap={setJobStagesMap} candidates={candidates} setCandidates={setCandidates} schedules={schedules} setSchedules={setSchedules} />;
       case 'Schedule': return (
         <div className="p-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn">
           <div className="w-full mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-sm min-h-full">
             <h2 className="text-2xl font-black tracking-tight text-slate-800 mb-6">Schedule Overview</h2>
-            <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={globalEmployees} jobListings={jobListings} />
+            <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={regularEmployees} jobListings={jobListings} />
           </div>
         </div>
       );
       case 'File Sharing': return <FileSharingContent />;
-      case 'Inventory': return <InventoryContent employees={globalEmployees} />;
+      case 'Inventory': return <InventoryContent employees={regularEmployees} />;
       case 'Akses Akun': return <SettingsContent />;
       default: return <UnderConstructionView menuName={activeMenu} />;
     }
@@ -646,7 +650,7 @@ export default function App() {
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">{activeMenu}</h1>
           <div className="flex items-center gap-8">
             <div className="flex items-center gap-4">
-              <NotificationDropdown employees={globalEmployees} />
+              <NotificationDropdown employees={globalEmployees.filter(e => !e.isExternal && !e.isVirtualExternal)} />
               <ActivityLogDropdown />
               <ProfileDropdown currentUser={currentUser} onLogoutRequest={() => setIsLogoutModalOpen(true)} />
             </div>

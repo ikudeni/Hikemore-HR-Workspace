@@ -34,6 +34,10 @@ export interface Employee {
   contractType?: string;
   contractStart?: string;
   contractEnd?: string;
+  managerId?: string; // For Organization Chart
+  hideFromOrgChart?: boolean;
+  isExternal?: boolean;
+  avatar?: string;
   // Computed fields
   formattedJoinDate?: string;
   formattedResignDate?: string;
