@@ -80,6 +80,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const [filterCategory, setFilterCategory] = useState('Semua');
   const [filterStatus, setFilterStatus] = useState('Semua');
   const [filterDivision, setFilterDivision] = useState('Semua');
+  const [cardFilter, setCardFilter] = useState<'Semua' | 'Tersedia Normal' | 'Dipakai' | 'Inventaris Rusak'>('Semua');
   
   // Form States for Assignment
   const [assignEmployeeId, setAssignEmployeeId] = useState('');
@@ -382,16 +383,26 @@ export function InventoryContent({ employees }: InventoryContentProps) {
     const matchStatus = filterStatus === 'Semua' || asset.status === filterStatus;
     const matchDivision = filterDivision === 'Semua' || getAssetDepartment(asset) === filterDivision;
     
-    return matchSearch && matchCategory && matchStatus && matchDivision;
+    let matchCardFilter = true;
+    if (cardFilter === 'Tersedia Normal') {
+      matchCardFilter = asset.status === 'Tersedia' && asset.condition !== 'Rusak';
+    } else if (cardFilter === 'Dipakai') {
+      matchCardFilter = asset.status === 'Dipakai';
+    } else if (cardFilter === 'Inventaris Rusak') {
+      matchCardFilter = asset.condition === 'Rusak';
+    }
+
+    return matchSearch && matchCategory && matchStatus && matchDivision && matchCardFilter;
   });
 
-  const isFilterActive = filterCategory !== 'Semua' || filterStatus !== 'Semua' || filterDivision !== 'Semua' || searchQuery !== '';
+  const isFilterActive = filterCategory !== 'Semua' || filterStatus !== 'Semua' || filterDivision !== 'Semua' || searchQuery !== '' || cardFilter !== 'Semua';
 
   const handleClearFilter = () => {
     setFilterCategory('Semua');
     setFilterStatus('Semua');
     setFilterDivision('Semua');
     setSearchQuery('');
+    setCardFilter('Semua');
   };
 
   return (
@@ -486,7 +497,10 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Card 1 - Blue */}
-            <div className="relative bg-blue-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-blue-100/50 group cursor-default">
+            <div 
+              onClick={() => setCardFilter('Semua')}
+              className={`relative bg-blue-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-blue-100/50 group cursor-pointer`}
+            >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
                   <p className="text-[10px] font-black text-blue-500 mb-1 uppercase tracking-widest">Total Aset</p>
@@ -500,11 +514,14 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             </div>
   
             {/* Card 2 - Emerald */}
-            <div className="relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-emerald-100/50 group cursor-default">
+            <div 
+              onClick={() => setCardFilter(cardFilter === 'Tersedia Normal' ? 'Semua' : 'Tersedia Normal')}
+              className={`relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-emerald-100/50 group cursor-pointer ${cardFilter === 'Tersedia Normal' ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+            >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
-                  <p className="text-[10px] font-black text-emerald-500 mb-1 uppercase tracking-widest">Tersedia</p>
-                  <p className="text-[32px] leading-none font-black text-emerald-950">{assets.filter(a => a.status === 'Tersedia').length}</p>
+                  <p className="text-[10px] font-black text-emerald-500 mb-1 uppercase tracking-widest">Tersedia Normal</p>
+                  <p className="text-[32px] leading-none font-black text-emerald-950">{assets.filter(a => a.status === 'Tersedia' && a.condition !== 'Rusak').length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-emerald-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
                   <Icon name="check-circle" size={20} strokeWidth={2.5} />
@@ -514,7 +531,10 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             </div>
   
             {/* Card 3 - Purple */}
-            <div className="relative bg-purple-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-purple-100/50 group cursor-default">
+            <div 
+              onClick={() => setCardFilter(cardFilter === 'Dipakai' ? 'Semua' : 'Dipakai')}
+              className={`relative bg-purple-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-purple-100/50 group cursor-pointer ${cardFilter === 'Dipakai' ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+            >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
                   <p className="text-[10px] font-black text-purple-500 mb-1 uppercase tracking-widest">Sedang Dipakai</p>
@@ -528,7 +548,10 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             </div>
   
             {/* Card 4 - Rose */}
-            <div className="relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-default">
+            <div 
+              onClick={() => setCardFilter(cardFilter === 'Inventaris Rusak' ? 'Semua' : 'Inventaris Rusak')}
+              className={`relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-pointer ${cardFilter === 'Inventaris Rusak' ? 'ring-2 ring-rose-500 ring-offset-2' : ''}`}
+            >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
                   <p className="text-[10px] font-black text-rose-500 mb-1 uppercase tracking-widest">Inventaris Rusak</p>
