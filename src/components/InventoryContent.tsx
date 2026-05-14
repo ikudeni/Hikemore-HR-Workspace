@@ -25,6 +25,7 @@ interface Asset {
   name: string;
   category: string;
   status: 'Tersedia' | 'Dipakai' | 'Rusak';
+  condition?: 'Normal' | 'Rusak' | 'Perbaikan';
   assignedToId?: string; // Employee ID
   purchaseDate: string;
   history: AssetHistory[];
@@ -88,11 +89,18 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
   
   // Form States for Add Asset
-  const [newAssetData, setNewAssetData] = useState({
+  const [newAssetData, setNewAssetData] = useState<{
+    name: string;
+    category: string;
+    customCategory: string;
+    purchaseDate: string;
+    condition: 'Normal' | 'Rusak' | 'Perbaikan';
+  }>({
     name: '',
     category: 'Laptop',
     customCategory: '',
-    purchaseDate: new Date().toISOString().split('T')[0]
+    purchaseDate: new Date().toISOString().split('T')[0],
+    condition: 'Normal'
   });
 
   const [editCustomCategory, setEditCustomCategory] = useState('');
@@ -168,7 +176,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
 
   const handleOpenEditModal = (asset: Asset) => {
     setEditAssetData(asset);
-    if (!['Laptop', 'Komputer', 'Elektronik', 'Kendaraan', 'Furniture'].includes(asset.category)) {
+    if (!['Laptop', 'Komputer', 'Elektronik', 'Handphone', 'Kendaraan', 'Furniture'].includes(asset.category)) {
       setEditCustomCategory(asset.category);
     } else {
       setEditCustomCategory('');
@@ -179,7 +187,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editAssetData) return;
-    const finalCategory = (editAssetData.category === 'Lainnya' || !['Laptop', 'Komputer', 'Elektronik', 'Kendaraan', 'Furniture'].includes(editAssetData.category)) ? editCustomCategory : editAssetData.category;
+    const finalCategory = (editAssetData.category === 'Lainnya' || !['Laptop', 'Komputer', 'Elektronik', 'Handphone', 'Kendaraan', 'Furniture'].includes(editAssetData.category)) ? editCustomCategory : editAssetData.category;
     
     try {
       const { id, ...data } = editAssetData;
@@ -330,6 +338,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       category: newAssetData.category === 'Lainnya' ? newAssetData.customCategory : newAssetData.category,
       purchaseDate: newAssetData.purchaseDate,
       status: 'Tersedia',
+      condition: newAssetData.condition,
       history: []
     };
     
@@ -342,7 +351,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
     }
     
     setIsAddModalOpen(false);
-    setNewAssetData({ name: '', category: 'Laptop', customCategory: '', purchaseDate: new Date().toISOString().split('T')[0] });
+    setNewAssetData({ name: '', category: 'Laptop', customCategory: '', purchaseDate: new Date().toISOString().split('T')[0], condition: 'Normal' });
   };
 
   const getAssetDepartment = (asset: Asset) => {
@@ -522,11 +531,11 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             <div className="relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-default">
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
-                  <p className="text-[10px] font-black text-rose-500 mb-1 uppercase tracking-widest">Jumlah Divisi</p>
-                  <p className="text-[32px] leading-none font-black text-rose-950">{uniqueDivisionsCount}</p>
+                  <p className="text-[10px] font-black text-rose-500 mb-1 uppercase tracking-widest">Inventaris Rusak</p>
+                  <p className="text-[32px] leading-none font-black text-rose-950">{assets.filter(a => a.condition === 'Rusak').length}</p>
                 </div>
                 <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-rose-500 shadow-sm shrink-0 group-hover:scale-110 transition-transform">
-                  <Icon name="briefcase" size={20} strokeWidth={2.5} />
+                  <Icon name="alert-triangle" size={20} strokeWidth={2.5} />
                 </div>
               </div>
               <div className="absolute bottom-0 right-0 w-10 h-10 bg-rose-500 origin-bottom-right transition-transform group-hover:scale-110" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
@@ -545,6 +554,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Kategori</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Divisi</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Kondisi</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Pemakai (Karyawan)</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Histori</th>
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right rounded-tr-3xl">Aksi</th>
@@ -553,7 +563,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
               <tbody className="divide-y divide-slate-100">
                 {filteredAssets.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-8 text-center text-slate-500 font-medium">
+                    <td colSpan={10} className="py-8 text-center text-slate-500 font-medium">
                       Tidak ada aset yang sesuai dengan filter
                     </td>
                   </tr>
@@ -594,6 +604,15 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         'bg-rose-100 text-rose-700'
                       }`}>
                         {item.status}
+                      </span>
+                    </td>
+                    <td className="py-4 px-6">
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
+                        (item.condition || 'Normal') === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
+                        (item.condition || 'Normal') === 'Perbaikan' ? 'bg-amber-100 text-amber-700' :
+                        'bg-rose-100 text-rose-700'
+                      }`}>
+                        {item.condition || 'Normal'}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-sm">
@@ -982,7 +1001,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Kategori</label>
                   <select 
                     className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium appearance-none"
-                    value={['Laptop', 'Komputer', 'Elektronik', 'Kendaraan', 'Furniture'].includes(newAssetData.category) ? newAssetData.category : 'Lainnya'}
+                    value={['Laptop', 'Komputer', 'Elektronik', 'Handphone', 'Kendaraan', 'Furniture'].includes(newAssetData.category) ? newAssetData.category : 'Lainnya'}
                     onChange={(e) => {
                       if (e.target.value === 'Lainnya') {
                         setNewAssetData({...newAssetData, category: 'Lainnya', customCategory: ''});
@@ -994,6 +1013,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                     <option value="Laptop">Laptop</option>
                     <option value="Komputer">Komputer</option>
                     <option value="Elektronik">Elektronik</option>
+                    <option value="Handphone">Handphone</option>
                     <option value="Kendaraan">Kendaraan</option>
                     <option value="Furniture">Furniture</option>
                     <option value="Lainnya">Lainnya (Ketik Manual)</option>
@@ -1010,15 +1030,29 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
-                  <input
-                    type="date"
-                    required
-                    value={newAssetData.purchaseDate}
-                    onChange={(e) => setNewAssetData({...newAssetData, purchaseDate: e.target.value})}
-                    className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
+                    <input
+                      type="date"
+                      required
+                      value={newAssetData.purchaseDate}
+                      onChange={(e) => setNewAssetData({...newAssetData, purchaseDate: e.target.value})}
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Kondisi</label>
+                    <select
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                      value={newAssetData.condition}
+                      onChange={(e) => setNewAssetData({...newAssetData, condition: e.target.value as 'Normal' | 'Rusak' | 'Perbaikan'})}
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="Perbaikan">Perbaikan</option>
+                      <option value="Rusak">Rusak</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1071,7 +1105,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   <label className="block text-sm font-bold text-slate-700 mb-1.5">Kategori</label>
                   <select 
                     className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium appearance-none"
-                    value={['Laptop', 'Komputer', 'Elektronik', 'Kendaraan', 'Furniture'].includes(editAssetData.category) ? editAssetData.category : 'Lainnya'}
+                    value={['Laptop', 'Komputer', 'Elektronik', 'Handphone', 'Kendaraan', 'Furniture'].includes(editAssetData.category) ? editAssetData.category : 'Lainnya'}
                     onChange={(e) => {
                       if (e.target.value === 'Lainnya') {
                         setEditAssetData({...editAssetData, category: 'Lainnya'});
@@ -1084,11 +1118,12 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                     <option value="Laptop">Laptop</option>
                     <option value="Komputer">Komputer</option>
                     <option value="Elektronik">Elektronik</option>
+                    <option value="Handphone">Handphone</option>
                     <option value="Kendaraan">Kendaraan</option>
                     <option value="Furniture">Furniture</option>
                     <option value="Lainnya">Lainnya (Ketik Manual)</option>
                   </select>
-                  {(!['Laptop', 'Komputer', 'Elektronik', 'Kendaraan', 'Furniture'].includes(editAssetData.category) || editAssetData.category === 'Lainnya') && (
+                  {(!['Laptop', 'Komputer', 'Elektronik', 'Handphone', 'Kendaraan', 'Furniture'].includes(editAssetData.category) || editAssetData.category === 'Lainnya') && (
                     <input
                       type="text"
                       required
@@ -1100,15 +1135,29 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
-                  <input
-                    type="date"
-                    required
-                    value={editAssetData.purchaseDate}
-                    onChange={(e) => setEditAssetData({...editAssetData, purchaseDate: e.target.value})}
-                    className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
+                    <input
+                      type="date"
+                      required
+                      value={editAssetData.purchaseDate}
+                      onChange={(e) => setEditAssetData({...editAssetData, purchaseDate: e.target.value})}
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-1.5">Kondisi</label>
+                    <select
+                      className="w-full bg-white border border-slate-200 text-slate-800 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all appearance-none"
+                      value={editAssetData.condition || 'Normal'}
+                      onChange={(e) => setEditAssetData({...editAssetData, condition: e.target.value as 'Normal' | 'Rusak' | 'Perbaikan'})}
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="Perbaikan">Perbaikan</option>
+                      <option value="Rusak">Rusak</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
