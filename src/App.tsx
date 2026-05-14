@@ -389,7 +389,7 @@ export default function App() {
 
   const handleAddEmployee = async (newEmployeeData: Employee) => {
     const randomId = `DEF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-    const newEmployee = { ...newEmployeeData, isActive: true };
+    const newEmployee = { ...newEmployeeData, isActive: true, hideFromOrgChart: true };
     try {
       const sanitizedVal = removeUndefined(newEmployee);
       await setDoc(doc(db, 'employees', randomId), sanitizedVal);

@@ -53,6 +53,7 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         pos: extPos.trim() || 'Eksternal',
         isActive: true,
         isExternal: true,
+        hideFromOrgChart: true,
         gender: "Laki-Laki",
         dob: "",
         joinDate: new Date().toISOString(),
