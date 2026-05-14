@@ -16,6 +16,25 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
   const [extDept, setExtDept] = useState('');
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
+  const [showBackToCenter, setShowBackToCenter] = useState(false);
+
+  const centerView = () => {
+    if (scrollContainerRef.current) {
+      const el = scrollContainerRef.current;
+      el.scrollTo({ left: (el.scrollWidth - el.clientWidth) / 2, behavior: 'smooth' });
+    }
+  };
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const centerPoint = (el.scrollWidth - el.clientWidth) / 2;
+    // Show button if scrolled more than 100px away from the center
+    if (Math.abs(el.scrollLeft - centerPoint) > 100) {
+      setShowBackToCenter(true);
+    } else {
+      setShowBackToCenter(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -298,7 +317,7 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         </button>
       </div>
 
-      <div ref={scrollContainerRef} className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative">
         <div 
           className="w-max mx-auto p-6 pb-24 origin-top transition-transform" 
           style={{ transform: `scale(${zoom})` }}
@@ -330,11 +349,21 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         </div>
       </div>
 
-      <div className="absolute bottom-8 right-8 flex flex-col gap-2 bg-white rounded-xl shadow-lg border border-slate-100 p-1 z-30">
-        {zoom !== 1 && (
-          <>
-            <button 
-              onClick={() => setZoom(1)}
+      <div className="absolute bottom-8 right-8 flex flex-col gap-2 z-30">
+        {showBackToCenter && (
+          <button 
+            onClick={centerView}
+            className="flex items-center justify-center p-2.5 bg-white text-indigo-600 rounded-xl shadow-lg border border-slate-100 hover:bg-slate-50 transition-all animate-fadeIn"
+            title="Kembali ke Tengah"
+          >
+            <Icon name="target" size={20} />
+          </button>
+        )}
+        <div className="flex flex-col gap-2 bg-white rounded-xl shadow-lg border border-slate-100 p-1">
+          {zoom !== 1 && (
+            <>
+              <button 
+                onClick={() => setZoom(1)}
               className="p-2 text-slate-600 hover:text-red-600 hover:bg-slate-50 rounded-lg transition-colors"
               title="Reset Zoom"
             >
@@ -358,6 +387,7 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         >
           <Icon name="minus" size={20} />
         </button>
+        </div>
       </div>
 
       {isAssignModalOpen && selectedEmp && (
