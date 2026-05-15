@@ -748,7 +748,27 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             </button>
             <div className="p-8 flex flex-col items-center justify-center text-center">
               <h3 className="font-bold text-slate-800 text-xl mb-1">{selectedAsset.name}</h3>
-              <p className="text-sm text-slate-500 mb-6">Scan Barcode untuk melihat detail & histori</p>
+              <p className="text-sm text-slate-500 mb-4">Scan Barcode untuk melihat detail & histori</p>
+              
+              <div className="flex items-center gap-1.5 justify-center mb-6 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100">
+                <span className="text-xs font-bold text-slate-500">Kondisi:</span>
+                {selectedAsset.condition === 'Normal' || !selectedAsset.condition ? (
+                  <Icon name="check-circle" size={14} className="text-emerald-500" />
+                ) : selectedAsset.condition === 'Rusak' ? (
+                  <Icon name="alert-triangle" size={14} className="text-rose-500" />
+                ) : (
+                  <Icon name="tool" size={14} className="text-amber-500" />
+                )}
+                <span className={`text-xs font-bold ${
+                  selectedAsset.condition === 'Normal' || !selectedAsset.condition 
+                    ? 'text-emerald-700' 
+                    : selectedAsset.condition === 'Rusak' 
+                    ? 'text-rose-700' 
+                    : 'text-amber-700'
+                }`}>
+                  {selectedAsset.condition || 'Normal'}
+                </span>
+              </div>
               
               {/* Real Barcode Visual */}
               <div className="bg-white border-2 border-slate-200 p-6 rounded-2xl mb-4 flex flex-col items-center justify-center text-slate-800">
@@ -797,6 +817,27 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   <div className="text-sm font-bold text-slate-800">{selectedAsset.category}</div>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="text-[11px] text-slate-500 font-bold mb-1 uppercase tracking-wider">Kondisi</div>
+                  <div className="text-sm font-bold flex items-center gap-1.5">
+                    {selectedAsset.condition === 'Normal' || !selectedAsset.condition ? (
+                      <Icon name="check-circle" size={14} className="text-emerald-500" />
+                    ) : selectedAsset.condition === 'Rusak' ? (
+                      <Icon name="alert-triangle" size={14} className="text-rose-500" />
+                    ) : (
+                      <Icon name="tool" size={14} className="text-amber-500" />
+                    )}
+                    <span className={
+                      selectedAsset.condition === 'Normal' || !selectedAsset.condition 
+                        ? 'text-emerald-700' 
+                        : selectedAsset.condition === 'Rusak' 
+                        ? 'text-rose-700' 
+                        : 'text-amber-700'
+                    }>
+                      {selectedAsset.condition || 'Normal'}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2">
                   <div className="text-[11px] text-slate-500 font-bold mb-1 uppercase tracking-wider">Tgl Pembelian</div>
                   <div className="text-sm font-bold text-slate-800">{selectedAsset.purchaseDate}</div>
                 </div>
