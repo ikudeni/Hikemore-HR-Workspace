@@ -442,32 +442,32 @@ export const LoginView = ({
                 Core Value Hikemore
               </h1>
               <div className="grid grid-cols-2 gap-3 max-w-[480px]">
-                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm">
+                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/10 hover:-translate-y-1 hover:border-white/20 transition-all cursor-default group">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm group-hover:bg-white/20 transition-colors">
                     <span className="text-xs font-bold text-white/90">01</span>
                   </div>
                   <div>
                     <p className="text-[15px] font-bold tracking-tight text-white/95 leading-tight">Grit</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm">
+                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/10 hover:-translate-y-1 hover:border-white/20 transition-all cursor-default group">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm group-hover:bg-white/20 transition-colors">
                     <span className="text-xs font-bold text-white/90">02</span>
                   </div>
                   <div>
                     <p className="text-[15px] font-bold tracking-tight text-white/95 leading-tight">Growth</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm">
+                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/10 hover:-translate-y-1 hover:border-white/20 transition-all cursor-default group">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm group-hover:bg-white/20 transition-colors">
                     <span className="text-xs font-bold text-white/90">03</span>
                   </div>
                   <div>
                     <p className="text-[15px] font-bold tracking-tight text-white/95 leading-tight">Profesionalism</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm">
+                <div className="flex items-center gap-3 bg-white/5 p-2.5 rounded-2xl border border-white/10 backdrop-blur-sm hover:bg-white/10 hover:-translate-y-1 hover:border-white/20 transition-all cursor-default group">
+                  <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 border border-white/5 shadow-sm group-hover:bg-white/20 transition-colors">
                     <span className="text-xs font-bold text-white/90">04</span>
                   </div>
                   <div>
