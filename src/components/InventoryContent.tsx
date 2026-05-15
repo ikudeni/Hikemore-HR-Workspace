@@ -330,8 +330,22 @@ export function InventoryContent({ employees }: InventoryContentProps) {
 
   const handleAddAsset = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = `AST-${String(assets.length + 1).padStart(3, '0')}`;
-    const newBarcode = `INV-${new Date().getFullYear()}-${String(assets.length + 1).padStart(4, '0')}`;
+    
+    // Find highest AST number
+    const maxAstNum = assets.reduce((max, asset) => {
+      const match = asset.id.match(/^AST-(\d+)$/);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 0);
+    const newId = `AST-${String(maxAstNum + 1).padStart(3, '0')}`;
+
+    // Find highest INV number for the current year
+    const currentYear = new Date().getFullYear();
+    const maxInvNum = assets.reduce((max, asset) => {
+      const match = asset.barcode.match(new RegExp(`^INV-${currentYear}-(\\d+)$`));
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 0);
+    const newBarcode = `INV-${currentYear}-${String(maxInvNum + 1).padStart(4, '0')}`;
+
     const newAsset: Asset = {
       id: newId,
       barcode: newBarcode,
