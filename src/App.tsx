@@ -504,7 +504,7 @@ export default function App() {
     return <ResetPasswordView oobCode={resetOobCode} onSuccess={() => setResetOobCode(null)} />;
   }
 
-  if (scanParam && !isAuthenticated) {
+  if (scanParam) {
     return (
       <PublicAssetView 
         barcode={scanParam} 

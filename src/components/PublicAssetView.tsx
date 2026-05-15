@@ -21,6 +21,7 @@ interface Asset {
   name: string;
   category: string;
   status: 'Tersedia' | 'Dipakai' | 'Rusak';
+  condition?: 'Normal' | 'Rusak' | 'Perbaikan';
   assignedToId?: string; // Employee ID
   purchaseDate: string;
   history: AssetHistory[];
@@ -104,6 +105,27 @@ export const PublicAssetView = ({ barcode, onClose, onGoToLogin }: { barcode: st
                   <div className="text-sm font-bold text-slate-800">{asset.category}</div>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                  <div className="text-[11px] text-slate-500 font-bold mb-1 uppercase tracking-wider">Kondisi</div>
+                  <div className="text-sm font-bold flex items-center gap-1.5">
+                    {asset.condition === 'Normal' || !asset.condition ? (
+                      <Icon name="check-circle" size={14} className="text-emerald-500" />
+                    ) : asset.condition === 'Rusak' ? (
+                      <Icon name="alert-triangle" size={14} className="text-rose-500" />
+                    ) : (
+                      <Icon name="tool" size={14} className="text-amber-500" />
+                    )}
+                    <span className={
+                      asset.condition === 'Normal' || !asset.condition 
+                        ? 'text-emerald-700' 
+                        : asset.condition === 'Rusak' 
+                        ? 'text-rose-700' 
+                        : 'text-amber-700'
+                    }>
+                      {asset.condition || 'Normal'}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 col-span-2">
                   <div className="text-[11px] text-slate-500 font-bold mb-1 uppercase tracking-wider">Tgl Pembelian</div>
                   <div className="text-sm font-bold text-slate-800">{asset.purchaseDate}</div>
                 </div>
