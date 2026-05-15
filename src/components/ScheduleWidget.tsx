@@ -273,6 +273,17 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                 {items.map(s => {
                   const status = getStatus(s);
                   const displayType = s.type === 'Lainnya' ? (s.customType || 'Lainnya') : s.type;
+                  
+                  let jobTitle = '';
+                  if (s.candidateId) {
+                    const candidate = candidates.find(c => c.id === s.candidateId);
+                    if (candidate) {
+                      const job = jobListings.find(j => j.id === candidate.jobId);
+                      if (job) {
+                        jobTitle = job.title;
+                      }
+                    }
+                  }
 
                   return (
                     <div 
@@ -316,7 +327,12 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                             <p className="text-[13px] font-bold text-slate-600">PIC: <strong className="text-slate-900">{employees?.find(e => e.id === s.interviewer)?.name || s.interviewer || 'N/A'}</strong></p>
                           </div>
                           
-                          {s.candidateName && <span className="text-[11px] font-bold text-slate-500 truncate max-w-full pl-8">{s.title}</span>}
+                          {s.candidateName && (
+                            <div className="flex flex-col gap-0.5 pl-8 mt-1">
+                              <span className="text-[11px] font-bold text-slate-500 truncate max-w-full">{s.title}</span>
+                              {jobTitle && <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 w-fit px-1.5 py-0.5 rounded-md mt-0.5">Loker: {jobTitle}</span>}
+                            </div>
+                          )}
                         </div>
                         {s.type === 'Interview Online' && s.link && (
                           <div className="mt-3 flex items-center gap-2">

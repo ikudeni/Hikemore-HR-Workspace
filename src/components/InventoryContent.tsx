@@ -40,6 +40,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [isEditingAssignment, setIsEditingAssignment] = useState(false);
   const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
   const [isScanResultModalOpen, setIsScanResultModalOpen] = useState(false);
   
@@ -86,6 +87,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const [assignEmployeeId, setAssignEmployeeId] = useState('');
   const [assignGiver, setAssignGiver] = useState('');
   const [assignProofFile, setAssignProofFile] = useState<File | null>(null);
+  const [assignExistingProof, setAssignExistingProof] = useState<string | null>(null);
   const [isUploadingProof, setIsUploadingProof] = useState(false);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
   
@@ -122,10 +124,25 @@ export function InventoryContent({ employees }: InventoryContentProps) {
     }
   }, [assets]);
   
-  const handleOpenAssignModal = (asset: Asset) => {
+  const handleOpenAssignModal = (asset: Asset, isEdit = false) => {
     setSelectedAsset(asset);
-    setAssignEmployeeId('');
-    setAssignGiver('');
+    setIsEditingAssignment(isEdit);
+    if (isEdit && asset.history && asset.history.length > 0) {
+      const currentAssignment = asset.history.find(h => !h.dateReturned);
+      if (currentAssignment) {
+        setAssignEmployeeId(currentAssignment.employeeId);
+        setAssignGiver(currentAssignment.giverName || '');
+        setAssignExistingProof(currentAssignment.proofImageUrl || null);
+      } else {
+        setAssignEmployeeId('');
+        setAssignGiver('');
+        setAssignExistingProof(null);
+      }
+    } else {
+      setAssignEmployeeId('');
+      setAssignGiver('');
+      setAssignExistingProof(null);
+    }
     setAssignProofFile(null);
     setIsAssignModalOpen(true);
   };
@@ -146,23 +163,38 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       const todayStr = d.toISOString().split('T')[0];
       const targetEmployee = employees.find(emp => emp.id === assignEmployeeId);
       
+      let newHistory = [...(selectedAsset.history || [])];
+
+      if (isEditingAssignment) {
+        const activeIndex = newHistory.findIndex(h => !h.dateReturned);
+        if (activeIndex !== -1) {
+          // preserve existing URL, etc if not overwriting
+          newHistory[activeIndex] = {
+            ...newHistory[activeIndex],
+            employeeId: assignEmployeeId,
+            employeeNameSnapshot: targetEmployee?.name || 'Unknown',
+            giverName: assignGiver || null,
+            proofImageUrl: uploadedUrl || assignExistingProof || null
+          };
+        }
+      } else {
+        newHistory.push({ 
+          id: Date.now().toString(), 
+          employeeId: assignEmployeeId, 
+          employeeNameSnapshot: targetEmployee?.name || 'Unknown', 
+          dateAssigned: todayStr, 
+          notes: 'Assigned via system',
+          giverName: assignGiver || null,
+          proofImageUrl: uploadedUrl || null
+        });
+      }
+      
       await updateDoc(doc(db, 'assets', selectedAsset.id), {
         status: 'Dipakai',
         assignedToId: assignEmployeeId,
-        history: [
-          ...(selectedAsset.history || []),
-          { 
-            id: Date.now().toString(), 
-            employeeId: assignEmployeeId, 
-            employeeNameSnapshot: targetEmployee?.name || 'Unknown', 
-            dateAssigned: todayStr, 
-            notes: 'Assigned via system',
-            giverName: assignGiver || null,
-            proofImageUrl: uploadedUrl || null
-          }
-        ]
+        history: newHistory
       });
-      logActivity('Aset Didistribusikan', { aset: selectedAsset.name, penerima: targetEmployee?.name || 'Unknown' });
+      logActivity(isEditingAssignment ? 'Penugasan Aset Diubah' : 'Aset Didistribusikan', { aset: selectedAsset.name, penerima: targetEmployee?.name || 'Unknown' });
     } catch (error) {
       console.error(error);
       alert(error instanceof Error ? error.message : "Terjadi kesalahan saat menyimpan data.");
@@ -172,6 +204,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       setIsAssignModalOpen(false);
       setAssignProofFile(null);
       setAssignGiver('');
+      setIsEditingAssignment(false);
     }
   };
 
@@ -715,16 +748,28 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                               Tugaskan
                             </button>
                           ) : (
-                            <button
-                              onClick={() => {
-                                setOpenDropdownId(null);
-                                handleOpenReturnConfirm(item);
-                              }}
-                              className="w-full px-4 py-2 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
-                            >
-                              <Icon name="rotate-ccw" size={16} />
-                              Kembalikan
-                            </button>
+                            <>
+                              <button
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  handleOpenAssignModal(item, true); // true for edit mode
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                              >
+                                <Icon name="user-check" size={16} />
+                                Edit Penugasan
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setOpenDropdownId(null);
+                                  handleOpenReturnConfirm(item);
+                                }}
+                                className="w-full px-4 py-2 text-left text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-blue-600 flex items-center gap-2 transition-colors"
+                              >
+                                <Icon name="rotate-ccw" size={16} />
+                                Kembalikan
+                              </button>
+                            </>
                           )}
 
                           <div className="border-t border-slate-100 my-1"></div>
@@ -954,7 +999,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
           <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden flex flex-col shadow-2xl">
             <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-              <h3 className="font-black text-slate-800 text-lg">Tugaskan Aset</h3>
+              <h3 className="font-black text-slate-800 text-lg">{isEditingAssignment ? 'Edit Penugasan Aset' : 'Tugaskan Aset'}</h3>
               <button onClick={() => setIsAssignModalOpen(false)} className="text-slate-400 hover:text-slate-600">
                 <Icon name="x-circle" size={20} />
               </button>
@@ -994,7 +1039,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
 
                 <div>
                   <label className="block text-sm font-bold text-slate-700 mb-1">Foto Bukti (Opsional)</label>
-                  {!assignProofFile ? (
+                  {!assignProofFile && !assignExistingProof ? (
                     <input
                       type="file"
                       accept="image/*"
@@ -1008,10 +1053,15 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   ) : (
                     <div className="flex items-center gap-3">
                       <div className="flex-1 flex items-center justify-between px-4 py-2 border border-slate-200 rounded-xl bg-slate-50">
-                        <span className="text-sm text-slate-600 truncate">{assignProofFile.name}</span>
+                        <span className="text-sm text-slate-600 truncate">
+                          {assignProofFile ? assignProofFile.name : 'Bukti_Terlampir.jpg'}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => setAssignProofFile(null)}
+                          onClick={() => {
+                            setAssignProofFile(null);
+                            setAssignExistingProof(null);
+                          }}
                           className="text-slate-400 hover:text-red-500 transition-colors"
                         >
                           <Icon name="x" size={16} />
@@ -1042,7 +1092,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                        Menyimpan...
                     </div>
                   ) : (
-                    'Simpan Penugasan'
+                    isEditingAssignment ? 'Simpan Perubahan' : 'Simpan Penugasan'
                   )}
                 </button>
               </div>
