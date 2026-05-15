@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect, useDeferredValue } from 'react';
+import React, { useState, useMemo, useEffect, useDeferredValue, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from './ui/Icon';
 import { FormSelect, CompactFormSelect } from './ui/FormSelect';
@@ -75,7 +75,58 @@ export const KaryawanContent = ({
   const [filterEdu, setFilterEdu] = useState('All Pendidikan');
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 6;
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleTableScroll = () => {
+    if (!tableContainerRef.current) return;
+    const { scrollTop } = tableContainerRef.current;
+    
+    const tbody = tableContainerRef.current.querySelector('tbody');
+    if (!tbody || tbody.children.length === 0) return;
+    
+    // We only use scrolling to update the page number.
+    const rowHeight = (tbody.children[0] as HTMLElement).offsetHeight || 52;
+    const topRowIndex = Math.floor((scrollTop + 2) / rowHeight);
+    
+    const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+    let newPage = Math.floor(topRowIndex / itemsPerPage) + 1;
+    newPage = Math.max(1, Math.min(newPage, totalPages));
+    
+    if (newPage !== currentPage) {
+      setCurrentPage(newPage);
+    }
+  };
+
+  const scrollToPage = (page: number) => {
+    if (!tableContainerRef.current) return;
+    const tbody = tableContainerRef.current.querySelector('tbody');
+    if (!tbody || tbody.children.length === 0) return;
+    
+    const rowHeight = (tbody.children[0] as HTMLElement).offsetHeight || 52;
+    
+    tableContainerRef.current.scrollTo({
+      top: (page - 1) * itemsPerPage * rowHeight,
+      behavior: 'smooth'
+    });
+  };
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page);
+    scrollToPage(page);
+  };
+  
+  const getVisiblePages = (current: number, total: number) => {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    let start = current - 2;
+    if (start < 1) start = 1;
+    let end = start + 4;
+    if (end > total) {
+      end = total;
+      start = end - 4;
+    }
+    return Array.from({ length: 5 }, (_, i) => start + i);
+  };
 
   const uniqueStatuses = useMemo(() => [...new Set(employees.map(emp => emp.status))], [employees]);
   const uniqueDepts = useMemo(() => [...new Set(employees.map(emp => emp.dept))], [employees]);
@@ -178,7 +229,7 @@ export const KaryawanContent = ({
   const isFilterActive = searchQuery !== '' || filterStatus !== 'All Status' || filterDept !== 'All Departemen' || filterEdu !== 'All Pendidikan';
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-50 h-full flex flex-col overflow-hidden relative">
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-50 flex flex-col overflow-hidden relative">
       <div className="flex justify-between items-end border-b border-slate-200 px-6 pt-5">
         <div className="flex gap-6">
           <button className={`pb-3 font-bold text-sm border-b-[3px] transition-all ${activeTab === 'Active' ? 'border-primary text-primary' : 'border-transparent text-slate-500'}`} onClick={() => setActiveTab('Active')}>Active</button>
@@ -235,7 +286,7 @@ export const KaryawanContent = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto hover-scrollbar border-t border-slate-100">
+      <div ref={tableContainerRef} onScroll={handleTableScroll} className="flex-1 min-h-0 overflow-auto hover-scrollbar border-t border-slate-100">
         <table className="w-full text-left whitespace-nowrap">
           <thead className="bg-slate-50 sticky top-0 z-20">
             <tr className="text-sm font-bold text-slate-700 border-b border-slate-200">
@@ -270,10 +321,10 @@ export const KaryawanContent = ({
             </tr>
           </thead>
           <tbody className="text-sm text-slate-600 divide-y divide-slate-100 font-medium">
-             {paginatedEmployees.map((emp, index) => (
+             {filteredEmployees.map((emp, index) => (
                 <tr key={emp.id} className="hover:bg-slate-50 relative group">
                   <td className="px-4 py-3 sticky left-0 bg-white group-hover:bg-slate-50 z-10 w-[52px] text-center font-medium">
-                    {index + 1 + (currentPage - 1) * itemsPerPage}.
+                    {index + 1}.
                   </td>
                   <td className="px-4 py-3 sticky left-[52px] bg-white group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] z-10 min-w-[220px]">
                     <div className="flex gap-3 items-center">
@@ -387,27 +438,27 @@ export const KaryawanContent = ({
         </div>
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            onClick={() => handlePageClick(Math.max(currentPage - 1, 1))}
             disabled={currentPage === 1 || totalPages === 0}
-            className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100"
+            className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100 shrink-0"
           >
             <Icon name="chevron-left" size={16} />
           </button>
-          <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          <div className="flex items-center justify-center flex-wrap gap-1">
+            {getVisiblePages(currentPage, totalPages).map(page => (
               <button
                 key={page}
-                onClick={() => setCurrentPage(page)}
-                className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-colors ${currentPage === page ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => handlePageClick(page)}
+                className={`w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-colors ${currentPage === page ? 'bg-primary text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
               >
                 {page}
               </button>
             ))}
           </div>
           <button 
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            onClick={() => handlePageClick(Math.min(currentPage + 1, totalPages))}
             disabled={currentPage === totalPages || totalPages === 0}
-            className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100"
+            className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100 shrink-0"
           >
             <Icon name="chevron-right" size={16} />
           </button>
