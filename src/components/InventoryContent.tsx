@@ -320,7 +320,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `stiker-${asset.barcode}.svg`;
+      a.download = `Barcode - ${asset.name}.svg`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
