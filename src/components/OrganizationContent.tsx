@@ -584,14 +584,14 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
           position: absolute;
           top: 0;
           right: 50%;
-          border-top: 1px solid #c7d2fe;
+          border-top: 2px solid #c7d2fe;
           width: 50%;
           height: 36px;
         }
         .org-tree li::after {
           right: auto;
           left: 50%;
-          border-left: 1px solid #c7d2fe;
+          border-left: 2px solid #c7d2fe;
         }
 
         /* Remove lines for only child */
@@ -608,7 +608,7 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
           border: 0 none;
         }
         .org-tree li:last-child::before {
-          border-right: 1px solid #c7d2fe;
+          border-right: 2px solid #c7d2fe;
           border-radius: 0 24px 0 0;
         }
         .org-tree li:first-child::after {
@@ -621,10 +621,10 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
           position: absolute;
           top: 0;
           left: 50%;
-          border-left: 1px solid #c7d2fe;
+          border-left: 2px solid #c7d2fe;
           width: 0;
           height: 36px;
-          margin-left: 0px;
+          margin-left: -1px;
         }
 
         /* Hide top line of root nodes */
