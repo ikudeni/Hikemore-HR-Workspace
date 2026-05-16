@@ -2573,6 +2573,12 @@ export const DashboardContent = ({
                       <span className="font-bold text-white">{val as number} Orang</span>
                     </div>
                   ))}
+                  <div className="mt-1 pt-2 border-t border-slate-700 flex justify-between items-center text-[11px]">
+                    <div className="flex items-center gap-2 text-slate-300 font-bold">
+                       Total
+                    </div>
+                    <span className="font-bold text-white">{barTooltip.data.total} Orang</span>
+                  </div>
               </>
             )}
           </div>

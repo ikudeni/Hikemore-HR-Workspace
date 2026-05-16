@@ -3,6 +3,11 @@ import { Card } from './ui/Card';
 import { Icon } from './ui/Icon';
 import { Schedule, Candidate, Employee, JobListing } from '../types';
 import { logActivity } from '../firebase';
+import { DateRange } from 'react-date-range';
+import { id as idLocale } from 'date-fns/locale';
+import 'react-date-range/dist/styles.css';
+import 'react-date-range/dist/theme/default.css';
+import { format, startOfMonth, endOfMonth, parseISO } from 'date-fns';
 
 interface ScheduleWidgetProps {
   schedules: Schedule[];
@@ -16,7 +21,25 @@ type FilterTab = 'All' | 'Scheduled' | 'Completed' | 'Overdue';
 
 export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], employees = [], jobListings = [] }: ScheduleWidgetProps) => {
   const [filter, setFilter] = useState<FilterTab>('All');
-  const [selectedDateFilter, setSelectedDateFilter] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState([
+    {
+      startDate: startOfMonth(new Date()),
+      endDate: endOfMonth(new Date()),
+      key: 'selection'
+    }
+  ]);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+  const datePickerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (datePickerRef.current && !datePickerRef.current.contains(event.target as Node)) {
+        setIsDatePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
@@ -62,21 +85,46 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const filteredSchedules = useMemo(() => {
     return schedules.filter(s => {
       const status = getStatus(s);
-      const isDateMatch = selectedDateFilter ? s.date === selectedDateFilter : true;
+      
+      let isDateMatch = true;
+      if (s.date && dateRange[0].startDate && dateRange[0].endDate) {
+        const sDate = parseISO(s.date);
+        sDate.setHours(0,0,0,0);
+        const start = new Date(dateRange[0].startDate);
+        start.setHours(0,0,0,0);
+        const end = new Date(dateRange[0].endDate);
+        end.setHours(23,59,59,999);
+        
+        isDateMatch = sDate >= start && sDate <= end;
+      }
+      
       if (!isDateMatch) return false;
       if (filter === 'All') return true;
       return status === filter;
     });
-  }, [schedules, filter, selectedDateFilter]);
+  }, [schedules, filter, dateRange]);
 
   const stats = useMemo(() => {
-    return {
-      All: schedules.length,
-      Scheduled: schedules.filter(s => getStatus(s) === 'Scheduled').length,
-      Completed: schedules.filter(s => getStatus(s) === 'Completed').length,
-      Overdue: schedules.filter(s => getStatus(s) === 'Overdue').length,
+    let baseSchedules = schedules;
+    if (dateRange[0].startDate && dateRange[0].endDate) {
+        const start = new Date(dateRange[0].startDate);
+        start.setHours(0,0,0,0);
+        const end = new Date(dateRange[0].endDate);
+        end.setHours(23,59,59,999);
+        baseSchedules = schedules.filter(s => {
+            const sDate = parseISO(s.date);
+            sDate.setHours(0,0,0,0);
+            return sDate >= start && sDate <= end;
+        });
     }
-  }, [schedules]);
+
+    return {
+      All: baseSchedules.length,
+      Scheduled: baseSchedules.filter(s => getStatus(s) === 'Scheduled').length,
+      Completed: baseSchedules.filter(s => getStatus(s) === 'Completed').length,
+      Overdue: baseSchedules.filter(s => getStatus(s) === 'Overdue').length,
+    }
+  }, [schedules, dateRange]);
 
   const groupedSchedules = useMemo(() => {
     const groups: Record<string, Schedule[]> = {};
@@ -237,22 +285,38 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 transition-all">
-          <Icon name="calendar" size={16} className="text-slate-400" />
-          <input
-            type="date"
-            value={selectedDateFilter || ''}
-            onChange={(e) => setSelectedDateFilter(e.target.value || null)}
-            className="text-sm font-bold text-slate-700 outline-none bg-transparent cursor-pointer"
-          />
-          {selectedDateFilter && (
-            <button
-              onClick={() => setSelectedDateFilter(null)}
-              className="text-slate-400 hover:text-rose-500 transition-colors"
-              title="Clear Filter"
-            >
-              <Icon name="x" size={16} />
-            </button>
+        <div className="relative" ref={datePickerRef}>
+          <div 
+            className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 cursor-pointer transition-all"
+            onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+          >
+            <Icon name="calendar" size={16} className="text-slate-400" />
+            <span className="text-sm font-bold text-slate-700">
+              {format(dateRange[0].startDate, 'd MMM yyyy', { locale: idLocale })} - {format(dateRange[0].endDate, 'd MMM yyyy', { locale: idLocale })}
+            </span>
+            <Icon name="chevron-down" size={16} className="text-slate-400 ml-1" />
+          </div>
+
+          {isDatePickerOpen && (
+            <div className="absolute right-0 sm:right-auto sm:left-auto xl:right-0 top-full mt-2 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-200 overflow-hidden z-50 animate-fadeIn" style={{ width: 'max-content' }}>
+              <DateRange
+                ranges={dateRange}
+                onChange={item => setDateRange([item.selection as any])}
+                months={window.innerWidth > 640 ? 2 : 1}
+                direction="horizontal"
+                locale={idLocale}
+                rangeColors={['#3b82f6']}
+                showDateDisplay={false}
+              />
+              <div className="flex justify-end p-3 border-t border-slate-100 bg-slate-50 gap-2">
+                <button 
+                  onClick={() => setIsDatePickerOpen(false)}
+                  className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm shadow-blue-600/20"
+                >
+                  Terapkan
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>
