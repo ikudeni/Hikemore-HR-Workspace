@@ -271,6 +271,58 @@ export default function App() {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    // ONE TIME INJECT FOR SCHED
+    if (schedulesReact.length > 0 && jobListingsReact.length > 0 && candidatesReact.length > 0) {
+      if (!schedulesReact.some(s => s.id === "INJECT_HC_05")) {
+         let injectCandidates = [...candidatesReact];
+         let candidatesModified = false;
+         
+         const fixCandidateName = (oldName: string, newName: string) => {
+            const cand = injectCandidates.find(c => c.name.toLowerCase().includes(oldName.toLowerCase()));
+            if (cand) {
+                cand.name = newName;
+                candidatesModified = true;
+            }
+         };
+         
+         // Fix names
+         fixCandidateName('rizal', 'Farrel');
+         fixCandidateName('nahrowi', 'Bandi');
+         fixCandidateName('budi', 'Farrel');
+         fixCandidateName('agus', 'Bandi');
+
+         const newSchedules = [...schedulesReact];
+         let schedModified = false;
+         
+         newSchedules.forEach(s => {
+             if (s.candidateName.toLowerCase().includes('rizal') || s.candidateName.toLowerCase().includes('budi')) {
+                 s.candidateName = 'Farrel';
+                 s.title = `Interview Offline - ${s.candidateName}`;
+                 s.id = "INJECT_HC_05"; // ensure it doesn't run again
+                 schedModified = true;
+             }
+             if (s.candidateName.toLowerCase().includes('nahrowi') || s.candidateName.toLowerCase().includes('agus')) {
+                 s.candidateName = 'Bandi';
+                 s.title = `Interview Offline - ${s.candidateName}`;
+                 schedModified = true;
+             }
+         });
+         
+         if (schedModified) {
+            setSchedulesReact(newSchedules);
+            if (candidatesModified) setCandidatesReact(injectCandidates);
+            
+            // save to db
+            debouncedSetDoc('schedules_inject_names', doc(db, 'settings', 'recruitmentData'), { 
+               schedules: newSchedules,
+               ...(candidatesModified ? { candidates: injectCandidates } : {})
+            }, { merge: true });
+         }
+      }
+    }
+  }, [schedulesReact, jobListingsReact, candidatesReact]);
+
   const [performaDataMapReact, setPerformaDataMapReact] = useState<Record<string, any>>({});
   
   const performaDataMap = performaDataMapReact;

@@ -39,8 +39,19 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const getStatus = (s: Schedule) => {
     if (s.attendance === 'Hadir' || s.attendance === 'Tidak Hadir' || s.attendance === 'Selesai') return 'Completed';
     
-    const todayStr = new Date().toISOString().split('T')[0];
+    // Compare dates and times
+    const now = new Date();
+    // Parse the schedule end time or start time
+    const scheduleTimeStr = s.endTime || s.startTime || '23:59';
+    const scheduleDateTime = new Date(`${s.date}T${scheduleTimeStr}:00`);
     
+    // If the combined date & time is in the past, it's overdue
+    if (!isNaN(scheduleDateTime.getTime()) && scheduleDateTime < now) {
+      return 'Overdue';
+    }
+    
+    // Fallback if Date parsing fails somehow, just check date
+    const todayStr = now.toISOString().split('T')[0];
     if (s.date < todayStr) {
       return 'Overdue';
     }
