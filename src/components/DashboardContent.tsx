@@ -207,6 +207,7 @@ export const DashboardContent = ({
   const [editingOvertimeId, setEditingOvertimeId] = useState<number | null>(null);
   const [deleteOvertimeConfirm, setDeleteOvertimeConfirm] = useState<{isOpen: boolean, id: number | null}>({isOpen: false, id: null});
   const [overtimeFilterDept, setOvertimeFilterDept] = useState<string>('Semua Divisi');
+  const [overtimeFilterStatus, setOvertimeFilterStatus] = useState<string>('Semua Status');
   const [overtimeFilterName, setOvertimeFilterName] = useState<string | null>(null);
   const [overtimeSearchName, setOvertimeSearchName] = useState<string>('');
   const [overtimeStartDate, setOvertimeStartDate] = useState<string | null>(() => {
@@ -223,16 +224,18 @@ export const DashboardContent = ({
     date: '',
     name: '',
     dept: '',
+    status: '',
     desc: '',
     startTime: '',
     endTime: '',
     duration: 0,
-    attachment: null as File | null
+    attachment: null as File | null,
+    attachmentName: ''
   });
 
-  const [overtimeEntries, setOvertimeEntries] = useState<{name: string, dept: string, startTime: string, endTime: string, duration: number}[]>([]);
+  const [overtimeEntries, setOvertimeEntries] = useState<{name: string, dept: string, status: string, startTime: string, endTime: string, duration: number}[]>([]);
 
-  const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>([]);
+  const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, status?: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>([]);
 
   useEffect(() => {
     const q = doc(db, 'settings', 'overtimeRecords');
@@ -255,6 +258,11 @@ export const DashboardContent = ({
     ...overtimeRecords.map(r => r.dept)
   ].filter(Boolean))), [employees, overtimeRecords]);
 
+  const uniqueOvertimeStatuses = useMemo(() => Array.from(new Set([
+    ...employees.map(e => e.status),
+    ...overtimeRecords.map(r => r.status)
+  ].filter(Boolean))), [employees, overtimeRecords]);
+
   const uniqueOvertimeNames = useMemo(() => Array.from(new Set([
     ...employees.map(e => e.name),
     ...overtimeRecords.map(r => r.name)
@@ -269,15 +277,18 @@ export const DashboardContent = ({
         date: record.date,
         name: record.name,
         dept: record.dept,
+        status: record.status || '',
         desc: record.desc,
         startTime: record.startTime,
         endTime: record.endTime,
         duration: record.duration,
-        attachment: record.attachment || null
+        attachment: record.attachment || null,
+        attachmentName: ''
       });
       setOvertimeEntries([{
         name: record.name,
         dept: record.dept,
+        status: record.status || '',
         startTime: record.startTime,
         endTime: record.endTime,
         duration: record.duration
@@ -285,7 +296,7 @@ export const DashboardContent = ({
     } else {
       setEditingOvertimeId(null);
       setOvertimeForm({
-        date: '', name: '', dept: '', desc: '', startTime: '', endTime: '', duration: 0, attachment: null
+        date: '', name: '', dept: '', status: '', desc: '', startTime: '', endTime: '', duration: 0, attachment: null, attachmentName: ''
       });
       setOvertimeEntries([]);
     }
@@ -379,6 +390,7 @@ export const DashboardContent = ({
   const filteredOvertimeRecords = useMemo(() => {
     return overtimeRecords.filter(r => {
       const matchDept = overtimeFilterDept === 'Semua Divisi' || overtimeFilterDept === 'Divisi (Lembur)' || r.dept === overtimeFilterDept;
+      const matchStatus = overtimeFilterStatus === 'Semua Status' || r.status === overtimeFilterStatus;
       
       let matchDate = true;
       if (overtimeStartDate && overtimeEndDate) {
@@ -391,9 +403,13 @@ export const DashboardContent = ({
 
       const matchName = !overtimeFilterName || r.name === overtimeFilterName;
       const matchSearchName = r.name.toLowerCase().includes(overtimeSearchName.toLowerCase());
-      return matchDept && matchDate && matchName && matchSearchName;
+      return matchDept && matchStatus && matchDate && matchName && matchSearchName;
+    }).sort((a, b) => {
+      const dateDiff = new Date(a.date).getTime() - new Date(b.date).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return (a.dept || '').localeCompare(b.dept || '');
     });
-  }, [overtimeRecords, overtimeFilterDept, overtimeStartDate, overtimeEndDate, overtimeFilterName, overtimeSearchName]);
+  }, [overtimeRecords, overtimeFilterDept, overtimeFilterStatus, overtimeStartDate, overtimeEndDate, overtimeFilterName, overtimeSearchName]);
 
   const dateFilteredOvertimeRecords = useMemo(() => {
     return overtimeRecords.filter(r => {
@@ -423,11 +439,11 @@ export const DashboardContent = ({
 
   const overtimeDeptDist = useMemo(() => {
     const dist: Record<string, number> = {};
-    dateFilteredOvertimeRecords.forEach(r => {
+    filteredOvertimeRecords.forEach(r => {
       dist[r.dept] = (dist[r.dept] || 0) + r.duration;
     });
     return Object.entries(dist).map(([label, total]) => ({ label, total })).sort((a, b) => b.total - a.total);
-  }, [dateFilteredOvertimeRecords]);
+  }, [filteredOvertimeRecords]);
 
   const overtimeSummaryByEmployee = useMemo(() => {
     const summary: Record<string, { name: string, dept: string, totalDuration: number }> = {};
@@ -1696,7 +1712,7 @@ export const DashboardContent = ({
                   const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
                   const defaultStart = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
                   const defaultEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
-                  const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName || overtimeSearchName !== '';
+                  const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeFilterStatus !== 'Semua Status' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName || overtimeSearchName !== '';
                   
                   return (
                     <>
@@ -1704,6 +1720,7 @@ export const DashboardContent = ({
                         <button 
                           onClick={() => {
                             setOvertimeFilterDept('Semua Divisi');
+                            setOvertimeFilterStatus('Semua Status');
                             setOvertimeStartDate(defaultStart);
                             setOvertimeEndDate(defaultEnd);
                             setOvertimeFilterName(null);
@@ -1741,6 +1758,22 @@ export const DashboardContent = ({
                     <option value="Semua Divisi">Divisi (Lembur)</option>
                     {uniqueOvertimeDepts.map(dept => (
                       <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                    <Icon name="chevron-down" size={14} />
+                  </div>
+                </div>
+
+                <div className="relative isolate hidden md:block">
+                  <select 
+                    className="appearance-none bg-white border border-slate-200 text-slate-600 text-[11px] font-bold rounded-lg px-4 py-2 pr-8 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all cursor-pointer shadow-sm min-w-[120px]"
+                    value={overtimeFilterStatus}
+                    onChange={e => setOvertimeFilterStatus(e.target.value)}
+                  >
+                    <option value="Semua Status">Semua Status</option>
+                    {uniqueOvertimeStatuses.map(status => (
+                      <option key={status} value={status}>{status}</option>
                     ))}
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
@@ -1946,6 +1979,7 @@ export const DashboardContent = ({
                       <th className="px-6 py-4 flex items-center gap-1.5">Tanggal <Icon name="info" size={12} className="text-slate-400" /> <Icon name="chevron-up" size={12} className="text-slate-400" /></th>
                       <th className="px-6 py-4">Nama Karyawan <Icon name="chevron-up" size={12} className="text-slate-400 inline-block align-middle ml-1" /></th>
                       <th className="px-6 py-4">Divisi</th>
+                      <th className="px-6 py-4">Status</th>
                       <th className="px-6 py-4">Keterangan Lembur</th>
                       <th className="px-6 py-4 text-center">Jam Lembur</th>
                       <th className="px-6 py-4 text-center">Form Lembur</th>
@@ -1959,6 +1993,7 @@ export const DashboardContent = ({
                         <td className="px-6 py-4 flex items-center gap-2"><span className="text-[11px] font-extrabold text-slate-400 w-3">{i+1}.</span> <span className="font-bold text-slate-500">{new Date(row.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span></td>
                         <td className="px-6 py-4 font-bold text-slate-800">{row.name}</td>
                         <td className="px-6 py-4">{row.dept}</td>
+                        <td className="px-6 py-4 text-slate-500">{row.status}</td>
                         <td className="px-6 py-4 italic text-slate-500">{row.desc}</td>
                         <td className="px-6 py-4 text-center font-semibold">{row.startTime} - {row.endTime}</td>
                         <td className="px-6 py-4 text-center">
@@ -2271,7 +2306,7 @@ export const DashboardContent = ({
               <div className="flex justify-between items-end border-b border-slate-100 pb-2 -mb-2 mt-2">
                 <span className="text-[13px] font-bold text-slate-800">Daftar Karyawan Lembur</span>
                 <button
-                  onClick={() => setOvertimeEntries([...overtimeEntries, { name: '', dept: '', startTime: '', endTime: '', duration: 0 }])}
+                  onClick={() => setOvertimeEntries([...overtimeEntries, { name: '', dept: '', status: '', startTime: '', endTime: '', duration: 0 }])}
                   className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-1.5 rounded-lg flex items-center gap-1 hover:bg-blue-100 transition-colors"
                 >
                   <Icon name="plus" size={14} /> Tambah
@@ -2293,7 +2328,7 @@ export const DashboardContent = ({
                   >
                     <Icon name="x" size={16} />
                   </button>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
                       <SearchableSelect 
                         label="Nama Karyawan"
@@ -2308,8 +2343,10 @@ export const DashboardContent = ({
                           newEntries[index].name = selectedName;
                           if (relatedEmp) {
                             newEntries[index].dept = relatedEmp.dept;
+                            newEntries[index].status = relatedEmp.status;
                           } else if (relatedOvertime) {
                             newEntries[index].dept = relatedOvertime.dept;
+                            newEntries[index].status = relatedOvertime.status || '';
                           }
                           setOvertimeEntries(newEntries);
                         }}
@@ -2326,6 +2363,21 @@ export const DashboardContent = ({
                         onChange={(selectedDept) => {
                           const newEntries = [...overtimeEntries];
                           newEntries[index].dept = selectedDept;
+                          setOvertimeEntries(newEntries);
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
+                      <SearchableSelect
+                        label="Status"
+                        placeholder="Pilih Status"
+                        value={entry.status}
+                        options={uniqueOvertimeStatuses.map(status => ({ value: status, label: status }))}
+                        allowCustom={true}
+                        onChange={(selectedStatus) => {
+                          const newEntries = [...overtimeEntries];
+                          newEntries[index].status = selectedStatus;
                           setOvertimeEntries(newEntries);
                         }}
                       />
