@@ -211,11 +211,12 @@ export const DashboardContent = ({
   const [overtimeSearchName, setOvertimeSearchName] = useState<string>('');
   const [overtimeStartDate, setOvertimeStartDate] = useState<string | null>(() => {
     const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
+    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
+    return `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
   });
   const [overtimeEndDate, setOvertimeEndDate] = useState<string | null>(() => {
     const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
   });
   
   const [overtimeForm, setOvertimeForm] = useState({
@@ -249,7 +250,16 @@ export const DashboardContent = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
-  const uniqueOvertimeDepts = useMemo(() => Array.from(new Set(employees.map(e => e.dept))), [employees]);
+  const uniqueOvertimeDepts = useMemo(() => Array.from(new Set([
+    ...employees.map(e => e.dept),
+    ...overtimeRecords.map(r => r.dept)
+  ].filter(Boolean))), [employees, overtimeRecords]);
+
+  const uniqueOvertimeNames = useMemo(() => Array.from(new Set([
+    ...employees.map(e => e.name),
+    ...overtimeRecords.map(r => r.name)
+  ].filter(Boolean))), [employees, overtimeRecords]);
+
   const uniqueOvertimeDates = useMemo(() => Array.from(new Set(overtimeRecords.map(r => r.date))), [overtimeRecords]);
 
   const handleOpenOvertimeModal = (record?: any) => {
@@ -1683,8 +1693,9 @@ export const DashboardContent = ({
               <div className="flex flex-wrap items-center gap-2">
                 {(() => {
                   const today = new Date();
-                  const defaultStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`;
-                  const defaultEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
+                  const defaultStart = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
+                  const defaultEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
                   const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName || overtimeSearchName !== '';
                   
                   return (
@@ -2281,38 +2292,36 @@ export const DashboardContent = ({
                         label="Nama Karyawan"
                         placeholder="Pilih Karyawan"
                         value={entry.name}
-                        options={employees.map(emp => ({ value: emp.name, label: emp.name }))}
+                        options={uniqueOvertimeNames.map(name => ({ value: name, label: name }))}
+                        allowCustom={true}
                         onChange={(selectedName) => {
                           const relatedEmp = employees.find(emp => emp.name === selectedName);
+                          const relatedOvertime = overtimeRecords.find(r => r.name === selectedName);
                           const newEntries = [...overtimeEntries];
                           newEntries[index].name = selectedName;
-                          if (relatedEmp) newEntries[index].dept = relatedEmp.dept;
+                          if (relatedEmp) {
+                            newEntries[index].dept = relatedEmp.dept;
+                          } else if (relatedOvertime) {
+                            newEntries[index].dept = relatedOvertime.dept;
+                          }
                           setOvertimeEntries(newEntries);
                         }}
                       />
                     </div>
                     
                     <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
-                      <label className="text-[13px] font-bold">Divisi</label>
-                      <div className="relative">
-                        <select 
-                          className="appearance-none w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-[13px] font-semibold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
-                          value={entry.dept}
-                          onChange={e => {
-                            const newEntries = [...overtimeEntries];
-                            newEntries[index].dept = e.target.value;
-                            setOvertimeEntries(newEntries);
-                          }}
-                        >
-                          <option value="" disabled>Pilih Divisi</option>
-                          {uniqueOvertimeDepts.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
-                          ))}
-                        </select>
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                          <Icon name="chevron-down" size={14} />
-                        </div>
-                      </div>
+                      <SearchableSelect
+                        label="Divisi"
+                        placeholder="Pilih Divisi"
+                        value={entry.dept}
+                        options={uniqueOvertimeDepts.map(dept => ({ value: dept, label: dept }))}
+                        allowCustom={true}
+                        onChange={(selectedDept) => {
+                          const newEntries = [...overtimeEntries];
+                          newEntries[index].dept = selectedDept;
+                          setOvertimeEntries(newEntries);
+                        }}
+                      />
                     </div>
                   </div>
 

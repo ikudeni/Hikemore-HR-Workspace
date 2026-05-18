@@ -99,7 +99,7 @@ export const FormSelect = ({ label, name, value, options, onChange, required }: 
   );
 };
 
-export const SearchableSelect = ({ label, value, options, onChange, placeholder = 'Pilih...', required }: { label?: string, value: string, options: {value: string, label: string}[], onChange: (val: string) => void, placeholder?: string, required?: boolean }) => {
+export const SearchableSelect = ({ label, value, options, onChange, placeholder = 'Pilih...', required, allowCustom }: { label?: string, value: string, options: {value: string, label: string}[], onChange: (val: string) => void, placeholder?: string, required?: boolean, allowCustom?: boolean }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
@@ -134,8 +134,9 @@ export const SearchableSelect = ({ label, value, options, onChange, placeholder 
   }, [isOpen, options.length]);
 
   const filteredOptions = options.filter(opt => opt.label.toLowerCase().includes(search.toLowerCase()));
+  const exactMatch = options.find(opt => opt.label.toLowerCase() === search.toLowerCase());
 
-  const selectedLabel = options.find(o => o.value === value)?.label;
+  const selectedLabel = options.find(o => o.value === value)?.label || value;
 
   return (
     <div className="w-full">
@@ -187,7 +188,39 @@ export const SearchableSelect = ({ label, value, options, onChange, placeholder 
                     {opt.label}
                   </button>
                 )) : (
-                  <div className="px-4 py-3 text-[13px] text-slate-500 text-center font-medium">Tidak ada hasil</div>
+                  !allowCustom && <div className="px-4 py-3 text-[13px] text-slate-500 text-center font-medium">Tidak ada hasil</div>
+                )}
+                {allowCustom && search.trim() !== '' && !exactMatch && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onChange(search.trim());
+                      setIsOpen(false);
+                      setSearch('');
+                    }}
+                    className="w-full text-left px-4 py-3 border-t border-slate-100 text-[13px] transition-colors hover:bg-slate-50 text-blue-600 font-bold flex items-center gap-2"
+                  >
+                    <Icon name="plus" size={14} />
+                    Tambahkan "{search.trim()}"
+                  </button>
+                )}
+                {allowCustom && search.trim() === '' && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const customVal = window.prompt('Masukkan nama / nilai manual:');
+                      if (customVal && customVal.trim() !== '') {
+                        onChange(customVal.trim());
+                        setIsOpen(false);
+                      }
+                    }}
+                    className="w-full text-left px-4 py-3 border-t border-slate-100 text-[13px] transition-colors hover:bg-slate-50 text-blue-600 font-bold flex items-center gap-2"
+                  >
+                    <Icon name="plus" size={14} />
+                    Tambah Manual...
+                  </button>
                 )}
               </div>
             </div>
