@@ -1969,12 +1969,11 @@ export const DashboardContent = ({
                                   try {
                                     const w = window.open('about:blank', '_blank');
                                     const docId = row.attachment.split(':')[1];
-                                    const { doc, getDoc } = await import('firebase/firestore');
-                                    const { db } = await import('../firebase');
-                                    const docSnap = await getDoc(doc(db, 'fileContents', docId));
-                                    const data = docSnap.data() as any;
-                                    if (docSnap.exists() && data?.base64) {
-                                      if (w) w.document.write(`<iframe src="${data.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                                    const { getFileFromFirestore } = await import('../firebase');
+                                    const base64Str = await getFileFromFirestore(docId);
+                                    
+                                    if (base64Str) {
+                                      if (w) w.document.write(`<iframe src="${base64Str}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
                                     } else {
                                       if (w) w.close();
                                       alert('File tidak ditemukan di database.');

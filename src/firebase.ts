@@ -77,16 +77,69 @@ export interface FirestoreErrorInfo {
 }
 
 export async function uploadFileToFirestore(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const base64Data = e.target?.result as string;
+        const CHUNK_SIZE = 800000; // < 1MB limit for Firestore doc
+        const docId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
+        
+        if (base64Data.length <= CHUNK_SIZE) {
+          await setDoc(doc(db, 'fileContents', docId), { base64: base64Data });
+        } else {
+          // split into chunks and upload in parallel for speed
+          const numChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+          await setDoc(doc(db, 'fileContents', docId), { parts: numChunks, type: file.type, name: file.name });
+          
+          const promises = [];
+          // we can upload up to 20 chunks at a time to avoid overwhelming connection
+          for (let i = 0; i < numChunks; i++) {
+             const chunk = base64Data.substring(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+             promises.push(setDoc(doc(db, 'fileContents', docId, 'chunks', i.toString()), { data: chunk }));
+          }
+          // Batch wait for them to finish
+          while(promises.length > 0) {
+            await Promise.all(promises.splice(0, 10));
+          }
+        }
+        
+        resolve(`DB_STORED:${docId}`);
+      } catch (error) {
+        console.error("Firestore upload error", error);
+        reject(new Error("Gagal mengunggah file. Pastikan ukuran file wajar dan koneksi stabil."));
+      }
+    };
+    reader.onerror = () => reject(new Error("Gagal membaca file dari perangkat."));
+    reader.readAsDataURL(file);
+  });
+}
+
+export async function getFileFromFirestore(docId: string): Promise<string | null> {
   try {
-    const fileId = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 7) + '_' + file.name;
-    const storageRef = ref(storage, 'overtime_attachments/' + fileId);
-    await uploadBytes(storageRef, file);
-    const downloadUrl = await getDownloadURL(storageRef);
-    return downloadUrl;
-  } catch (error) {
-    console.error("Firebase Storage error", error);
-    throw new Error("Gagal mengunggah file. Pastikan ukuran file wajar dan koneksi internet stabil.");
+    const docSnap = await getDocFromServer(doc(db, 'fileContents', docId));
+    if (!docSnap.exists()) return null;
+    const data = docSnap.data();
+    if (data.base64) return data.base64;
+    
+    if (data.parts) {
+      const promises = [];
+      for(let i=0; i<data.parts; i++){
+        promises.push(getDocFromServer(doc(db, 'fileContents', docId, 'chunks', i.toString())));
+      }
+      const snaps = await Promise.all(promises);
+      let full = '';
+      for (const snap of snaps) {
+        if (snap.exists()) {
+          full += snap.data().data;
+        }
+      }
+      return full;
+    }
+  } catch(e) {
+    console.error("Error getFileFromFirestore", e);
   }
+  return null;
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
