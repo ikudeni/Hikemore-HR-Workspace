@@ -1963,41 +1963,49 @@ export const DashboardContent = ({
                         <td className="px-6 py-4 text-center font-semibold">{row.startTime} - {row.endTime}</td>
                         <td className="px-6 py-4 text-center">
                           {row.attachment ? (
-                          <button
-                            onClick={async () => {
-                              try {
-                                if (typeof row.attachment === 'string' && row.attachment.startsWith('DB_STORED:')) {
-                                  const docId = row.attachment.split(':')[1];
-                                  const { doc, getDoc } = await import('firebase/firestore');
-                                  const { db } = await import('../firebase');
-                                  const docSnap = await getDoc(doc(db, 'fileContents', docId));
-                                  const data = docSnap.data() as any;
-                                  if (docSnap.exists() && data?.base64) {
-                                    const { downloadFile } = await import('../utils');
-                                    await downloadFile(data.base64, row.name + '_lembur');
-                                  } else {
-                                    alert('File tidak ditemukan di database.');
+                            typeof row.attachment === 'string' && row.attachment.startsWith('DB_STORED:') ? (
+                              <button
+                                onClick={async () => {
+                                  try {
+                                    const w = window.open('about:blank', '_blank');
+                                    const docId = row.attachment.split(':')[1];
+                                    const { doc, getDoc } = await import('firebase/firestore');
+                                    const { db } = await import('../firebase');
+                                    const docSnap = await getDoc(doc(db, 'fileContents', docId));
+                                    const data = docSnap.data() as any;
+                                    if (docSnap.exists() && data?.base64) {
+                                      if (w) w.document.write(`<iframe src="${data.base64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                                    } else {
+                                      if (w) w.close();
+                                      alert('File tidak ditemukan di database.');
+                                    }
+                                  } catch(e) {
+                                    console.error('Error opening attachment', e);
+                                    alert('Oops, terjadi kesalahan saat membuka file.');
                                   }
-                                } else {
-                                  const url = row.attachment instanceof File 
+                                }}
+                                className="text-blue-500 hover:text-blue-700 transition-colors p-1 bg-blue-50 hover:bg-blue-100 rounded-lg"
+                                title="Lihat Form Lembur"
+                              >
+                                <Icon name="file-text" size={16} />
+                              </button>
+                            ) : (
+                              <a
+                                href={
+                                  row.attachment instanceof File 
                                     ? URL.createObjectURL(row.attachment) 
                                     : typeof row.attachment === 'string' 
                                       ? row.attachment 
-                                      : "";
-                                  if (url) {
-                                    window.open(url, '_blank');
-                                  }
+                                      : "#"
                                 }
-                              } catch(e) {
-                                console.error('Error opening attachment', e);
-                                alert('Oops, terjadi kesalahan saat membuka file.');
-                              }
-                            }}
-                            className="text-blue-500 hover:text-blue-700 transition-colors p-1 bg-blue-50 hover:bg-blue-100 rounded-lg"
-                            title="Lihat Form Lembur"
-                          >
-                            <Icon name="file-text" size={16} />
-                          </button>
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-500 hover:text-blue-700 transition-colors p-1 bg-blue-50 hover:bg-blue-100 rounded-lg inline-block"
+                                title="Lihat Form Lembur"
+                              >
+                                <Icon name="file-text" size={16} />
+                              </a>
+                            )
                           ) : (
                             <span className="text-slate-400">-</span>
                           )}
@@ -2373,8 +2381,8 @@ export const DashboardContent = ({
                     <input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={async (e) => {
                       if (e.target.files && e.target.files.length > 0) {
                         const file = e.target.files[0];
-                        if (file.size > 700 * 1024) {
-                           alert("File terlalu besar. Maksimal ukuran file adalah 700KB.");
+                        if (file.size > 50 * 1024 * 1024) {
+                           alert("File terlalu besar. Maksimal ukuran file adalah 50MB.");
                            e.target.value = '';
                            return;
                         }
@@ -2403,8 +2411,8 @@ export const DashboardContent = ({
                       </p>
                       <p className="text-[11px] font-medium text-slate-500 mt-0.5 max-w-[200px] truncate">
                         {overtimeForm.attachment 
-                          ? 'File sudah diunggah ke database' 
-                          : 'Maks. 700KB'}
+                          ? 'File berhasil diunggah' 
+                          : 'Maks. 50MB'}
                       </p>
                     </div>
                  </div>

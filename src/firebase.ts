@@ -77,60 +77,16 @@ export interface FirestoreErrorInfo {
 }
 
 export async function uploadFileToFirestore(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        // Max dimension 800px to save space
-        const maxDim = 800;
-        if (width > maxDim || height > maxDim) {
-          if (width > height) {
-            height = Math.round((height * maxDim) / width);
-            width = maxDim;
-          } else {
-            width = Math.round((width * maxDim) / height);
-            height = maxDim;
-          }
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error("Failed to get canvas context"));
-          return;
-        }
-        
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        // Compress as JPEG
-        const base64Data = canvas.toDataURL('image/jpeg', 0.6);
-        
-        if (base64Data.length > 950000) {
-           reject(new Error(`Ukuran foto masih terlalu besar setelah dikompres.`));
-           return;
-        }
-        
-        try {
-          const docId = Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5);
-          await setDoc(doc(db, 'fileContents', docId), { base64: base64Data });
-          resolve(`DB_STORED:${docId}`);
-        } catch (error) {
-          console.error("Firestore DB Storage error", error);
-          reject(new Error("Gagal mengunggah file ke database."));
-        }
-      };
-      img.onerror = () => reject(new Error("Gagal membaca foto."));
-      img.src = e.target?.result as string;
-    };
-    reader.onerror = () => reject(new Error("Gagal membaca file lokal."));
-    reader.readAsDataURL(file);
-  });
+  try {
+    const fileId = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 7) + '_' + file.name;
+    const storageRef = ref(storage, 'overtime_attachments/' + fileId);
+    await uploadBytes(storageRef, file);
+    const downloadUrl = await getDownloadURL(storageRef);
+    return downloadUrl;
+  } catch (error) {
+    console.error("Firebase Storage error", error);
+    throw new Error("Gagal mengunggah file. Pastikan ukuran file wajar dan koneksi internet stabil.");
+  }
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
