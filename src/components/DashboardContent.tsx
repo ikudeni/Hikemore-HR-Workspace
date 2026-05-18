@@ -1886,17 +1886,17 @@ export const DashboardContent = ({
                />
             </Card>
 
-            <Card className="flex flex-col p-0 overflow-hidden min-h-[320px]">
+            <Card className="flex flex-col p-0 overflow-hidden min-h-[320px] h-full">
               <div className="p-5 border-b border-slate-100 bg-white shrink-0">
                 <h3 className="font-extrabold text-[15px] text-slate-800">Ringkasan Total Karyawan Lembur</h3>
               </div>
-              <div className="flex-1 overflow-auto hover-scrollbar max-h-[340px]">
-                <table className="w-full text-left whitespace-nowrap">
+              <div className="flex-1 overflow-y-auto overflow-x-hidden max-h-[340px] hover-scrollbar">
+                <table className="w-full text-left">
                   <thead className="bg-slate-50 sticky top-0 z-20">
                     <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                      <th className="px-5 py-3">Nama Karyawan</th>
-                      <th className="px-5 py-3">Divisi</th>
-                      <th className="px-5 py-3 text-center">Total Durasi</th>
+                      <th className="px-5 py-3 whitespace-nowrap">Nama Karyawan</th>
+                      <th className="px-5 py-3 whitespace-normal break-words">Divisi</th>
+                      <th className="px-5 py-3 text-center whitespace-nowrap">Total Durasi</th>
                     </tr>
                   </thead>
                   <tbody className="text-[13px] text-slate-700 divide-y divide-slate-100 font-medium">
