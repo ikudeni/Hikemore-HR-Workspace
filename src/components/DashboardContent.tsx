@@ -661,7 +661,7 @@ export const DashboardContent = ({
   const overtimeDonutData = useMemo(() => {
     const dist: Record<string, { duration: number, names: Set<string> }> = {};
     let totalDateFilteredDuration = 0;
-    dateFilteredOvertimeRecords.forEach(r => {
+    filteredOvertimeRecords.forEach(r => {
       if (!dist[r.dept]) dist[r.dept] = { duration: 0, names: new Set() };
       dist[r.dept].duration += r.duration;
       dist[r.dept].names.add(r.name);
@@ -675,7 +675,7 @@ export const DashboardContent = ({
       percentage: totalDateFilteredDuration ? (data.duration / totalDateFilteredDuration) * 100 : 0,
       color: colors[i % colors.length]
     })).sort((a,b) => b.count - a.count);
-  }, [dateFilteredOvertimeRecords]);
+  }, [filteredOvertimeRecords]);
 
   // Pipeline drag effects
   useEffect(() => {
@@ -1854,58 +1854,69 @@ export const DashboardContent = ({
               </div>
               
               <div className="flex-1 flex min-h-[220px] relative mt-2 pl-6 pb-2">
-                {/* Guides and Y-Axis */}
-                <div className="absolute inset-0 flex flex-col justify-between pb-10 pr-4">
-                  {(() => {
-                    const maxDur = Math.max(...overtimeDeptDist.map(d => d.total), 5);
-                    const ceilDur = Math.ceil(maxDur / 5) * 5;
-                    const steps = [ceilDur, Math.floor(ceilDur * 0.75), Math.floor(ceilDur * 0.5), Math.floor(ceilDur * 0.25), 0];
-                    return steps.map((val, i) => (
-                      <div key={i} className="flex items-center gap-3 w-full">
-                        <span className="text-[10px] text-slate-400 w-5 text-right font-bold">{val}</span>
-                        <div className="h-px bg-slate-100 flex-1"></div>
-                      </div>
-                    ));
-                  })()}
-                </div>
-                
-                {/* Bars */}
-                <div className="relative z-10 flex flex-1 items-end justify-around px-2 gap-8 h-full pb-10">
-                  {(() => {
-                    const maxDur = Math.max(...overtimeDeptDist.map(d => d.total), 5);
-                    const ceilDur = Math.ceil(maxDur / 5) * 5;
-                    return overtimeDeptDist.map((b, i) => {
-                      const heightPct = (b.total / ceilDur) * 100;
-                      const isHovered = barTooltip.show && barTooltip.data?.label === b.label && barTooltip.data?.isOvertime;
-                      const isFaded = effectiveSelectedDept && effectiveSelectedDept !== b.label;
-                      
-                      return (
-                        <div 
-                          key={i} 
-                          className="relative w-12 flex flex-col justify-end h-full group"
-                          onMouseMove={(e) => setBarTooltip({ 
-                            show: true, 
-                            x: e.clientX, 
-                            y: e.clientY, 
-                            data: { ...b, isOvertime: true, color: '#3B82F6' } 
-                          })} 
-                          onMouseLeave={() => setBarTooltip({ show: false, x: 0, y: 0, data: null })}
-                        >
-                          <div 
-                            className={`transition-all duration-300 rounded-t-lg rounded-b-md shadow-sm relative cursor-pointer ${isFaded ? 'bg-blue-200' : 'bg-blue-500 hover:bg-blue-600'}`}
-                            style={{ height: `${heightPct}%` }}
-                            onClick={() => setOvertimeFilterDept(prev => prev === b.label ? 'Semua Divisi' : b.label)}
-                          >
-                            {isHovered && (
-                               <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)] z-20"></div>
-                            )}
+                {overtimeDeptDist.length === 0 ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                    <svg className="w-12 h-12 mb-3 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="text-sm font-semibold">Tidak ada data</span>
+                  </div>
+                ) : (
+                  <>
+                    {/* Guides and Y-Axis */}
+                    <div className="absolute inset-0 flex flex-col justify-between pb-10 pr-4">
+                      {(() => {
+                        const maxDur = Math.max(...overtimeDeptDist.map(d => d.total), 5);
+                        const ceilDur = Math.ceil(maxDur / 5) * 5;
+                        const steps = [ceilDur, Math.floor(ceilDur * 0.75), Math.floor(ceilDur * 0.5), Math.floor(ceilDur * 0.25), 0];
+                        return steps.map((val, i) => (
+                          <div key={i} className="flex items-center gap-3 w-full">
+                            <span className="text-[10px] text-slate-400 w-5 text-right font-bold">{val}</span>
+                            <div className="h-px bg-slate-100 flex-1"></div>
                           </div>
-                          <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[11px] font-bold text-slate-500 whitespace-nowrap">{b.label}</span>
-                        </div>
-                      );
-                    });
-                  })()}
-                </div>
+                        ));
+                      })()}
+                    </div>
+                    
+                    {/* Bars */}
+                    <div className="relative z-10 flex flex-1 items-end justify-around px-2 gap-8 h-full pb-10">
+                      {(() => {
+                        const maxDur = Math.max(...overtimeDeptDist.map(d => d.total), 5);
+                        const ceilDur = Math.ceil(maxDur / 5) * 5;
+                        return overtimeDeptDist.map((b, i) => {
+                          const heightPct = (b.total / ceilDur) * 100;
+                          const isHovered = barTooltip.show && barTooltip.data?.label === b.label && barTooltip.data?.isOvertime;
+                          const isFaded = effectiveSelectedDept && effectiveSelectedDept !== b.label;
+                          
+                          return (
+                            <div 
+                              key={i} 
+                              className="relative w-12 flex flex-col justify-end h-full group"
+                              onMouseMove={(e) => setBarTooltip({ 
+                                show: true, 
+                                x: e.clientX, 
+                                y: e.clientY, 
+                                data: { ...b, isOvertime: true, color: '#3B82F6' } 
+                              })} 
+                              onMouseLeave={() => setBarTooltip({ show: false, x: 0, y: 0, data: null })}
+                            >
+                              <div 
+                                className={`transition-all duration-300 rounded-t-lg rounded-b-md shadow-sm relative cursor-pointer ${isFaded ? 'bg-blue-200' : 'bg-blue-500 hover:bg-blue-600'}`}
+                                style={{ height: `${heightPct}%` }}
+                                onClick={() => setOvertimeFilterDept(prev => prev === b.label ? 'Semua Divisi' : b.label)}
+                              >
+                                {isHovered && (
+                                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-blue-600 rounded-full shadow-[0_0_8px_rgba(59,130,246,0.5)] z-20"></div>
+                                )}
+                              </div>
+                              <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[11px] font-bold text-slate-500 whitespace-nowrap">{b.label}</span>
+                            </div>
+                          );
+                        });
+                      })()}
+                    </div>
+                  </>
+                )}
               </div>
             </Card>
 
