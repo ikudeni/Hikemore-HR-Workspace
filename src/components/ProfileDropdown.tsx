@@ -101,7 +101,7 @@ export const ProfileDropdown = ({ currentUser, onLogoutRequest }: ProfileDropdow
       }
       
       await setDoc(docRefUsers, { records: combinedUsers }, { merge: false });
-      localStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
+      sessionStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
       
       setSuccessMsg('Profil berhasil diperbarui. Halaman akan dimuat ulang...');
       setPassword(''); // Clear password field

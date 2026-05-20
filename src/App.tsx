@@ -88,7 +88,7 @@ export default function App() {
 
   const checkAuthStatus = useCallback(async (isLoginAttempt = false) => {
     if (!isLoginAttempt) setIsAuthChecking(true);
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = sessionStorage.getItem('currentUser');
     if (storedUser) {
       let user;
       try {
@@ -134,7 +134,7 @@ export default function App() {
           setAccessReqUser(null);
           setAccessReqStatus('none');
           setCurrentUser({ 
-            name: user.name || currentUsername.split('@')[0] || '', 
+            name: user.name || currentUsername. split('@')[0] || '', 
             username: currentUsername 
           });
           setLoginError('');
@@ -142,7 +142,7 @@ export default function App() {
           setIsAuthenticated(false);
           setCurrentUser({ name: '', username: '' });
           setRawEmployees([]);
-          localStorage.removeItem('currentUser');
+          sessionStorage.removeItem('currentUser');
           setLoginError('Sesi anda telah berakhir atau akses dicabut.');
         }
       } else {
@@ -758,7 +758,7 @@ export default function App() {
               <button 
                 onClick={async () => {
                   setIsLogoutModalOpen(false);
-                  localStorage.removeItem('currentUser');
+                  sessionStorage.removeItem('currentUser');
                   try {
                     await auth.signOut();
                   } catch (error) {

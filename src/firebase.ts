@@ -9,7 +9,7 @@ export const storage = getStorage(app);
 
 export function getLocalUser() {
   try {
-    const data = localStorage.getItem('currentUser');
+    const data = sessionStorage.getItem('currentUser');
     if (data) return JSON.parse(data);
   } catch(e) {}
   return null;
@@ -20,7 +20,7 @@ export const auth = {
     return getLocalUser();
   },
   signOut: async () => {
-    localStorage.removeItem('currentUser');
+    sessionStorage.removeItem('currentUser');
   }
 } as any;
 

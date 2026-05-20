@@ -129,7 +129,7 @@ export const LoginView = ({
         updatedFirestore = true;
         
         const user = { username, name };
-        localStorage.setItem('currentUser', JSON.stringify(user));
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
         setJustSignedUp(true);
       } else {
         if (fetchFailed && !users[username]) {
@@ -143,7 +143,7 @@ export const LoginView = ({
         if (!user || user.password !== password) {
           throw new Error('Username atau password salah');
         }
-        localStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
+        sessionStorage.setItem('currentUser', JSON.stringify({ username: user.username, name: user.name }));
       }
 
       if (updatedFirestore && !fetchFailed) {
