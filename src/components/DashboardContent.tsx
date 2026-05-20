@@ -1226,7 +1226,7 @@ export const DashboardContent = ({
 
             {/* Table Container */}
             <div className="flex-1 overflow-x-auto hover-scrollbar relative max-h-[340px]">
-              <table className="w-full text-left border-collapse">
+              <table className="w-full text-left border-collapse whitespace-nowrap">
                 <thead className="sticky top-0 z-20">
                   <tr className="bg-slate-50/80 backdrop-blur-sm border-b border-slate-200">
                     <th className="pl-6 pr-4 py-3.5 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
@@ -1300,7 +1300,7 @@ export const DashboardContent = ({
 
   return (
     <div className="h-full overflow-y-auto hover-scrollbar pr-2 pb-4 flex flex-col">
-      <div className="flex justify-center mb-6 w-full overflow-x-auto hide-scrollbar pb-2 shrink-0">
+      <div className="flex justify-start md:justify-center mb-6 w-full overflow-x-auto hide-scrollbar pb-2 shrink-0">
         <div className="bg-white p-1.5 rounded-full shadow-sm border border-slate-100 flex items-center gap-1 w-max">
           {dashboardTabs.map(tab => (
             <button
@@ -1934,8 +1934,8 @@ export const DashboardContent = ({
               <div className="p-5 border-b border-slate-100 bg-white shrink-0">
                 <h3 className="font-extrabold text-[15px] text-slate-800">Ringkasan Total Karyawan Lembur</h3>
               </div>
-              <div className="flex-1 overflow-y-auto overflow-x-hidden max-h-[340px] hover-scrollbar">
-                <table className="w-full text-left">
+              <div className="flex-1 overflow-auto max-h-[340px] hover-scrollbar">
+                <table className="w-full text-left whitespace-nowrap">
                   <thead className="bg-slate-50 sticky top-0 z-20">
                     <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
                       <th className="px-5 py-3 whitespace-nowrap">Nama Karyawan</th>
@@ -2395,7 +2395,7 @@ export const DashboardContent = ({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
                       <label className="text-[13px] font-bold">Mulai</label>
                       <TimePicker 
@@ -2548,7 +2548,7 @@ export const DashboardContent = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
                   <label className="text-[13px] font-bold">Tanggal Mulai</label>
                   <input type="date" className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800" value={kontrakForm.contractStart} onChange={e => setKontrakForm({...kontrakForm, contractStart: e.target.value})} />

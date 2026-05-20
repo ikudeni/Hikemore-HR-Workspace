@@ -225,9 +225,9 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="absolute top-11 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl z-[999] p-5 w-[600px] flex flex-col"
+            className="absolute top-11 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl z-[999] p-5 w-[calc(100vw-32px)] sm:w-[600px] max-w-full flex flex-col"
           >
-            <div className="flex gap-8">
+            <div className="flex flex-col sm:flex-row gap-8">
               {/* Left Calendar */}
               <div className="flex-1 min-h-[300px]">
                 <div className="text-center text-[12px] font-medium text-slate-800 mb-4">

@@ -445,8 +445,8 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
                   </div>
                 </div>
                 <div className="bg-white border border-slate-200 rounded-2xl shadow-sm flex flex-col flex-1 min-h-0">
-                  <div className="overflow-y-auto flex-1">
-                    <table className="w-full text-left border-collapse">
+                  <div className="overflow-auto flex-1">
+                    <table className="w-full text-left border-collapse whitespace-nowrap">
                       <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm border-b border-slate-200">
                         <tr>
                           <th className="py-3 px-4 text-xs font-black uppercase text-slate-500 tracking-wider whitespace-nowrap w-24">Tampil</th>

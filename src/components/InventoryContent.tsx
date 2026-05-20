@@ -613,9 +613,9 @@ export function InventoryContent({ employees }: InventoryContentProps) {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm">
-          <div className="w-full">
-            <table className="w-full text-left border-collapse">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full text-left border-collapse whitespace-nowrap">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-tl-3xl">Barcode ID</th>
@@ -870,7 +870,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-4 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <div className="text-[11px] text-slate-500 font-bold mb-1 uppercase tracking-wider">Kategori</div>
                   <div className="text-sm font-bold text-slate-800">{selectedAsset.category}</div>
@@ -1158,7 +1158,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
                     <input
@@ -1263,7 +1263,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-1.5">Tanggal Pembelian</label>
                     <input

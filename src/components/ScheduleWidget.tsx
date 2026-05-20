@@ -505,7 +505,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Tanggal</label>
                   <input 
@@ -590,7 +590,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-slate-500 uppercase tracking-wider mb-2">Waktu Mulai</label>
                   <input 

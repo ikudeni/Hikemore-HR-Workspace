@@ -611,7 +611,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
               </div>
               <div 
                 ref={tableRef}
-                className="overflow-auto flex-1 max-h-[550px] pb-4 hide-scrollbar-x rounded-b-[24px]"
+                className="overflow-auto flex-1 max-h-[550px] pb-4 hover-scrollbar rounded-b-[24px]"
                 onScroll={onTableScroll}
               >
                 <table className="min-w-max w-full text-left border-collapse whitespace-nowrap">
@@ -1404,7 +1404,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                   <div className="w-full bg-slate-200 px-3 py-1.5 mb-2">
                     <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">Identitas Diri</h3>
                   </div>
-                  <div className="grid grid-cols-2 gap-x-12 px-2 text-sm">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-2 text-sm">
                     <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
                       <span className="font-semibold text-slate-700">Nama</span>
                       <span className="font-medium text-slate-900">: {reportPreviewData.name}</span>
