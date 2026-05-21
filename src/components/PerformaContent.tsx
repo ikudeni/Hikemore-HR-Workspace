@@ -611,7 +611,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
               </div>
               <div 
                 ref={tableRef}
-                className="overflow-auto flex-1 max-h-[550px] pb-4 hover-scrollbar rounded-b-[24px]"
+                className="overflow-auto flex-1 max-h-[550px] pb-4 hide-scrollbar-x hover-scrollbar rounded-b-[24px]"
                 onScroll={onTableScroll}
               >
                 <table className="min-w-max w-full text-left border-collapse whitespace-nowrap">
