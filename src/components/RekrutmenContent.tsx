@@ -145,10 +145,10 @@ export const RekrutmenContent = ({
       const job = jobListings.find(j => j.id === jobToDeleteId);
       if (job) logActivity('Lowongan Dihapus', { posisi: job.title });
       
-      const candidateIds = candidates.filter(c => c.jobId === jobToDeleteId).map(c => c.id);
+      const candidateIds = candidates.filter(c => Number(c.jobId) === jobToDeleteId).map(c => c.id);
       
       setJobListings(prev => prev.filter(j => j.id !== jobToDeleteId));
-      setCandidates(prev => prev.filter(c => c.jobId !== jobToDeleteId));
+      setCandidates(prev => prev.filter(c => Number(c.jobId) !== jobToDeleteId));
       setSchedules(prev => prev.filter(s => !candidateIds.includes(s.candidateId)));
       
       setIsDeleteJobModalOpen(false);
@@ -292,7 +292,7 @@ export const RekrutmenContent = ({
       let bestScore = Infinity;
 
       candidates.forEach(c => {
-        if (c.jobId !== selectedJob.id) return;
+        if (Number(c.jobId) !== selectedJob.id) return;
         
         const nameMatch = c.name.toLowerCase();
         const phoneMatch = c.phone || '';
@@ -672,7 +672,7 @@ export const RekrutmenContent = ({
 
               const stageId = item.id;
               const stage = kanbanStages.find(s => s.id === stageId)!;
-              let stageCands = candidates.filter(c => c.jobId === selectedJob.id && c.stage === stageId && (c.name.toLowerCase().includes(candidateSearchQuery.toLowerCase()) || (c.phone?.includes(candidateSearchQuery))));
+              let stageCands = candidates.filter(c => Number(c.jobId) === selectedJob.id && c.stage === stageId && (c.name.toLowerCase().includes(candidateSearchQuery.toLowerCase()) || (c.phone?.includes(candidateSearchQuery))));
               
               if (candidateSearchQuery.trim()) {
                   const query = candidateSearchQuery.toLowerCase();
@@ -1113,7 +1113,7 @@ export const RekrutmenContent = ({
               const job = jobListings.find(j => j.id === draggingJobId);
               if (!job) return null;
               
-              const jobCandidates = candidates.filter(c => c.jobId === job.id);
+              const jobCandidates = candidates.filter(c => Number(c.jobId) === job.id);
               const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
               const joined = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR' && c.tag !== 'TIDAK RESPON').length;
               
@@ -1804,7 +1804,7 @@ export const RekrutmenContent = ({
           const isDraggingThis = job.id === draggingJobId;
           const isOverThis = job.id === dragOverJobId;
           
-          const jobCandidates = candidates.filter(c => c.jobId === job.id);
+          const jobCandidates = candidates.filter(c => Number(c.jobId) === job.id);
           const activeStages = (jobStagesMap[job.id] || kanbanStages.map(s => s.id)).filter(id => id !== 'Talent Pool');
           
           const joinCount = jobCandidates.filter(c => c.stage === 'Kandidat Join' && c.tag !== 'DITOLAK' && c.tag !== 'TIDAK HADIR' && c.tag !== 'TIDAK RESPON').length;

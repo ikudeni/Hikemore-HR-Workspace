@@ -813,7 +813,7 @@ export const DashboardContent = ({
   }, [activeJobs, draggedPipelineJobId, pipelineDropIndex]);
 
   const candidatesForDonut = useMemo(() => validCandidates.filter(c => {
-    const matchJob = !recFilter.jobId || c.jobId === recFilter.jobId;
+    const matchJob = !recFilter.jobId || Number(c.jobId) === recFilter.jobId;
     const matchCandidate = !recFilter.candidateId || c.id === recFilter.candidateId;
     const matchStage = !recFilter.stageId || c.stage === recFilter.stageId;
     
@@ -826,7 +826,7 @@ export const DashboardContent = ({
   }, candidatesForDonut), [candidatesForDonut]);
 
   const crossFilteredCandidates = useMemo(() => validCandidates.filter(c => {
-     const matchJob = !recFilter.jobId || c.jobId === recFilter.jobId;
+     const matchJob = !recFilter.jobId || Number(c.jobId) === recFilter.jobId;
      const matchSource = !recFilter.source || c.source === recFilter.source;
      const matchCandidate = !recFilter.candidateId || c.id === recFilter.candidateId;
      const matchStage = !recFilter.stageId || c.stage === recFilter.stageId;
@@ -840,7 +840,7 @@ export const DashboardContent = ({
     
     // Filter by selection if applicable
     const filteredForStats = relevantCandidates.filter(c => {
-      const matchJob = !recFilter.jobId || c.jobId === recFilter.jobId;
+      const matchJob = !recFilter.jobId || Number(c.jobId) === recFilter.jobId;
       const matchStage = !recFilter.stageId || c.stage === recFilter.stageId;
       const matchSource = !recFilter.source || c.source === recFilter.source;
       
@@ -1518,7 +1518,7 @@ export const DashboardContent = ({
                                        const stage = kanbanStages.find(s => s.id === stageId)!;
                                        
                                        const count = validCandidates.filter(c => 
-                                         c.jobId === job.id && 
+                                         Number(c.jobId) === job.id && 
                                          c.stage === stageId && 
                                          (!recFilter.candidateId || c.id === recFilter.candidateId) &&
                                          (!recFilter.source || c.source === recFilter.source)

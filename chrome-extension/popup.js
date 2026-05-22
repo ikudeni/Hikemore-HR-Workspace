@@ -110,53 +110,60 @@ document.addEventListener('DOMContentLoaded', () => {
           let name = '';
           let phone = '';
           
+          const phoneRegex = /(?:\+?62|0)[\s\u00A0\u200B\u202F\-.|]*8[\s\u00A0\u200B\u202F\-.|\d]{6,15}/;
+          const ignoreNameRegex = /Tahun|Bulan|Kandidat|Lowongan|Melamar|Aktif|Baru|Diproses|Tentang|Profil|Deskripsi|Rp|Jt|Status|Pelamar|Pengalaman|Ringkasan|Terakhir|Resume|Match|Selesai/i;
+
+          // 1. Specific selectors mapped to platforms
+          let nameEl = null;
+          if (url.includes('glints.id')) {
+            nameEl = document.querySelector('[class*="CandidateProfileCard_name" i], [class*="CandidateName" i]');
+          } else if (url.includes('pintarnya.com')) {
+            nameEl = document.querySelector('[class*="CandidateHeader_name" i], [class*="ProfileName" i]');
+          } else if (url.includes('indeed.com')) {
+            nameEl = document.querySelector('[data-testid="candidate-name"], .candidate-name');
+          } else if (url.includes('seek.com') || url.includes('jobstreet')) {
+            nameEl = document.querySelector('[data-automation="candidate-name"]');
+          }
+          if (nameEl) {
+             let t = nameEl.textContent.trim();
+             if(t.length > 2 && t.length < 50 && !t.match(ignoreNameRegex)) name = t;
+          }
+          
           const selection = window.getSelection().toString().trim();
           if (selection) {
             const lines = selection.split('\n').map(l => l.trim()).filter(Boolean);
-            lines.forEach(line => {
-              const phoneMatch = line.match(/(?:\+62|62|0)8[1-9][0-9]{6,12}/);
-              if (phoneMatch) {
-                 phone = phoneMatch[0];
-              } else if (!name && line.length < 50 && !line.includes('@') && !line.match(/Tahun|Bulan|Rp|Jt|Status|Pelamar|Tentang|Profil/i)) {
+            for(let line of lines) {
+              const pMatch = line.match(phoneRegex);
+              if (pMatch && !phone) phone = pMatch[0];
+              else if (!name && line.length > 2 && line.length < 50 && !line.match(ignoreNameRegex) && !line.includes('@')) {
                  name = line;
               }
-            });
-          }
-          
-          // Platform-specific heuristics
-          if (!name) {
-            if (url.includes('glints.id')) {
-              const nameEl = document.querySelector('h3, .name, [class*="CandidateName"]');
-              if (nameEl) name = nameEl.textContent.trim();
-            } else if (url.includes('pintarnya.com')) {
-              // Try grabbing name from heading tags that don't contains common words
-               const headings = Array.from(document.querySelectorAll('h1, h2, h3, [class*="name" i], [class*="profile" i]'));
-               for (let h of headings) {
-                 let t = h.textContent.trim();
-                 if (t && t.length < 40 && !t.match(/kandidat|lowongan|pintarnya|tentang|profil/i)) {
-                   name = t;
-                   break;
-                 }
-               }
-            } else if (url.includes('indeed.com')) {
-              const nameEl = document.querySelector('h1, h2, [class*="Name"]');
-              if (nameEl) name = nameEl.textContent.trim();
-            } else if (url.includes('seek.com') || url.includes('jobstreet')) {
-              const nameEl = document.querySelector('h1, h2');
-              if (nameEl) name = nameEl.textContent.trim();
             }
           }
           
-          if (!phone) {
-            const bodyText = document.body.innerText;
-            const phoneMatch = bodyText.match(/(?:\+62|62|0)8[1-9][0-9]{6,12}/);
-            if (phoneMatch) {
-              phone = phoneMatch[0];
-            }
+          if (!name || !phone) {
+             let candidateContainer = document.querySelector('article, [class*="card" i], [data-automation="candidate-details"], [role="main"], [class*="pane" i]');
+             
+             const bodyText = document.body.innerText || "";
+             const bodyMatch = bodyText.match(phoneRegex);
+             if (bodyMatch && !phone) phone = bodyMatch[0];
+
+             if (!name) {
+                const headings = Array.from(document.querySelectorAll('h1, h2, h3, strong, [class*="name" i]'));
+                for(let h of headings) {
+                   let rawT = h.textContent || "";
+                   let t = rawT.replace(/Aktif|Baru|Kotak masuk/gi, '').trim();
+                   if (t && t.length > 2 && t.length < 40 && !t.match(ignoreNameRegex) && !t.includes('@') && !t.toLowerCase().includes('driver') && !t.toLowerCase().includes('admin')) {
+                      name = t;
+                      break;
+                   }
+                }
+             }
           }
           
-          let bodyTextSummary = document.title + ' \n ' + document.body.innerText.substring(0, 2000);
+          if (name) name = name.replace(/Aktif|Baru|Kotak masuk/gi, '').trim();
           
+          let bodyTextSummary = document.title + ' \n ' + (document.body.innerText || "").substring(0, 2000);
           return { name, phone, url, pageTitle, bodyTextSummary };
         }
       }, (injectionResults) => {
@@ -243,7 +250,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             name: { stringValue: name },
                             phone: { stringValue: phone },
                             source: { stringValue: source },
-                            stage: { stringValue: "Penjadwalan WA" }
+                            stage: { stringValue: "Penjadwalan WA" },
+                            appliedDate: { stringValue: new Date().toISOString().split('T')[0] }
                           }
                         }
                       }
