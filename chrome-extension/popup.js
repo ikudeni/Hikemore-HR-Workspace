@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!name || !phone) {
              let candidateContainer = document.querySelector('article, [class*="card" i], [data-automation="candidate-details"], [role="main"], [class*="pane" i]');
              
-             const bodyText = document.body.innerText || "";
+             const bodyText = document.body.textContent || "";
              const bodyMatch = bodyText.match(phoneRegex);
              if (bodyMatch && !phone) phone = bodyMatch[0];
 
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
           
           if (name) name = name.replace(/Aktif|Baru|Kotak masuk/gi, '').trim();
           
-          let bodyTextSummary = document.title + ' \n ' + (document.body.innerText || "").substring(0, 2000);
+          let bodyTextSummary = document.title + ' \n ' + (document.body.textContent || "").substring(0, 2000);
           return { name, phone, url, pageTitle, bodyTextSummary };
         }
       }, (injectionResults) => {
