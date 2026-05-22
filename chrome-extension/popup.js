@@ -230,42 +230,42 @@ document.addEventListener('DOMContentLoaded', () => {
     
     try {
       const candidateId = Date.now();
+      const docUrl = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents/settings/recruitmentData";
       
-      const commitUrl = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents:commit";
-      const payload = {
-        writes: [
-          {
-            transform: {
-              document: "projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents/settings/recruitmentData",
-              fieldTransforms: [
-                {
-                  fieldPath: "candidates",
-                  appendMissingElements: {
-                    values: [
-                      {
-                        mapValue: {
-                          fields: {
-                            id: { integerValue: candidateId },
-                            jobId: { integerValue: matchedJob.id },
-                            name: { stringValue: name },
-                            phone: { stringValue: phone },
-                            source: { stringValue: source },
-                            stage: { stringValue: "Penjadwalan WA" },
-                            appliedDate: { stringValue: new Date().toISOString().split('T')[0] }
-                          }
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
+      const getRes = await fetch(docUrl);
+      const data = await getRes.json();
+      const currentCandidates = data.fields?.candidates?.arrayValue?.values || [];
+      
+      const newCandidate = {
+        mapValue: {
+          fields: {
+            id: { integerValue: String(candidateId) },
+            jobId: { integerValue: String(matchedJob.id) },
+            name: { stringValue: name },
+            phone: { stringValue: phone },
+            source: { stringValue: source },
+            stage: { stringValue: "Penjadwalan WA" },
+            appliedDate: { stringValue: new Date().toISOString().split('T')[0] }
           }
-        ]
+        }
       };
       
-      const res = await fetch(commitUrl, {
-        method: 'POST',
+      currentCandidates.unshift(newCandidate);
+      
+      const payload = {
+        fields: {
+          candidates: {
+            arrayValue: {
+              values: currentCandidates
+            }
+          }
+        }
+      };
+      
+      const patchUrl = docUrl + "?updateMask.fieldPaths=candidates";
+      
+      const res = await fetch(patchUrl, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
