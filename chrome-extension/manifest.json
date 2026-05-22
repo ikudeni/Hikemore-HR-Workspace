@@ -8,11 +8,6 @@
     "default_popup": "popup.html"
   },
   "host_permissions": [
-    "*://employers.glints.id/*",
-    "*://employer.pintarnya.com/*",
-    "*://employers.indeed.com/*",
-    "*://id.employer.seek.com/*",
-    "*://docs.google.com/spreadsheets/*",
     "https://firestore.googleapis.com/*"
   ]
 }

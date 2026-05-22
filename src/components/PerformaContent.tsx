@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { logActivity } from '../firebase';
 import { Employee } from '../types';
-import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, ReferenceLine } from 'recharts';
+import { ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell, LineChart, Line, ReferenceLine, Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts';
 
 // Leverage complexity berdasarkan Jabatan (Hikemore)
 const DEFAULT_JOB_LEVELS = [
@@ -70,6 +70,21 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Cleanup temporary dummy data
+  useEffect(() => {
+    setPerformaDataMap(prev => {
+      let hasChanges = false;
+      const nextData = { ...prev };
+      for (const k in nextData) {
+        if (nextData[k] && nextData[k].isDummy) {
+          delete nextData[k];
+          hasChanges = true;
+        }
+      }
+      return hasChanges ? nextData : prev;
+    });
+  }, [setPerformaDataMap]);
 
   useEffect(() => {
     if (activeTab !== 'dashboard') return;
@@ -298,6 +313,28 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
     });
   }, [performaData, filterDept, filterLevel, filterPenilaian, searchPerformaName]);
 
+  const radarData = useMemo(() => {
+    const evaluated = filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai');
+    if (evaluated.length === 0) return [
+      { subject: 'Grit', A: 0, fullMark: 125 },
+      { subject: 'Growth', A: 0, fullMark: 125 },
+      { subject: 'Profesionalisme', A: 0, fullMark: 125 },
+      { subject: 'Sustainability', A: 0, fullMark: 125 }
+    ];
+
+    const vg = evaluated.reduce((sum, item) => sum + (item.grit || 0), 0) / evaluated.length;
+    const vgw = evaluated.reduce((sum, item) => sum + (item.growth || 0), 0) / evaluated.length;
+    const vpr = evaluated.reduce((sum, item) => sum + (item.prof || 0), 0) / evaluated.length;
+    const vs = evaluated.reduce((sum, item) => sum + (item.sus || 0), 0) / evaluated.length;
+
+    return [
+      { subject: 'Grit', A: vg, fullMark: 125 },
+      { subject: 'Growth', A: vgw, fullMark: 125 },
+      { subject: 'Profesionalisme', A: vpr, fullMark: 125 },
+      { subject: 'Sustainability', A: vs, fullMark: 125 }
+    ];
+  }, [filteredPerformaData]);
+
   return (
     <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative">
       <div className="w-full flex-1 flex flex-col space-y-6 pb-8">
@@ -479,68 +516,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
 
         {activeTab === 'dashboard' ? (
           <>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Scatter Plot untuk Rekomendasi Visualisasi */}
-              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-extrabold text-slate-800">Evaluasi Kinerja vs Cost Salary</h3>
-                    <p className="text-sm font-medium text-slate-500">
-                      Scatter plot membandingkan cost terhadap evaluasi kinerja.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex-1 w-full min-h-[250px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis type="number" dataKey="nilaiAkhir" name="Skor Akhir" domain={[0, 130]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} label={{ value: 'Nilai Akhir (Total Performa)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} />
-                      <YAxis type="number" dataKey="gaji" name="Gaji" tickFormatter={(v) => `Rp ${(v/1000000).toFixed(0)}Jt`} domain={[0, Math.max(10000000, ...filteredPerformaData.map(d => d.gaji || 0))]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
-                      <RechartsTooltip 
-                        cursor={{ strokeDasharray: '3 3' }} 
-                        formatter={(value: number, name: string) => name === 'Gaji' ? `Rp ${value.toLocaleString('id-ID')}` : value}
-                        content={({ payload }) => {
-                          if (payload && payload.length) {
-                            const data = payload[0].payload;
-                            if (data.dummy) return null;
-                            return (
-                              <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px] z-50">
-                                <p className="font-bold text-slate-800 mb-1">{data.name}</p>
-                                <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">{data.levelJabatan}</p>
-                                <div className="space-y-1 mb-2">
-                                  <p className="text-slate-500 flex justify-between"><span>Nilai Akhir:</span> <span className="font-bold text-slate-800">{data.nilaiAkhir.toFixed(1)}</span></p>
-                                  <p className="text-slate-500 flex justify-between"><span>Gaji Aktual:</span> <span className="font-bold text-slate-800">Rp {data.gaji.toLocaleString('id-ID')}</span></p>
-                                  <p className="text-slate-500 flex justify-between"><span>Nilai Kontribusi:</span> <span className="font-bold text-emerald-600">Rp {Math.round(data.nilaiKontribusi).toLocaleString('id-ID')}</span></p>
-                                </div>
-                                <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
-                                  <p className="text-slate-500 flex justify-between items-center">
-                                    <span>Kesimpulan:</span> 
-                                    <span className="font-bold" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
-                                      {data.classification.split(' (')[0]}
-                                    </span>
-                                  </p>
-                                  {data.rekomendasi && data.rekomendasi !== '-' && (
-                                    <p className="text-[10px] font-bold text-right" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
-                                      ({data.rekomendasi})
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Scatter name="Karyawan" data={filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]}>
-                        {(filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]).map((entry: any, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.dummy ? 'transparent' : entry.classification.startsWith('Sangat Bagus') ? '#10b981' : entry.classification.startsWith('Bagus') ? '#3b82f6' : entry.classification.startsWith('Standar') ? '#64748b' : entry.classification.startsWith('Kurang') && !entry.classification.startsWith('Sangat') ? '#f97316' : entry.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'} />
-                        ))}
-                      </Scatter>
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
               {/* 9 Box Grid Distribution */}
               <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
                 <div className="flex items-center justify-between mb-5 shrink-0">
@@ -602,6 +578,95 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                   })}
                 </div>
               </div>
+
+              {/* Radar Chart Dashboard */}
+              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
+                <div className="flex items-center justify-between mb-5 shrink-0">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Profil Kompetensi</h3>
+                    <p className="text-sm font-medium text-slate-500">
+                      Rata-rata skor evaluasi area kompetensi (terpengaruh filter).
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1 w-full relative -mt-4">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RadarChart cx="50%" cy="50%" outerRadius="70%" data={radarData}>
+                      <PolarGrid stroke="#e2e8f0" />
+                      <PolarAngleAxis dataKey="subject" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 'bold' }} />
+                      <PolarRadiusAxis angle={30} domain={[0, 'dataMax + 10']} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                      <Radar name="Skor Rata-Rata" dataKey="A" stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.4} />
+                      <RechartsTooltip 
+                         formatter={(value: number) => value.toFixed(1)}
+                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 'bold' }}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-6">
+              {/* Scatter Plot untuk Rekomendasi Visualisasi */}
+              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[450px]">
+                <div className="flex items-center justify-between mb-2">
+                  <div>
+                    <h3 className="font-extrabold text-slate-800">Evaluasi Kinerja vs Cost Salary</h3>
+                    <p className="text-sm font-medium text-slate-500">
+                      Scatter plot membandingkan cost terhadap evaluasi kinerja secara memanjang.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex-1 w-full min-h-[350px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                      <XAxis type="number" dataKey="nilaiAkhir" name="Skor Akhir" domain={[0, 130]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} label={{ value: 'Nilai Akhir (Total Performa)', position: 'insideBottom', offset: -10, fontSize: 12, fill: '#64748b', fontWeight: 'bold' }} />
+                      <YAxis type="number" dataKey="gaji" name="Gaji" tickFormatter={(v) => `Rp ${(v/1000000).toFixed(0)}Jt`} domain={[0, Math.max(10000000, ...filteredPerformaData.map(d => d.gaji || 0))]} tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
+                      <RechartsTooltip 
+                        cursor={{ strokeDasharray: '3 3' }} 
+                        formatter={(value: number, name: string) => name === 'Gaji' ? `Rp ${value.toLocaleString('id-ID')}` : value}
+                        content={({ payload }) => {
+                          if (payload && payload.length) {
+                            const data = payload[0].payload;
+                            if (data.dummy) return null;
+                            return (
+                              <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px] z-50">
+                                <p className="font-bold text-slate-800 mb-1">{data.name}</p>
+                                <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">{data.levelJabatan}</p>
+                                <div className="space-y-1 mb-2">
+                                  <p className="text-slate-500 flex justify-between"><span>Nilai Akhir:</span> <span className="font-bold text-slate-800">{data.nilaiAkhir.toFixed(1)}</span></p>
+                                  <p className="text-slate-500 flex justify-between"><span>Gaji Aktual:</span> <span className="font-bold text-slate-800">Rp {data.gaji.toLocaleString('id-ID')}</span></p>
+                                  <p className="text-slate-500 flex justify-between"><span>Nilai Kontribusi:</span> <span className="font-bold text-emerald-600">Rp {Math.round(data.nilaiKontribusi).toLocaleString('id-ID')}</span></p>
+                                </div>
+                                <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
+                                  <p className="text-slate-500 flex justify-between items-center">
+                                    <span>Kesimpulan:</span> 
+                                    <span className="font-bold" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                      {data.classification.split(' (')[0]}
+                                    </span>
+                                  </p>
+                                  {data.rekomendasi && data.rekomendasi !== '-' && (
+                                    <p className="text-[10px] font-bold text-right" style={{color: data.classification.startsWith('Sangat Bagus') ? '#10b981' : data.classification.startsWith('Bagus') ? '#3b82f6' : data.classification.startsWith('Standar') ? '#64748b' : data.classification.startsWith('Kurang') && !data.classification.startsWith('Sangat') ? '#f97316' : data.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'}}>
+                                      ({data.rekomendasi})
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Scatter name="Karyawan" data={filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]}>
+                        {(filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai').length > 0 ? filteredPerformaData.filter(d => d.classification !== 'Belum Dinilai') : [{ nilaiAkhir: 0, gaji: 0, classification: 'Belum Dinilai', dummy: true }]).map((entry: any, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.dummy ? 'transparent' : entry.classification.startsWith('Sangat Bagus') ? '#10b981' : entry.classification.startsWith('Bagus') ? '#3b82f6' : entry.classification.startsWith('Standar') ? '#64748b' : entry.classification.startsWith('Kurang') && !entry.classification.startsWith('Sangat') ? '#f97316' : entry.classification.startsWith('Sangat Kurang') ? '#ef4444' : '#94a3b8'} />
+                        ))}
+                      </Scatter>
+                    </ScatterChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
 
             {/* Table */}
@@ -631,8 +696,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                   </thead>
                   <tbody className="text-sm font-medium text-slate-700 divide-y divide-slate-100">
                     {filteredPerformaData.map((d, i) => (
-                      <tr key={i} className="group hover:bg-slate-50">
-                        <td className="px-4 py-2 sticky left-0 z-10 bg-white group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap">
+                      <tr 
+                        key={i} 
+                        className={`group hover:bg-slate-50 cursor-pointer transition-colors ${searchPerformaName === d.name ? 'bg-indigo-50/60' : ''}`}
+                        onClick={() => setSearchPerformaName(searchPerformaName === d.name ? '' : d.name)}
+                      >
+                        <td className={`px-4 py-2 sticky left-0 z-10 ${searchPerformaName === d.name ? 'bg-indigo-50/60' : 'bg-white'} group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap`}>
                           <div className="flex flex-col">
                             <div className="flex items-center gap-3">
                               <span className="text-slate-400 font-bold w-6 inline-block">{i + 1}</span>
@@ -696,7 +765,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                         <td className="px-4 py-2 text-center whitespace-nowrap">
                           {d.classification !== 'Belum Dinilai' ? (
                             <button
-                              onClick={() => setReportPreviewData(d)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReportPreviewData(d);
+                              }}
                               className="px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-100 hover:text-blue-700 transition-all border border-blue-200 inline-flex items-center gap-1.5 shadow-sm"
                             >
                               <Icon name="file-text" size={14} />
