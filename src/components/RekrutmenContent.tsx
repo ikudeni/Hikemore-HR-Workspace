@@ -325,6 +325,47 @@ export const RekrutmenContent = ({
     }
   }, [candidateSearchQuery, candidates, selectedJob]);
 
+  // Handle URL deep link for Extension Candidate Extraction
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('action') === 'add_candidate') {
+        const urlName = params.get('name') || '';
+        const urlPhone = params.get('phone') || '';
+        let urlJob = params.get('job') || '';
+        let urlSource = params.get('source') || 'Glints';
+        
+        const validSources = ['Glints', 'Pintarnya', 'Indeed', 'LinkedIn', 'Jobstreet', 'Lainnya'];
+        let matchedSource = validSources.includes(urlSource) ? urlSource : 'Lainnya';
+        let customSource = matchedSource === 'Lainnya' ? urlSource : '';
+
+        if (urlJob && jobListings.length > 0) {
+           const matchedJob = jobListings.find(j => j.title.toLowerCase().includes(urlJob.toLowerCase()));
+           if (matchedJob) {
+              setView('detail');
+              setSelectedJob(matchedJob);
+              
+              const stagesOrder = jobStagesMap[matchedJob.id] || kanbanStages.map(s => s.id);
+              const targetStage = stagesOrder.includes('Penjadwalan WA') ? 'Penjadwalan WA' : stagesOrder[0];
+              
+              setTimeout(() => {
+                 setActiveAddFormStage(targetStage);
+                 setAddCandidateFormData({
+                   name: urlName,
+                   phone: urlPhone,
+                   source: matchedSource as any,
+                   customSource: customSource,
+                   stage: targetStage
+                 });
+              }, 300);
+              
+              window.history.replaceState({}, document.title, window.location.pathname);
+           }
+        }
+      }
+    }
+  }, [jobListings, kanbanStages, jobStagesMap]);
+
   const filteredJobListings = useMemo(() => {
     if (jobFilter === 'Aktif') return jobListings.filter(job => job.isActiveJob);
     if (jobFilter === 'Tidak Aktif') return jobListings.filter(job => !job.isActiveJob);

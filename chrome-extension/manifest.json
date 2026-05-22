@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "HR Recruitment Grabber (Hikemore)",
+  "version": "1.0",
+  "description": "Extract candidate info from Job Portals to HR Workspace.",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "host_permissions": [
+    "*://employers.glints.id/*",
+    "*://employer.pintarnya.com/*",
+    "*://employers.indeed.com/*",
+    "*://id.employer.seek.com/*",
+    "*://docs.google.com/spreadsheets/*"
+  ]
+}

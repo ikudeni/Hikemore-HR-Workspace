@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 320px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; background: #f8f9fb; }
+    h2 { font-size: 16px; margin: 0 0 16px 0; color: #1e293b; text-align: center; }
+    .row { margin-bottom: 12px; }
+    label { display: block; font-size: 12px; font-weight: bold; margin-bottom: 4px; color: #475569; }
+    input[type="text"], input[type="url"] { width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; }
+    button { background: #3b82f6; color: white; border: none; padding: 10px; width: 100%; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #2563eb; }
+    button.extract-btn { background: #64748b; margin-bottom: 16px; }
+    button.extract-btn:hover { background: #475569; }
+    .note { font-size: 11px; color: #64748b; margin-top: 12px; text-align: center; }
+  </style>
+</head>
+<body>
+  <h2>HR Recruitment Grabber</h2>
+  
+  <button id="extractBtn" class="extract-btn">Tarik Data dari Halaman (Refresh)</button>
+  
+  <div class="row">
+    <label>Nama Kandidat</label>
+    <input type="text" id="candName" placeholder="Contoh: Budi Santoso">
+  </div>
+  
+  <div class="row">
+    <label>Nomor Telepon / WA</label>
+    <input type="text" id="candPhone" placeholder="Contoh: 08123456789">
+  </div>
+  
+  <div class="row">
+    <label>Sumber Loker (Mendeteksi otomatis)</label>
+    <input type="text" id="candSource" placeholder="Contoh: Glints">
+  </div>
+  
+  <div class="row">
+    <label>Nama Loker (Di HR Workspace)</label>
+    <input type="text" id="candJob" placeholder="Contoh: Driver Gudang">
+    <p class="note" style="margin-top: 4px; text-align: left;">*Pastikan nama loker sesuai dengan yg ada di Web HR</p>
+  </div>
+  
+  <div class="row" style="margin-top: 24px;">
+    <label>URL HR Workspace App (Opsional diubah)</label>
+    <input type="url" id="appUrl" placeholder="https://...">
+  </div>
+
+  <button id="sendBtn" style="margin-top: 8px;">Kirim ke HR Workspace &rarr;</button>
+  
+  <p class="note">Tips: Jika gagal menarik data otomatis, block/highlight (seleksi) teks Nama & No HP di halaman web, lalu klik ekstensi ini.</p>
+  
+  <script src="popup.js"></script>
+</body>
+</html>

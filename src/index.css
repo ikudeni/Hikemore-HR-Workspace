@@ -104,10 +104,10 @@
     scrollbar-width: none;
   }
   .hide-scrollbar-x::-webkit-scrollbar:horizontal {
-    display: none;
+    display: none !important;
   }
   .hide-scrollbar-y::-webkit-scrollbar:vertical {
-    display: none;
+    display: none !important;
   }
 
   /* Hover-only Scrollbar */
