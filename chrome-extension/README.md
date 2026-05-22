@@ -27,4 +27,4 @@ Karena tampilan web dari Glints/Pintarnya/Jobstreet sering berubah-ubah, ekstens
 5. Ketik nama Loker yang sedang dilamar (misal: `Driver Gudang`). Harus sama persis dengan loker di Web HR.
 6. Pastikan kolom **URL HR Workspace** tertulis `https://hrdhikemore.vercel.app/`.
 7. Klik tombol biru **"Kirim ke HR Workspace →"**.
-8. Web HR Workspace akan otomatis terbuka di tab baru, langsung loncat ke menu Rekrutmen, membuka loker tersebut, dan memunculkan popup Tambah Kandidat (Penjadwalan WA) lengkap dengan datanya! Tinggal pencet *Simpan*.
+8. Setelah tombol berubah menjadi "Berhasil!", data kandidat tersebut **langsung masuk ke sistem HR Workspace** di bagian *Penjadwalan WA* pada loker bersangkutan secara realtime. Anda bahkan tidak perlu membuka tab baru atau me-refresh web HR!

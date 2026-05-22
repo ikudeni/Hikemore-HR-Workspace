@@ -29,13 +29,17 @@ document.addEventListener('DOMContentLoaded', () => {
       inputJob.innerHTML = '<option value="">-- Pilih Posisi / Loker --</option>'; // Clear existing
       
       let hasActiveJobs = false;
+      window.allJobs = [];
       jobListingsField.forEach(item => {
          const mapFields = item.mapValue?.fields || {};
          const title = mapFields.title?.stringValue;
-         const isActive = mapFields.isActiveJob?.booleanValue !== false; // If undefined, assume true like active
+         const id = mapFields.id?.integerValue || mapFields.id?.stringValue;
+         const isActive = mapFields.isActiveJob?.booleanValue !== false;
          
          if (title && isActive) {
             hasActiveJobs = true;
+            window.allJobs.push({ id: Number(id), title });
+            
             const option = document.createElement('option');
             option.value = title;
             option.textContent = title;
@@ -63,19 +67,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function matchJobDropdown() {
-    if (!window.extractedPageTitle) return;
+    if (!window.extractedBodyTextSummary) return;
     if (inputJob.options.length <= 1) return; // Not loaded yet
     
-    const pageTitle = window.extractedPageTitle.toLowerCase();
+    const pageText = window.extractedBodyTextSummary.toLowerCase();
     
-    for (let i = 0; i < inputJob.options.length; i++) {
-        const optionTitle = inputJob.options[i].value;
-        if (!optionTitle) continue;
+    // Check longest job titles first to avoid partial matches on single words
+    const options = Array.from(inputJob.options).filter(opt => opt.value);
+    options.sort((a,b) => b.value.length - a.value.length);
+    
+    for (let option of options) {
+        const optionTitle = option.value.toLowerCase();
         
-        // Simple fuzzy match: does the option text exist in the page title?
-        // E.g., option: "Admin Online Shop", pageTitle: "admin online shop (surabaya) - pintarnya"
-        if (pageTitle.includes(optionTitle.toLowerCase())) {
-            inputJob.value = optionTitle;
+        if (pageText.includes(optionTitle)) {
+            inputJob.value = option.value;
             window.matchedAJob = true;
             return;
         }
@@ -112,7 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
               const phoneMatch = line.match(/(?:\+62|62|0)8[1-9][0-9]{6,12}/);
               if (phoneMatch) {
                  phone = phoneMatch[0];
-              } else if (!name && line.length < 50 && !line.includes('@') && !line.match(/Tahun|Bulan|Rp|Jt|Status|Pelamar/i)) {
+              } else if (!name && line.length < 50 && !line.includes('@') && !line.match(/Tahun|Bulan|Rp|Jt|Status|Pelamar|Tentang|Profil/i)) {
                  name = line;
               }
             });
@@ -128,7 +133,7 @@ document.addEventListener('DOMContentLoaded', () => {
                const headings = Array.from(document.querySelectorAll('h1, h2, h3, [class*="name" i], [class*="profile" i]'));
                for (let h of headings) {
                  let t = h.textContent.trim();
-                 if (t && t.length < 40 && !t.match(/kandidat|lowongan|pintarnya/i)) {
+                 if (t && t.length < 40 && !t.match(/kandidat|lowongan|pintarnya|tentang|profil/i)) {
                    name = t;
                    break;
                  }
@@ -150,7 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           }
           
-          return { name, phone, url, pageTitle };
+          let bodyTextSummary = document.title + ' \n ' + document.body.innerText.substring(0, 2000);
+          
+          return { name, phone, url, pageTitle, bodyTextSummary };
         }
       }, (injectionResults) => {
         if (chrome.runtime.lastError) {
@@ -168,8 +175,8 @@ document.addEventListener('DOMContentLoaded', () => {
              inputPhone.value = cleanPhone;
           }
           
-          // Save extracted page title for later matching with job listings
-          window.extractedPageTitle = response.pageTitle || '';
+          // Save extracted page text for later matching with job listings
+          window.extractedBodyTextSummary = response.bodyTextSummary || '';
           matchJobDropdown();
         }
       });
@@ -181,30 +188,96 @@ document.addEventListener('DOMContentLoaded', () => {
   // Auto extract on open
   extractFromPage();
 
-  btnSend.addEventListener('click', () => {
+  btnSend.addEventListener('click', async () => {
     const name = inputName.value.trim();
     const phone = inputPhone.value.trim();
     const source = inputSource.value.trim();
-    const job = inputJob.value.trim();
+    const jobTitle = inputJob.value.trim();
     let appUrl = inputAppUrl.value.trim();
     
     if (!appUrl.endsWith('/')) appUrl += '/';
 
     // Save preferences
-    chrome.storage.local.set({ defaultAppUrl: appUrl, lastJobName: job });
+    chrome.storage.local.set({ defaultAppUrl: appUrl, lastJobName: jobTitle });
 
     if (!name || !phone) {
       alert("Harap isi minimal Nama & No Telepon.");
       return;
     }
-
-    const targetUrl = new URL(appUrl);
-    targetUrl.searchParams.set('action', 'add_candidate');
-    targetUrl.searchParams.set('name', name);
-    targetUrl.searchParams.set('phone', phone);
-    targetUrl.searchParams.set('source', source);
-    targetUrl.searchParams.set('job', job);
-
-    chrome.tabs.create({ url: targetUrl.toString() });
+    
+    if (!jobTitle) {
+      alert("Harap pilih Nama Loker sebelum mengirim ke HR Workspace.");
+      return;
+    }
+    
+    const matchedJob = (window.allJobs || []).find(j => j.title === jobTitle);
+    if (!matchedJob) {
+      alert("Loker tidak valid. Cobalah untuk merefresh ekstensi.");
+      return;
+    }
+    
+    // Change button state
+    const originalText = btnSend.textContent;
+    btnSend.textContent = "Mengirim...";
+    btnSend.disabled = true;
+    
+    try {
+      const candidateId = Date.now();
+      
+      const commitUrl = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents:commit";
+      const payload = {
+        writes: [
+          {
+            transform: {
+              document: "projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents/settings/recruitmentData",
+              fieldTransforms: [
+                {
+                  fieldPath: "candidates",
+                  appendMissingElements: {
+                    values: [
+                      {
+                        mapValue: {
+                          fields: {
+                            id: { integerValue: candidateId },
+                            jobId: { integerValue: matchedJob.id },
+                            name: { stringValue: name },
+                            phone: { stringValue: phone },
+                            source: { stringValue: source },
+                            stage: { stringValue: "Penjadwalan WA" }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      };
+      
+      const res = await fetch(commitUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      
+      if (!res.ok) {
+        throw new Error("Gagal mengirim ke database: " + res.statusText);
+      }
+      
+      btnSend.textContent = "Berhasil! ✓";
+      btnSend.style.backgroundColor = "#10b981"; // Emerald green
+      
+      setTimeout(() => {
+        window.close(); // Close the popup automatically
+      }, 1500);
+      
+    } catch(err) {
+      console.error(err);
+      alert("Terjadi kesalahan: " + err.message);
+      btnSend.textContent = originalText;
+      btnSend.disabled = false;
+    }
   });
 });
