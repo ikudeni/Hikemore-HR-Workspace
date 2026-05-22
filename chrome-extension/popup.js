@@ -16,11 +16,50 @@ document.addEventListener('DOMContentLoaded', () => {
       // Fallback default (Force updated to production domain)
       inputAppUrl.value = 'https://hrdhikemore.vercel.app/';
     }
-    
-    if (res.lastJobName) {
-      inputJob.value = res.lastJobName;
-    }
   });
+
+  // Fetch job listings from Firebase
+  async function fetchJobs() {
+    try {
+      const url = "https://firestore.googleapis.com/v1/projects/gen-lang-client-0896426092/databases/ai-studio-fa9bbbd9-9a15-4474-9dc8-ee0009a60a80/documents/settings/recruitmentData";
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      const jobListingsField = data.fields?.jobListings?.arrayValue?.values || [];
+      inputJob.innerHTML = '<option value="">-- Pilih Posisi / Loker --</option>'; // Clear existing
+      
+      let hasActiveJobs = false;
+      jobListingsField.forEach(item => {
+         const mapFields = item.mapValue?.fields || {};
+         const title = mapFields.title?.stringValue;
+         const isActive = mapFields.isActiveJob?.booleanValue !== false; // If undefined, assume true like active
+         
+         if (title && isActive) {
+            hasActiveJobs = true;
+            const option = document.createElement('option');
+            option.value = title;
+            option.textContent = title;
+            inputJob.appendChild(option);
+         }
+      });
+      
+      if (!hasActiveJobs) {
+        inputJob.innerHTML = '<option value="">-- Belum ada Loker Aktif di Web HR --</option>';
+      } else {
+        // Restore last selected job
+        chrome.storage.local.get(['lastJobName'], (res) => {
+          if (res.lastJobName) {
+            inputJob.value = res.lastJobName;
+          }
+        });
+      }
+    } catch(e) {
+      console.error(e);
+      inputJob.innerHTML = '<option value="">Gagal sinkronisasi data loker</option>';
+    }
+  }
+
+  fetchJobs();
 
   function extractFromPage() {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -35,13 +74,60 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (tab.url.includes('google.com/spreadsheets')) inputSource.value = 'Spreadsheet';
       else inputSource.value = 'Lainnya';
 
-      chrome.tabs.sendMessage(tab.id, { action: "extract" }, (response) => {
+      chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => {
+          const url = window.location.href;
+          let name = '';
+          let phone = '';
+          
+          const selection = window.getSelection().toString().trim();
+          if (selection) {
+            const lines = selection.split('\n').map(l => l.trim()).filter(Boolean);
+            lines.forEach(line => {
+              const phoneMatch = line.match(/(?:\+62|62|0)8[1-9][0-9]{6,12}/);
+              if (phoneMatch) {
+                 phone = phoneMatch[0];
+              } else if (!name && line.length < 50 && !line.includes('@') && !line.match(/Tahun|Bulan|Rp|Jt/i)) {
+                 name = line;
+              }
+            });
+            return { name, phone, url };
+          }
+          
+          // Platform-specific heuristics
+          if (url.includes('glints.id')) {
+            const nameEl = document.querySelector('h3, .name, [class*="CandidateName"]');
+            if (nameEl) name = nameEl.textContent.trim();
+          } else if (url.includes('pintarnya.com')) {
+            const nameEl = document.querySelector('h1, h2, [class*="ProfileName"]');
+            if (nameEl) name = nameEl.textContent.trim();
+          } else if (url.includes('indeed.com')) {
+            const nameEl = document.querySelector('h1, h2, [class*="Name"]');
+            if (nameEl) name = nameEl.textContent.trim();
+          } else if (url.includes('seek.com') || url.includes('jobstreet')) {
+            const nameEl = document.querySelector('h1, h2');
+            if (nameEl) name = nameEl.textContent.trim();
+          }
+          
+          if (!phone) {
+            const bodyText = document.body.innerText;
+            const phoneMatch = bodyText.match(/(?:\+62|62|0)8[1-9][0-9]{6,12}/);
+            if (phoneMatch) {
+              phone = phoneMatch[0];
+            }
+          }
+          
+          return { name, phone, url };
+        }
+      }, (injectionResults) => {
         if (chrome.runtime.lastError) {
           console.log("Error:", chrome.runtime.lastError.message);
           return;
         }
         
-        if (response) {
+        if (injectionResults && injectionResults[0] && injectionResults[0].result) {
+          const response = injectionResults[0].result;
           if (response.name) inputName.value = response.name;
           if (response.phone) {
              let cleanPhone = response.phone.replace(/[^0-9+]/g, '');
