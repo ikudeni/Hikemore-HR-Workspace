@@ -52,6 +52,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const [isDeleteHistoryConfirmOpen, setIsDeleteHistoryConfirmOpen] = useState(false);
   const [historyToDelete, setHistoryToDelete] = useState<{assetId: string, historyId: string} | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [dropdownPosition, setDropdownPosition] = useState<'bottom' | 'top'>('bottom');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -771,6 +772,14 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          const windowHeight = window.innerHeight;
+                          // If dropdown would go below the screen (assuming ~160px dropdown height)
+                          if (windowHeight - rect.bottom < 180) {
+                            setDropdownPosition('top');
+                          } else {
+                            setDropdownPosition('bottom');
+                          }
                           setOpenDropdownId(openDropdownId === item.id ? null : item.id);
                         }}
                         className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors inline-flex items-center justify-center"
@@ -780,8 +789,8 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                       
                       {openDropdownId === item.id && (
                         <div 
-                          className={`absolute right-6 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-20 text-left ${
-                            index >= filteredAssets.length - 2 && filteredAssets.length > 2 
+                          className={`absolute right-6 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50 text-left ${
+                            dropdownPosition === 'top'
                               ? 'bottom-full mb-1' 
                               : 'top-14 mt-1'
                           }`}
