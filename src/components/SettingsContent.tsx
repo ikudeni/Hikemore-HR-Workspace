@@ -14,8 +14,13 @@ interface AccessRequest {
 export function SettingsContent() {
   const [usernames, setUsernames] = useState<string[]>([]);
   const [superAdmins, setSuperAdmins] = useState<string[]>(['deniakbar']);
+  const [menuAccessMap, setMenuAccessMap] = useState<Record<string, string[]>>({});
   const [pendingRequests, setPendingRequests] = useState<AccessRequest[]>([]);
   
+  const [isMenuAccessModalOpen, setIsMenuAccessModalOpen] = useState(false);
+  const [menuAccessTarget, setMenuAccessTarget] = useState<string | null>(null);
+  const [currentMenuAccess, setCurrentMenuAccess] = useState<string[]>([]);
+
   const [newName, setNewName] = useState('');
   const [newUsername, setNewUsername] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -43,6 +48,11 @@ export function SettingsContent() {
           setUsernames(docSnap.data().usernames || docSnap.data().emails || []);
           if (docSnap.data().superAdmins) {
             setSuperAdmins(docSnap.data().superAdmins);
+          }
+          if (docSnap.data().menuAccess) {
+            setMenuAccessMap(docSnap.data().menuAccess);
+          } else {
+            setMenuAccessMap({});
           }
         } else {
           const initialData = ['deniakbar'];
@@ -161,6 +171,45 @@ export function SettingsContent() {
       handleFirestoreError(error, OperationType.UPDATE, 'settings/access');
       setUsernames(usernames); // revert
       setSuperAdmins(superAdmins);
+    }
+  };
+
+  const allMenus = [
+    'Dashboard',
+    'Rekrutmen',
+    'Karyawan',
+    'Performa',
+    'Schedule',
+    'File Sharing',
+    'Inventory',
+    'Organization',
+  ];
+
+  const handleOpenMenuAccess = (username: string) => {
+    setMenuAccessTarget(username);
+    setCurrentMenuAccess(menuAccessMap[username] || allMenus);
+    setIsMenuAccessModalOpen(true);
+  };
+
+  const handleToggleMenu = (menuId: string) => {
+    if (currentMenuAccess.includes(menuId)) {
+      setCurrentMenuAccess(currentMenuAccess.filter(m => m !== menuId));
+    } else {
+      setCurrentMenuAccess([...currentMenuAccess, menuId]);
+    }
+  };
+
+  const handleSaveMenuAccess = async () => {
+    if (!menuAccessTarget) return;
+    const newMap = { ...menuAccessMap, [menuAccessTarget]: currentMenuAccess };
+    
+    try {
+      await updateDoc(doc(db, 'settings', 'access'), { menuAccess: newMap });
+      setMenuAccessMap(newMap);
+      setIsMenuAccessModalOpen(false);
+    } catch(e) {
+      console.error(e);
+      alert('Gagal merubah akses menu');
     }
   };
 
@@ -373,6 +422,13 @@ export function SettingsContent() {
                     {!(superAdmins.length <= 1 && superAdmins.includes(usernameItem)) ? (
                       <>
                         <button
+                          onClick={() => handleOpenMenuAccess(usernameItem)}
+                          className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-lg transition-colors"
+                          title="Akses Menu"
+                        >
+                          <Icon name="layout" size={18} />
+                        </button>
+                        <button
                           onClick={() => toggleSuperAdmin(usernameItem)}
                           className={superAdmins.includes(usernameItem) ? "text-purple-600 hover:text-purple-800 hover:bg-purple-50 p-2 rounded-lg transition-colors" : "text-slate-400 hover:text-purple-600 hover:bg-purple-50 p-2 rounded-lg transition-colors"}
                           title={superAdmins.includes(usernameItem) ? "Cabut akses Super Admin" : "Jadikan Super Admin"}
@@ -551,6 +607,52 @@ export function SettingsContent() {
             </div>
           </div>
         </>
+      )}
+
+      {isMenuAccessModalOpen && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 max-h-[90vh] flex flex-col animate-scaleIn">
+            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+              <h3 className="text-lg font-black text-slate-800">Akses Menu: {menuAccessTarget}</h3>
+              <button onClick={() => setIsMenuAccessModalOpen(false)} className="text-slate-400 hover:text-red-500 transition-colors p-1 rounded-lg hover:bg-red-50">
+                <Icon name="x" size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto pr-2 space-y-2 mb-6">
+              {allMenus.map((menu) => (
+                <label key={menu} className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 hover:border-blue-100 hover:bg-blue-50/50 cursor-pointer transition-colors group">
+                  <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${currentMenuAccess.includes(menu) ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white group-hover:border-blue-400'}`}>
+                    {currentMenuAccess.includes(menu) && <Icon name="check" size={14} />}
+                  </div>
+                  <span className={`text-sm font-semibold ${currentMenuAccess.includes(menu) ? 'text-slate-800' : 'text-slate-600'}`}>{menu}</span>
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={currentMenuAccess.includes(menu)}
+                    onChange={() => handleToggleMenu(menu)}
+                  />
+                </label>
+              ))}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-100 mt-auto">
+              <button
+                onClick={() => setIsMenuAccessModalOpen(false)}
+                className="px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSaveMenuAccess}
+                className="px-6 py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center gap-2"
+              >
+                <Icon name="check" size={16} />
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deleteConfirmUsername && (

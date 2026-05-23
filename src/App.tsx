@@ -64,6 +64,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
   const [currentUser, setCurrentUser] = useState({ name: '', username: '' });
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [menuAccessList, setMenuAccessList] = useState<string[] | null>(null);
   const [accessReqUser, setAccessReqUser] = useState<{uid: string, username: string, name: string} | null>(null);
   const [accessReqStatus, setAccessReqStatus] = useState<'none' | 'needs_registration' | 'pending'>('none');
   const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
@@ -103,6 +104,7 @@ export default function App() {
           'hrdhikemore'
         ];
         let superAdmins = ['deniakbar', 'hrdhikemore'];
+        let menuAccessMap: Record<string, string[]> = {};
 
         try {
           const docRef = doc(db, 'settings', 'access');
@@ -114,6 +116,9 @@ export default function App() {
             allowedUsernames = docSnap.data().usernames || docSnap.data().emails || allowedUsernames;
             if (docSnap.data().superAdmins) {
               superAdmins = docSnap.data().superAdmins;
+            }
+            if (docSnap.data().menuAccess) {
+              menuAccessMap = docSnap.data().menuAccess;
             }
           }
         } catch (error) {
@@ -129,6 +134,7 @@ export default function App() {
 
         const currentUsername = (user.username || user.email).toLowerCase();
         setIsSuperAdmin(superAdmins.includes(currentUsername));
+        setMenuAccessList(menuAccessMap[currentUsername] || null);
 
         if (allowedUsernames.includes(currentUsername)) {
           setIsAuthenticated(true);
@@ -426,6 +432,8 @@ export default function App() {
 
   useEffect(() => {
     let unsubscribeDashboard: (() => void) | undefined;
+    let unsubscribeAccess: (() => void) | undefined;
+
     if (isAuthenticated) {
       const q = doc(db, 'settings', 'dashboardData');
       unsubscribeDashboard = onSnapshot(q, (snapshot) => {
@@ -434,11 +442,25 @@ export default function App() {
            if (data.dashboardLayout) setDashboardLayoutReact(data.dashboardLayout);
         }
       });
+
+      const accessRef = doc(db, 'settings', 'access');
+      unsubscribeAccess = onSnapshot(accessRef, (snapshot) => {
+        if (snapshot.exists()) {
+           const data = snapshot.data();
+           if (data.superAdmins) {
+             setIsSuperAdmin(data.superAdmins.includes(currentUser.username));
+           }
+           if (data.menuAccess) {
+             setMenuAccessList(data.menuAccess[currentUser.username] || null);
+           }
+        }
+      });
     }
     return () => {
       if (unsubscribeDashboard) unsubscribeDashboard();
+      if (unsubscribeAccess) unsubscribeAccess();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, currentUser.username]);
 
   useEffect(() => {
     if (globalEmployees.length > 0) {
@@ -532,17 +554,25 @@ export default function App() {
     }
   };
 
+  const allMainMenus = [
+    { name: 'Dashboard', icon: 'home' as const },
+    { name: 'Rekrutmen', icon: 'briefcase' as const },
+    { name: 'Karyawan', icon: 'users' as const },
+    { name: 'Performa', icon: 'target' as const },
+    { name: 'Schedule', icon: 'calendar' as const },
+    { name: 'File Sharing', icon: 'folder' as const },
+    { name: 'Inventory', icon: 'box' as const },
+    { name: 'Organization', icon: 'network' as const },
+  ];
+
+  const filteredMainMenu = allMainMenus.filter(item => {
+    if (isSuperAdmin) return true;
+    if (menuAccessList === null) return true;
+    return menuAccessList.includes(item.name);
+  });
+
   const menuItems = [
-    { label: 'Main Menu', items: [
-      { name: 'Dashboard', icon: 'home' as const },
-      { name: 'Rekrutmen', icon: 'briefcase' as const },
-      { name: 'Karyawan', icon: 'users' as const },
-      { name: 'Performa', icon: 'target' as const },
-      { name: 'Schedule', icon: 'calendar' as const },
-      { name: 'File Sharing', icon: 'folder' as const },
-      { name: 'Inventory', icon: 'box' as const },
-      { name: 'Organization', icon: 'network' as const },
-    ]},
+    ...(filteredMainMenu.length > 0 ? [{ label: 'Main Menu', items: filteredMainMenu }] : []),
     { label: 'Settings', items: [
       ...(isSuperAdmin ? [{ name: 'Akses Akun', icon: 'shield' as const }] : []),
       { name: 'Logout', icon: 'log-out' as const }
