@@ -353,8 +353,8 @@ export const KaryawanContent = ({
   const isFilterActive = searchQuery !== '' || filterStatus !== 'All Status' || filterDept !== 'All Departemen' || filterEdu !== 'All Pendidikan';
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-slate-50 flex flex-col overflow-hidden relative">
-      <div className="flex justify-between items-end border-b border-slate-200 px-6 pt-5">
+    <div className="bg-white rounded-3xl shadow-sm border border-slate-50 flex flex-col h-full overflow-hidden relative">
+      <div className="flex justify-between items-end border-b border-slate-200 px-6 pt-5 shrink-0">
         <div className="flex gap-6">
           <button className={`pb-3 font-bold text-sm border-b-[3px] transition-all ${activeTab === 'Active' ? 'border-primary text-primary' : 'border-transparent text-slate-500'}`} onClick={() => setActiveTab('Active')}>Active</button>
           <button className={`pb-3 font-bold text-sm border-b-[3px] transition-all ${activeTab === 'Resigned' ? 'border-primary text-primary' : 'border-transparent text-slate-500'}`} onClick={() => setActiveTab('Resigned')}>Resigned</button>
@@ -366,7 +366,7 @@ export const KaryawanContent = ({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 px-6 py-4 relative z-[60]">
+      <div className="flex flex-wrap items-center gap-3 px-6 py-4 relative z-[60] shrink-0">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input type="text" placeholder="Cari nama atau NIP..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary shadow-sm" />

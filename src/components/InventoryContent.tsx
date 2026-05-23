@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Icon } from './ui/Icon';
 import { SearchableSelect } from './ui/FormSelect';
 import { QRCodeSVG } from 'qrcode.react';
@@ -52,6 +52,43 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   const [isDeleteHistoryConfirmOpen, setIsDeleteHistoryConfirmOpen] = useState(false);
   const [historyToDelete, setHistoryToDelete] = useState<{assetId: string, historyId: string} | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleTableScroll = () => {
+    if (!tableContainerRef.current) return;
+    const { scrollTop } = tableContainerRef.current;
+    
+    const tbody = tableContainerRef.current.querySelector('tbody');
+    if (!tbody || tbody.children.length === 0) return;
+    
+    // We only use scrolling to update the page number.
+    const rowHeight = (tbody.children[0] as HTMLElement).offsetHeight || 60;
+    const topRowIndex = Math.floor((scrollTop + 2) / rowHeight);
+    
+    // Check if scrolled to bottom
+    const { scrollHeight, clientHeight } = tableContainerRef.current;
+    if (Math.abs(scrollHeight - clientHeight - scrollTop) < 5) {
+      setCurrentPage(Math.ceil(filteredAssets.length / itemsPerPage));
+      return;
+    }
+    
+    setCurrentPage(Math.floor(topRowIndex / itemsPerPage) + 1);
+  };
+
+  const scrollToPage = (page: number) => {
+    if (!tableContainerRef.current) return;
+    const tbody = tableContainerRef.current.querySelector('tbody');
+    if (!tbody || tbody.children.length === 0) return;
+    
+    const rowHeight = (tbody.children[0] as HTMLElement).offsetHeight || 60;
+    
+    tableContainerRef.current.scrollTo({
+      top: (page - 1) * itemsPerPage * rowHeight,
+      behavior: 'smooth'
+    });
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -444,6 +481,27 @@ export function InventoryContent({ employees }: InventoryContentProps) {
 
   const isFilterActive = filterCategory !== 'Semua' || filterStatus !== 'Semua' || filterDivision !== 'Semua' || searchQuery !== '' || cardFilter !== 'Semua';
 
+  useEffect(() => {
+    setCurrentPage(1);
+    if (tableContainerRef.current) {
+      tableContainerRef.current.scrollTop = 0;
+    }
+  }, [filterCategory, filterStatus, filterDivision, searchQuery, cardFilter]);
+
+  const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
+
+  const getVisiblePages = (current: number, total: number) => {
+    if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+    if (current <= 3) return [1, 2, 3, 4, 5];
+    if (current >= total - 2) return [total - 4, total - 3, total - 2, total - 1, total];
+    return [current - 2, current - 1, current, current + 1, current + 2];
+  };
+
+  const handlePageClick = (page: number) => {
+    setCurrentPage(page);
+    scrollToPage(page);
+  };
+
   const handleClearFilter = () => {
     setFilterCategory('Semua');
     setFilterStatus('Semua');
@@ -453,9 +511,9 @@ export function InventoryContent({ employees }: InventoryContentProps) {
   };
 
   return (
-    <div className="p-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn">
-      <div className="w-full mx-auto">
-        <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 flex flex-col gap-6 mb-6">
+    <div className="pt-2 pb-6 px-1 h-full flex flex-col hide-scrollbar animate-fadeIn min-h-0">
+      <div className="w-full mx-auto flex flex-col h-full min-h-0">
+        <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100 flex flex-col gap-5 mb-5 shrink-0 z-10">
           <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 w-full">
             <div>
               <h2 className="text-2xl font-black tracking-tight text-slate-800">Inventory & Assets</h2>
@@ -546,7 +604,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             {/* Card 1 - Blue */}
             <div 
               onClick={() => setCardFilter('Semua')}
-              className={`relative bg-blue-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-blue-100/50 group cursor-pointer`}
+              className={`relative bg-blue-50 rounded-2xl p-4 overflow-hidden transition-all flex flex-col justify-center min-h-[85px] shadow-sm hover:shadow-md border border-blue-100/50 group cursor-pointer`}
             >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
@@ -563,7 +621,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             {/* Card 2 - Emerald */}
             <div 
               onClick={() => setCardFilter(cardFilter === 'Tersedia Normal' ? 'Semua' : 'Tersedia Normal')}
-              className={`relative bg-emerald-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-emerald-100/50 group cursor-pointer ${cardFilter === 'Tersedia Normal' ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
+              className={`relative bg-emerald-50 rounded-2xl p-4 overflow-hidden transition-all flex flex-col justify-center min-h-[85px] shadow-sm hover:shadow-md border border-emerald-100/50 group cursor-pointer ${cardFilter === 'Tersedia Normal' ? 'ring-2 ring-emerald-500 ring-offset-2' : ''}`}
             >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
@@ -580,7 +638,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             {/* Card 3 - Purple */}
             <div 
               onClick={() => setCardFilter(cardFilter === 'Dipakai' ? 'Semua' : 'Dipakai')}
-              className={`relative bg-purple-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-purple-100/50 group cursor-pointer ${cardFilter === 'Dipakai' ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
+              className={`relative bg-purple-50 rounded-2xl p-4 overflow-hidden transition-all flex flex-col justify-center min-h-[85px] shadow-sm hover:shadow-md border border-purple-100/50 group cursor-pointer ${cardFilter === 'Dipakai' ? 'ring-2 ring-purple-500 ring-offset-2' : ''}`}
             >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
@@ -597,7 +655,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
             {/* Card 4 - Rose */}
             <div 
               onClick={() => setCardFilter(cardFilter === 'Inventaris Rusak' ? 'Semua' : 'Inventaris Rusak')}
-              className={`relative bg-rose-50 rounded-2xl p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-pointer ${cardFilter === 'Inventaris Rusak' ? 'ring-2 ring-rose-500 ring-offset-2' : ''}`}
+              className={`relative bg-rose-50 rounded-2xl p-4 overflow-hidden transition-all flex flex-col justify-center min-h-[85px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-pointer ${cardFilter === 'Inventaris Rusak' ? 'ring-2 ring-rose-500 ring-offset-2' : ''}`}
             >
               <div className="relative z-10 flex justify-between items-center w-full">
                 <div className="flex flex-col justify-center">
@@ -613,21 +671,21 @@ export function InventoryContent({ employees }: InventoryContentProps) {
           </div>
         </div>
 
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="w-full overflow-x-auto">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col flex-1 min-h-0 relative z-0 mb-2 w-full">
+          <div ref={tableContainerRef} onScroll={handleTableScroll} className="w-full overflow-auto flex-1 min-h-0 hover-scrollbar">
             <table className="w-full text-left border-collapse whitespace-nowrap">
-              <thead>
-                <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-tl-3xl">Barcode ID</th>
-                  <th className="py-4 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Stiker</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Nama Barang / Aset</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Kategori</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Divisi</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Kondisi</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider">Pemakai (Karyawan)</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">Histori</th>
-                  <th className="py-4 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right rounded-tr-3xl">Aksi</th>
+              <thead className="sticky top-0 z-10">
+                <tr className="bg-slate-50 border-b border-slate-200 shadow-sm">
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider rounded-tl-3xl bg-slate-50">Barcode ID</th>
+                  <th className="py-3 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider text-center bg-slate-50">Stiker</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Nama Barang / Aset</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Kategori</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Divisi</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Status</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Kondisi</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider bg-slate-50">Pemakai (Karyawan)</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center bg-slate-50">Histori</th>
+                  <th className="py-3 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right rounded-tr-3xl bg-slate-50">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -640,13 +698,13 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                 ) : (
                   filteredAssets.map((item, index) => (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className={`py-4 px-6 ${index === filteredAssets.length - 1 ? 'rounded-bl-3xl' : ''}`}>
+                    <td className={`py-3 px-6 ${index === filteredAssets.length - 1 ? 'rounded-bl-3xl' : ''}`}>
                       <div className="flex items-center gap-2 cursor-pointer text-blue-600 hover:text-blue-800 transition-colors" onClick={() => handleShowBarcode(item)}>
                         <Icon name="qr-code" size={18} />
                         <span className="text-sm font-mono font-bold">{item.barcode}</span>
                       </div>
                     </td>
-                    <td className="py-4 px-3 text-center">
+                    <td className="py-3 px-3 text-center">
                       <button 
                         title="Download Barcode Stiker"
                         className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded-md transition-colors inline-flex items-center justify-center"
@@ -658,16 +716,16 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         <Icon name="download" size={16} />
                       </button>
                     </td>
-                    <td className="py-4 px-6 text-sm font-bold text-slate-800">{item.name}</td>
-                    <td className="py-4 px-6 text-sm text-slate-600">
+                    <td className="py-3 px-6 text-sm font-bold text-slate-800">{item.name}</td>
+                    <td className="py-3 px-6 text-sm text-slate-600">
                       <span className="bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md text-[11px] font-bold">
                         {item.category}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-sm font-bold text-slate-700">
+                    <td className="py-3 px-6 text-sm font-bold text-slate-700">
                       {getAssetDepartment(item)}
                     </td>
-                    <td className="py-4 px-6">
+                    <td className="py-3 px-6">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                         item.status === 'Tersedia' ? 'bg-emerald-100 text-emerald-700' :
                         item.status === 'Dipakai' ? 'bg-blue-100 text-blue-700' :
@@ -676,7 +734,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         {item.status}
                       </span>
                     </td>
-                    <td className="py-4 px-6">
+                    <td className="py-3 px-6">
                       <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${
                         (item.condition || 'Normal') === 'Normal' ? 'bg-emerald-100 text-emerald-700' :
                         (item.condition || 'Normal') === 'Perbaikan' ? 'bg-amber-100 text-amber-700' :
@@ -685,7 +743,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         {item.condition || 'Normal'}
                       </span>
                     </td>
-                    <td className="py-4 px-6 text-sm">
+                    <td className="py-3 px-6 text-sm">
                       {item.assignedToId ? (
                         <div className="flex items-center gap-2">
                           <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-[10px]">
@@ -697,7 +755,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         <span className="text-slate-400 italic">Belum dialokasikan</span>
                       )}
                     </td>
-                    <td className="py-4 px-6 text-center">
+                    <td className="py-3 px-6 text-center">
                       <button 
                         title="Lihat Histori"
                         className="p-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded-md transition-colors inline-flex items-center justify-center"
@@ -709,7 +767,7 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                         <Icon name="clock" size={16} />
                       </button>
                     </td>
-                    <td className={`py-4 px-6 text-right relative ${index === filteredAssets.length - 1 ? 'rounded-br-3xl' : ''}`}>
+                    <td className={`py-3 px-6 text-right relative ${index === filteredAssets.length - 1 ? 'rounded-br-3xl' : ''}`}>
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
@@ -722,7 +780,11 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                       
                       {openDropdownId === item.id && (
                         <div 
-                          className="absolute right-6 top-14 mt-1 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-20 text-left"
+                          className={`absolute right-6 w-40 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-20 text-left ${
+                            index >= filteredAssets.length - 2 && filteredAssets.length > 2 
+                              ? 'bottom-full mb-1' 
+                              : 'top-14 mt-1'
+                          }`}
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
@@ -791,6 +853,39 @@ export function InventoryContent({ employees }: InventoryContentProps) {
                 )))}
               </tbody>
             </table>
+          </div>
+          
+          <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 bg-white shrink-0">
+            <div className="text-xs text-slate-500">
+              Showing {filteredAssets.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredAssets.length)} of {filteredAssets.length} entries
+            </div>
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => handlePageClick(Math.max(currentPage - 1, 1))}
+                disabled={currentPage === 1 || totalPages === 0}
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100 shrink-0"
+              >
+                <Icon name="chevron-left" size={16} />
+              </button>
+              <div className="flex items-center justify-center flex-wrap gap-1">
+                {getVisiblePages(currentPage, totalPages).map(page => (
+                  <button
+                    key={page}
+                    onClick={() => handlePageClick(page)}
+                    className={`w-7 h-7 shrink-0 flex items-center justify-center rounded-md text-xs font-bold transition-colors ${currentPage === page ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-50'}`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button 
+                onClick={() => handlePageClick(Math.min(currentPage + 1, totalPages))}
+                disabled={currentPage === totalPages || totalPages === 0}
+                className="p-1.5 rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed border border-transparent hover:border-slate-100 shrink-0"
+              >
+                <Icon name="chevron-right" size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
