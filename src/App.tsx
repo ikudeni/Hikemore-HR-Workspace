@@ -442,13 +442,27 @@ export default function App() {
 
   useEffect(() => {
     if (globalEmployees.length > 0) {
-      // Auto-repair missing NIPs for legacy data or update old HK- / HKM- NIPs to new format
+      // Auto-repair missing or out-of-sync NIPs
+      let updatesCount = 0;
       globalEmployees.forEach(emp => {
-        if (!emp.nip || emp.nip.startsWith('HK-') || emp.nip.startsWith('HKM-') || emp.nip.includes('OTH') || emp.nip.includes('-99-') || emp.nip.includes('-FIN-') || emp.nip.includes('-SLS-')) {
-           const newNip = generateNIP(emp.joinDate, emp.dept, emp.status, '', globalEmployees);
-           updateDoc(doc(db, 'employees', emp.id), { nip: newNip }).catch(console.error);
+        let existingRand = '';
+        if (emp.nip) {
+          const parts = emp.nip.split('-');
+          if (parts.length >= 4) {
+            existingRand = parts[parts.length - 1]; // Keep random sequence
+          }
+        }
+        
+        const expectedNip = generateNIP(emp.joinDate, emp.dept, emp.status, existingRand, globalEmployees);
+        
+        if (emp.nip !== expectedNip || !emp.nip) {
+           updateDoc(doc(db, 'employees', emp.id), { nip: expectedNip }).catch(console.error);
+           updatesCount++;
         }
       });
+      if (updatesCount > 0) {
+        console.log(`Auto-repaired ${updatesCount} out-of-sync NIPs`);
+      }
     }
   }, [globalEmployees]);
 
