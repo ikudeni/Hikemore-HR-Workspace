@@ -566,9 +566,8 @@ export default function App() {
   ];
 
   const filteredMainMenu = allMainMenus.filter(item => {
-    if (isSuperAdmin) return true;
-    if (menuAccessList === null) return true;
-    return menuAccessList.includes(item.name);
+    if (menuAccessList !== null) return menuAccessList.includes(item.name);
+    return true;
   });
 
   const menuItems = [
