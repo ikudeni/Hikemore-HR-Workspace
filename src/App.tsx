@@ -20,6 +20,7 @@ import { NotificationDropdown } from './components/NotificationDropdown';
 import { ProfileDropdown } from './components/ProfileDropdown';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from './types';
 import { calculateDuration, calculateAge, removeUndefined } from './utils';
+import { generateNIP } from './utils/nipUtils';
 import { auth, db, handleFirestoreError, OperationType, logActivity } from './firebase';
 import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ResetPasswordView } from './components/ResetPasswordView';
@@ -439,13 +440,26 @@ export default function App() {
     };
   }, [isAuthenticated]);
 
+  useEffect(() => {
+    if (globalEmployees.length > 0) {
+      // Auto-repair missing NIPs for legacy data or update old HK- / HKM- NIPs to new format
+      globalEmployees.forEach(emp => {
+        if (!emp.nip || emp.nip.startsWith('HK-') || emp.nip.startsWith('HKM-') || emp.nip.includes('OTH') || emp.nip.includes('-99-') || emp.nip.includes('-FIN-') || emp.nip.includes('-SLS-')) {
+           const newNip = generateNIP(emp.joinDate, emp.dept, emp.status, '', globalEmployees);
+           updateDoc(doc(db, 'employees', emp.id), { nip: newNip }).catch(console.error);
+        }
+      });
+    }
+  }, [globalEmployees]);
+
   const handleAddEmployee = async (newEmployeeData: Employee) => {
     const randomId = `DEF${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-    const newEmployee = { ...newEmployeeData, isActive: true, hideFromOrgChart: true };
+    const nip = newEmployeeData.nip || generateNIP(newEmployeeData.joinDate, newEmployeeData.dept, newEmployeeData.status, '', globalEmployees);
+    const newEmployee = { ...newEmployeeData, nip, isActive: true, hideFromOrgChart: true };
     try {
       const sanitizedVal = removeUndefined(newEmployee);
       await setDoc(doc(db, 'employees', randomId), sanitizedVal);
-      logActivity('Data Karyawan Ditambahkan', { nama: newEmployee.name, nip: randomId });
+      logActivity('Data Karyawan Ditambahkan', { nama: newEmployee.name, nip: nip || randomId });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `employees/${randomId}`);
     }

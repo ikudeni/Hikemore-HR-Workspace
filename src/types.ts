@@ -13,6 +13,7 @@ export interface AppLog {
 
 export interface Employee {
   id: string;
+  nip?: string;
   name: string;
   dob: string;
   joinDate: string;

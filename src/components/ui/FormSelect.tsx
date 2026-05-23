@@ -26,6 +26,25 @@ export const FormSelect = ({ label, name, value, options, onChange, required }: 
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const [dropdownPos, setDropdownPos] = useState<'bottom' | 'top'>('bottom');
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -66,9 +85,8 @@ export const FormSelect = ({ label, name, value, options, onChange, required }: 
           <Icon name="chevron-down" size={16} className={`text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
         {isOpen && createPortal(
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}></div>
             <div 
+              ref={dropdownRef}
               className="fixed bg-white border border-slate-100 shadow-xl rounded-xl py-1.5 z-[9999] max-h-[240px] overflow-y-auto animate-fadeIn"
               style={{ top: coords.top, left: coords.left, width: coords.width }}
             >
@@ -90,8 +108,7 @@ export const FormSelect = ({ label, name, value, options, onChange, required }: 
                   </button>
                 )
               })}
-            </div>
-          </>,
+            </div>,
           document.body
         )}
       </div>
@@ -104,7 +121,26 @@ export const SearchableSelect = ({ label, value, options, onChange, placeholder 
   const [search, setSearch] = useState('');
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -156,9 +192,8 @@ export const SearchableSelect = ({ label, value, options, onChange, placeholder 
           <Icon name="chevron-down" size={16} className={`text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
         </button>
         {isOpen && createPortal(
-          <>
-            <div className="fixed inset-0 z-[9998]" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}></div>
             <div 
+              ref={dropdownRef}
               className="fixed bg-white border border-slate-100 shadow-xl rounded-xl py-2 z-[9999] max-h-[280px] flex flex-col animate-fadeIn"
               style={{ top: coords.top, left: coords.left, width: coords.width }}
             >
@@ -223,8 +258,7 @@ export const SearchableSelect = ({ label, value, options, onChange, placeholder 
                   </button>
                 )}
               </div>
-            </div>
-          </>,
+            </div>,
           document.body
         )}
       </div>
@@ -237,6 +271,25 @@ export const CompactFormSelect = ({ name, value, options, onChange }: Omit<FormS
   const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
   const [dropdownPos, setDropdownPos] = useState<'bottom' | 'top'>('bottom');
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isOpen &&
+        buttonRef.current &&
+        !buttonRef.current.contains(event.target as Node) &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && buttonRef.current) {
@@ -271,9 +324,8 @@ export const CompactFormSelect = ({ name, value, options, onChange }: Omit<FormS
         <Icon name="chevron-down" size={12} className={`text-slate-400 shrink-0 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
       </button>
       {isOpen && createPortal(
-        <>
-          <div className="fixed inset-0 z-[9998]" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}></div>
           <div 
+            ref={dropdownRef}
             className="fixed bg-white border border-slate-200 shadow-xl rounded-md py-1 z-[9999] max-h-[160px] overflow-y-auto animate-fadeIn"
             style={{ top: coords.top, left: coords.left, width: coords.width }}
           >
@@ -295,8 +347,7 @@ export const CompactFormSelect = ({ name, value, options, onChange }: Omit<FormS
                 </button>
               )
             })}
-          </div>
-        </>,
+          </div>,
         document.body
       )}
     </div>

@@ -9,9 +9,74 @@ import { Icon } from './ui/Icon';
 import { FormSelect, CompactFormSelect } from './ui/FormSelect';
 import { CustomDatePicker } from './ui/DatePicker';
 import { Employee } from '../types';
+import { generateNIP } from '../utils/nipUtils';
 import { db, storage } from '../firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+
+const parseNipDetails = (nip: string | undefined, employees: Employee[] = []) => {
+  if (!nip || nip === 'NIP-TBA') return 'NIP belum tersedia';
+  const parts = nip.split('-');
+  if (parts.length >= 4) {
+    const yearMonth = parts[0];
+    const dept = parts[1];
+    const status = parts[2];
+    const seq = parts[3];
+
+    let year = '';
+    let month = '';
+    let fullYear = '';
+    let monthName = '';
+    if (yearMonth.length === 4) {
+      year = yearMonth.substring(0, 2);
+      month = yearMonth.substring(2, 4);
+      fullYear = `20${year}`;
+      const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      monthName = months[parseInt(month) - 1] || month;
+    } else {
+      monthName = `Bulan ${yearMonth.substring(2,4)}`;
+      fullYear = `Tahun ${yearMonth.substring(0,2)}`;
+    }
+
+    let statusName = status;
+    if (status === '01') statusName = 'Karyawan';
+    else if (status === '02') statusName = 'Daily Worker';
+    else if (status === '03') statusName = 'Magang';
+    else if (status === '04') statusName = 'Outsource';
+    else if (status === '05') statusName = 'Freelance';
+    else if (status === '99') statusName = 'Lainnya';
+    else {
+      const match = employees.find(e => e.nip && e.nip.split('-')[2] === status);
+      if (match && match.status) {
+        statusName = match.status;
+      } else {
+        statusName = 'Custom Status';
+      }
+    }
+
+    let deptName = dept;
+    if (dept === 'HR' || dept === 'HRG') deptName = 'HRD';
+    else if (dept === 'MKT') deptName = 'Marketing';
+    else if (dept === 'SLS') deptName = 'Sales & Operasional';
+    else if (dept === 'STR') deptName = 'Store';
+    else if (dept === 'WHS') deptName = 'Warehouse';
+    else if (dept === 'FIN' || dept === 'ACC') deptName = 'Finance & Accounting';
+    else if (dept === 'BD') deptName = 'Business Development';
+    else if (dept === 'PRD') deptName = 'Design & Produksi';
+    else if (dept === 'IT') deptName = 'IT';
+    else if (dept === 'OTH') deptName = 'Lainnya';
+
+    return (
+      <ul className="flex flex-col gap-1 text-xs leading-relaxed text-left text-slate-100 font-sans list-disc pl-3">
+        <li><span className="font-semibold">{yearMonth}</span> = Bergabung {monthName} {fullYear}</li>
+        <li><span className="font-semibold">{dept}</span> = Divisi {deptName}</li>
+        <li><span className="font-semibold">{status}</span> = Kode Jabatan {statusName}</li>
+        <li><span className="font-semibold">{seq}</span> = Random Code</li>
+      </ul>
+    );
+  }
+  return 'Format NIP tidak standar';
+};
 
 interface KaryawanContentProps {
   employees: Employee[];
@@ -46,6 +111,7 @@ export const KaryawanContent = ({
   const [editingEmployeeId, setEditingEmployeeId] = useState<string | null>(null); 
   const [actionMenuOpenId, setActionMenuOpenId] = useState<string | null>(null); 
   const [actionMenuPos, setActionMenuPos] = useState({ top: 0, bottom: 0, right: 0, direction: 'down' as 'up' | 'down' });
+  const [tooltipData, setTooltipData] = useState<{ nip: string, top: number, bottom: number, left: number, direction: 'up' | 'down' } | null>(null);
   
   const [isUploadDocumentModalOpen, setIsUploadDocumentModalOpen] = useState(false);
   const [documentUploadTarget, setDocumentUploadTarget] = useState<Employee | null>(null);
@@ -133,7 +199,7 @@ export const KaryawanContent = ({
   const uniqueEdus = useMemo(() => [...new Set(employees.map(emp => emp.edu))], [employees]);
   const uniqueContractTypes = useMemo(() => [...new Set(employees.map(emp => emp.contractType).filter(Boolean))], [employees]);
   
-  const baseStatuses = ['Karyawan', 'Daily Worker', 'Magang', 'Kontrak', 'Outsource', 'Freelance'];
+  const baseStatuses = ['Karyawan', 'Daily Worker', 'Magang', 'Outsource', 'Freelance'];
   const statusOptions = useMemo(() => Array.from(new Set([...baseStatuses, ...uniqueStatuses, 'Lainnya'])), [uniqueStatuses]);
   
   const baseContractTypes = ['Kontrak Lanjutan', 'Kontrak Probation', 'Kontrak Magang', 'Kontrak Freelance'];
@@ -146,13 +212,26 @@ export const KaryawanContent = ({
       if (e.target.closest?.('.action-dropdown-menu')) return;
       if (actionMenuOpenId !== null) setActionMenuOpenId(null);
     };
+    const handleClickOutside = (e: MouseEvent) => {
+      if (actionMenuOpenId !== null) {
+        const target = e.target as HTMLElement;
+        if (!target.closest('.action-dropdown-menu') && !target.closest('.action-toggle-button')) {
+          setActionMenuOpenId(null);
+        }
+      }
+    };
     window.addEventListener('scroll', handleScroll, true);
-    return () => window.removeEventListener('scroll', handleScroll, true);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
   }, [actionMenuOpenId]);
 
   const filteredEmployees = employees.filter(emp => {
     const isTabMatch = activeTab === 'Active' ? emp.isActive : !emp.isActive;
-    const isNameMatch = emp.name.toLowerCase().includes(deferredSearchQuery.toLowerCase());
+    const isNameMatch = emp.name.toLowerCase().includes(deferredSearchQuery.toLowerCase()) || 
+                       (emp.nip && emp.nip.toLowerCase().includes(deferredSearchQuery.toLowerCase()));
     const isStatusMatch = filterStatus === 'All Status' || emp.status === filterStatus;
     const isDeptMatch = filterDept === 'All Departemen' || emp.dept === filterDept;
     const isEduMatch = filterEdu === 'All Pendidikan' || emp.edu === filterEdu;
@@ -168,7 +247,52 @@ export const KaryawanContent = ({
 
   const handleInputChange = (e: any) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({ ...prev, [name]: value }));
+    setFormData((prev: any) => {
+      const nextForm = { ...prev, [name]: value };
+      
+      // Auto-update NIP if joinDate, dept, or status change
+      if (name === 'joinDate' || name === 'dept' || name === 'status') {
+        const joinDateToUse = nextForm.joinDate || '';
+        const deptToUse = nextForm.dept === 'Lainnya' ? (nextForm.customDept || '') : nextForm.dept;
+        const statusToUse = nextForm.status === 'Lainnya' ? (nextForm.customStatus || '') : nextForm.status;
+        
+        let existingRand = '';
+        if (nextForm.nip) {
+          const parts = nextForm.nip.split('-');
+          if (parts.length >= 4) {
+             existingRand = parts[parts.length - 1]; // get the rand part
+          }
+        }
+        
+        if (joinDateToUse && deptToUse && statusToUse) {
+           nextForm.nip = generateNIP(joinDateToUse, deptToUse, statusToUse, existingRand, employees);
+        }
+      }
+      
+      // Additional fallback for customDept / customStatus updates 
+      if (name === 'customDept' && prev.dept === 'Lainnya') {
+         let existingRand = '';
+         if (nextForm.nip) {
+            const parts = nextForm.nip.split('-');
+            if (parts.length >= 4) existingRand = parts[parts.length - 1];
+         }
+         if (nextForm.joinDate && nextForm.status) {
+            nextForm.nip = generateNIP(nextForm.joinDate, value, nextForm.status === 'Lainnya' ? nextForm.customStatus : nextForm.status, existingRand, employees);
+         }
+      }
+      if (name === 'customStatus' && prev.status === 'Lainnya') {
+         let existingRand = '';
+         if (nextForm.nip) {
+            const parts = nextForm.nip.split('-');
+            if (parts.length >= 4) existingRand = parts[parts.length - 1];
+         }
+         if (nextForm.joinDate && nextForm.dept) {
+            nextForm.nip = generateNIP(nextForm.joinDate, nextForm.dept === 'Lainnya' ? nextForm.customDept : nextForm.dept, value, existingRand, employees);
+         }
+      }
+
+      return nextForm;
+    });
   };
 
   const toggleActionMenu = (id: string, e: React.MouseEvent) => {
@@ -245,7 +369,7 @@ export const KaryawanContent = ({
       <div className="flex flex-wrap items-center gap-3 px-6 py-4 relative z-[60]">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Icon name="search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input type="text" placeholder="Cari nama di sini..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary shadow-sm" />
+          <input type="text" placeholder="Cari nama atau NIP..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-9 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:border-primary shadow-sm" />
         </div>
         
         <div className="flex items-center gap-2">
@@ -291,7 +415,7 @@ export const KaryawanContent = ({
           <thead className="bg-slate-50 sticky top-0 z-20">
             <tr className="text-sm font-bold text-slate-700 border-b border-slate-200">
               <th className="px-4 py-4 sticky left-0 z-30 bg-slate-50">No.</th>
-              <th className="px-4 py-4 sticky left-[52px] z-30 bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Nama Karyawan</th>
+              <th className="px-4 py-4 sticky left-[52px] z-30 bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">Nama & NIP</th>
               <th className="px-6 py-4">Agama</th>
               <th className="px-6 py-4">Pendidikan</th>
               <th className="px-6 py-4">Jurusan</th>
@@ -333,9 +457,28 @@ export const KaryawanContent = ({
                         <span className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
                           {emp.name}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black mt-0.5 w-fit ${getStatusBadgeClass(emp.status)}`}>
-                          {emp.status === 'Daily Worker' ? 'DW' : emp.status}
-                        </span>
+                        <div className="flex items-center gap-2 mt-0.5">
+                           <span 
+                             onMouseEnter={(e) => {
+                               const rect = e.currentTarget.getBoundingClientRect();
+                               const spaceBelow = window.innerHeight - rect.bottom;
+                               setTooltipData({
+                                 nip: emp.nip || '',
+                                 top: rect.bottom + 4,
+                                 bottom: window.innerHeight - rect.top + 4,
+                                 left: rect.left,
+                                 direction: spaceBelow < 150 ? 'up' : 'down'
+                               });
+                             }}
+                             onMouseLeave={() => setTooltipData(null)}
+                             className="text-slate-500 font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 border border-slate-200 rounded tracking-wider cursor-help transition-colors hover:bg-slate-200 hover:text-slate-700"
+                           >
+                              {emp.nip || 'NIP-TBA'}
+                           </span>
+                           <span className={`px-2 py-0.5 rounded-full border text-[10px] font-black w-fit ${getStatusBadgeClass(emp.status)}`}>
+                             {emp.status === 'Daily Worker' ? 'DW' : emp.status}
+                           </span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -375,12 +518,10 @@ export const KaryawanContent = ({
                   </td>
                   <td className="px-6 py-3 sticky right-0 bg-white group-hover:bg-slate-50 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.08)] z-10 w-[120px]">
                     <div className="relative inline-block w-full">
-                      <button onClick={(e) => toggleActionMenu(emp.id, e)} className="flex items-center justify-between w-[95px] px-3 py-1.5 rounded-md text-xs font-bold border border-primary text-primary hover:bg-primary/10 transition-colors">
+                      <button onClick={(e) => toggleActionMenu(emp.id, e)} className="action-toggle-button flex items-center justify-between w-[95px] px-3 py-1.5 rounded-md text-xs font-bold border border-primary text-primary hover:bg-primary/10 transition-colors">
                         Action <Icon name="chevron-down" size={14} />
                       </button>
                       {actionMenuOpenId === emp.id && createPortal(
-                        <>
-                          <div className="fixed inset-0 z-[9998]" onClick={() => setActionMenuOpenId(null)}></div>
                           <div className={`action-dropdown-menu fixed w-44 bg-white border border-slate-200 shadow-xl rounded-xl py-1 z-[9999] animate-fadeIn`}
                             style={{ top: actionMenuPos.direction === 'down' ? actionMenuPos.top : 'auto', bottom: actionMenuPos.direction === 'up' ? actionMenuPos.bottom : 'auto', right: actionMenuPos.right }}>
                             <button onClick={() => { 
@@ -420,8 +561,7 @@ export const KaryawanContent = ({
                                 <button onClick={() => { setEmployeeToDelete(emp.id); setActionMenuOpenId(null); }} className="w-full text-left px-4 py-2.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"><Icon name="trash-2" size={14} /> Hapus Data</button>
                                </>
                             )}
-                          </div>
-                        </>,
+                          </div>,
                         document.body
                       )}
                     </div>
@@ -476,6 +616,7 @@ export const KaryawanContent = ({
               <form id="addEmployeeForm" onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="md:col-span-2 border-b border-slate-100 pb-2"><h4 className="text-sm font-bold uppercase">Personal Info</h4></div>
                 <div><label className="block text-xs font-bold text-slate-700 mb-1">Nama</label><input type="text" name="name" value={formData.name} onChange={handleInputChange} required className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm border-slate-200 outline-none focus:border-primary" /></div>
+                <div><label className="block text-xs font-bold text-slate-700 mb-1">NIP (Nomor Induk Pegawai)</label><input type="text" name="nip" value={formData.nip || ''} onChange={handleInputChange} placeholder="Auto Generate jika kosong" className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm border-slate-200 outline-none focus:border-primary font-mono" /></div>
                 <CustomDatePicker label="Tgl Lahir" name="dob" value={formData.dob} onChange={handleInputChange} required />
                 <FormSelect label="Gender" name="gender" value={formData.gender} onChange={handleInputChange} options={['Laki-Laki', 'Perempuan']} />
                 <div>
@@ -534,7 +675,7 @@ export const KaryawanContent = ({
                 </div>
                 <div className="md:col-span-1"><label className="block text-xs font-bold text-slate-700 mb-1">Jabatan</label><input type="text" name="pos" value={formData.pos} onChange={handleInputChange} required className="w-full px-4 py-2 bg-slate-50 border rounded-xl text-sm border-slate-200 outline-none focus:border-primary" /></div>
                 
-                {(formData.status === 'Kontrak' || formData.status === 'Karyawan' || formData.status === 'Magang' || formData.status === 'Freelance' || formData.status === 'Lainnya') && (
+                {(formData.status === 'Karyawan' || formData.status === 'Daily Worker' || formData.status === 'Magang' || formData.status === 'Outsource' || formData.status === 'Freelance' || formData.status === 'Lainnya') && (
                   <>
                     <div className="md:col-span-2 border-b border-slate-100 pb-2 mt-2"><h4 className="text-sm font-bold uppercase">Contract Info</h4></div>
                     <div>
@@ -897,6 +1038,29 @@ export const KaryawanContent = ({
             </div>
           </div>
         </div>
+      )}
+
+      {tooltipData && createPortal(
+        <div 
+          className="fixed z-[10000] w-64 bg-slate-800 text-white rounded-xl shadow-xl p-3 animate-fadeIn pointer-events-none"
+          style={{ 
+            left: tooltipData.left, 
+            top: tooltipData.direction === 'down' ? tooltipData.top : 'auto', 
+            bottom: tooltipData.direction === 'up' ? tooltipData.bottom : 'auto' 
+          }}
+        >
+          {parseNipDetails(tooltipData.nip, employees)}
+          <div 
+            className="absolute left-4 border-4 border-transparent"
+            style={{
+              top: tooltipData.direction === 'down' ? '-8px' : 'auto',
+              bottom: tooltipData.direction === 'up' ? '-8px' : 'auto',
+              borderBottomColor: tooltipData.direction === 'down' ? '#1e293b' : 'transparent',
+              borderTopColor: tooltipData.direction === 'up' ? '#1e293b' : 'transparent',
+            }}
+          ></div>
+        </div>,
+        document.body
       )}
     </div>
   );
