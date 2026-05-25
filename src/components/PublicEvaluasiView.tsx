@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Employee } from '../types';
 
 interface PublicEvaluasiViewProps {
@@ -14,9 +14,6 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
   
   const [evalId, setEvalId] = useState<string | null>(null);
   const [employee, setEmployee] = useState<Employee | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [empSearchQuery, setEmpSearchQuery] = useState('');
-  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
 
   const [data, setData] = useState<any>({
     grit_1: 0, grit_2: 0, grit_3: 0, grit_4: 0, grit_5: 0,
@@ -38,29 +35,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     if (id) {
       setEvalId(id);
     } else {
-      const fetchEmployees = async () => {
-        try {
-          const snapshot = await getDocs(collection(db, 'employees'));
-          if (!snapshot.empty) {
-            const list: Employee[] = [];
-            snapshot.forEach(docSnap => {
-              if (docSnap.id !== 'counter') {
-                const docData = docSnap.data();
-                if (!docData.isResigned && !docData.isExternal && !docData.isVirtualExternal) {
-                  list.push({ id: docSnap.id, ...docData } as Employee);
-                }
-              }
-            });
-            list.sort((a,b) => a.name.localeCompare(b.name));
-            setEmployees(list);
-          }
-        } catch(err) {
-          console.error(err);
-        } finally {
-          setLoading(false);
-        }
-      };
-      fetchEmployees();
+      setLoading(false);
     }
   }, []);
 
@@ -257,64 +232,15 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
           )}
 
           {!evalId ? (
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center max-w-xl mx-auto w-full">
-               <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                 <Icon name="users" size={32} />
+            <div className="bg-white p-10 rounded-3xl shadow-sm border border-rose-100 text-center max-w-xl mx-auto w-full">
+               <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
+                 <Icon name="alert-circle" size={40} />
                </div>
-               <h3 className="text-lg font-black text-slate-800 mb-2">Pilih Karyawan yang Ingin Dinilai</h3>
-               <p className="text-slate-500 text-sm mb-6">Silakan pilih karyawan dari daftar di bawah untuk memberikan penilaian kompetensi.</p>
-               <div className="relative text-left z-50">
-                 <div
-                   className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/50 transition-all cursor-text shadow-sm flex items-center"
-                   onClick={() => setIsEmpDropdownOpen(true)}
-                 >
-                   <input
-                     type="text"
-                     className="bg-transparent outline-none w-full placeholder:text-slate-400"
-                     placeholder="-- Cari & Pilih Karyawan --"
-                     value={empSearchQuery}
-                     onChange={(e) => {
-                       setEmpSearchQuery(e.target.value);
-                       setIsEmpDropdownOpen(true);
-                     }}
-                     onFocus={() => setIsEmpDropdownOpen(true)}
-                   />
-                 </div>
-                 <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={18} /></div>
-                 
-                 {isEmpDropdownOpen && (
-                   <div 
-                     className="absolute mt-2 w-full max-h-[300px] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 divide-y divide-slate-50"
-                   >
-                     {employees.filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase()) || emp.pos.toLowerCase().includes(empSearchQuery.toLowerCase())).length > 0 ? (
-                       employees.filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase()) || emp.pos.toLowerCase().includes(empSearchQuery.toLowerCase())).map(emp => (
-                         <div
-                           key={emp.id}
-                           className="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors flex flex-col items-start"
-                           onClick={() => {
-                             setIsEmpDropdownOpen(false);
-                             window.location.search = `?mode=evaluasi&evalId=${emp.id}`;
-                           }}
-                         >
-                           <span className="font-bold text-slate-800 text-sm">{emp.name}</span>
-                           <span className="text-xs text-slate-500 font-medium">{emp.pos} • {emp.dept}</span>
-                         </div>
-                       ))
-                     ) : (
-                       <div className="px-4 py-6 text-center text-sm font-medium text-slate-500 flex flex-col items-center gap-2">
-                         <Icon name="x" size={24} className="text-slate-300" />
-                         Tidak ada karyawan dengan nama "{empSearchQuery}"
-                       </div>
-                     )}
-                   </div>
-                 )}
-                 {isEmpDropdownOpen && (
-                   <div 
-                     className="fixed inset-0 z-40" 
-                     onClick={() => setIsEmpDropdownOpen(false)} 
-                   />
-                 )}
-               </div>
+               <h3 className="text-xl font-black text-rose-800 mb-3">Link Penilaian Tidak Lengkap</h3>
+               <p className="text-slate-600 text-sm mb-6 max-w-sm mx-auto leading-relaxed">Harap gunakan link spesifik karyawan yang diberikan oleh admin/HR. Link saat ini tidak menunjuk ke karyawan manapun.</p>
+               <button onClick={onGoToLogin} className="bg-rose-50 text-rose-700 font-bold px-6 py-3 rounded-xl hover:bg-rose-100 transition-colors">
+                  Kembali
+               </button>
             </div>
           ) : employee && (
             <>

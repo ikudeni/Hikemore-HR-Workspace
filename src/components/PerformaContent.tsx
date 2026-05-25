@@ -348,18 +348,6 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
             </div>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => {
-                  const url = `${window.location.origin}${window.location.pathname}?mode=evaluasi`;
-                  navigator.clipboard.writeText(url);
-                  alert('Link publik penilaian berhasil disalin!');
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors shadow-sm flex items-center gap-2"
-                title="Bagikan link ini ke evaluator"
-              >
-                <Icon name="link" size={16} /> 
-                <span>Salin Link Publik</span>
-              </button>
-              <button
                 onClick={() => setIsGuideModalOpen(true)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm flex items-center gap-2"
               >
@@ -854,13 +842,25 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                   <button
                     key={emp.id}
                     onClick={() => setSelectedEmpId(emp.id)}
-                    className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between ${selectedEmpId === emp.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'}`}
+                    className={`w-full text-left px-4 py-3 rounded-xl transition-all flex items-center justify-between group ${selectedEmpId === emp.id ? 'bg-blue-50 text-blue-700' : 'hover:bg-slate-50 text-slate-700'}`}
                   >
-                    <div className="w-full flex gap-3 items-start overflow-hidden">
+                    <div className="w-full flex gap-3 items-start overflow-hidden relative pr-8">
                       <span className={`text-[12px] font-bold mt-0.5 shrink-0 ${selectedEmpId === emp.id ? 'text-blue-500' : 'text-slate-400'}`}>{index + 1}.</span>
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-[13px] truncate">{emp.name}</p>
                         <p className="text-[11px] font-medium text-slate-400 mt-0.5 truncate">{emp.pos}</p>
+                      </div>
+                      <div 
+                        title="Salin Link Publik Penilaian Anak Ini"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const url = `${window.location.origin}${window.location.pathname}?mode=evaluasi&evalId=${emp.id}`;
+                          navigator.clipboard.writeText(url);
+                          alert(`Link penilaian untuk ${emp.name} berhasil disalin!`);
+                        }}
+                        className={`absolute right-0 top-1/2 -translate-y-1/2 p-2 rounded-lg bg-white border border-slate-200 text-slate-400 opacity-0 group-hover:opacity-100 transition-all hover:text-blue-600 hover:border-blue-300 hover:shadow-sm ${selectedEmpId === emp.id ? 'opacity-100' : ''}`}
+                      >
+                         <Icon name="link" size={14} />
                       </div>
                     </div>
                     {performaData.find(d => d.id === emp.id)?.classification !== 'Belum Dinilai' && (
