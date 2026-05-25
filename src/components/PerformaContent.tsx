@@ -477,7 +477,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   }, [filteredPerformaData]);
 
   return (
-    <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative print:p-0">
+    <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative print:p-0 print:h-auto print:overflow-visible print:block">
       <div className={`w-full flex-1 flex flex-col space-y-6 pb-8 ${reportPreviewData ? "print:hidden" : ""}`}>
         {/* Header & Overview Cards Container */}
         <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex flex-col gap-6">
@@ -2644,8 +2644,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         };
 
         return reportPreviewData ? (
-          <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-auto print:left-0 print:top-0 print:w-full print:h-auto print:bg-white print:p-0 print:block print:overflow-visible">
-            <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:block print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto print:my-0">
+          <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:static print:inset-auto print:w-full print:h-auto print:bg-white print:p-0 print:block print:overflow-visible">
+            <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:block print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto print:my-0 print:overflow-visible">
               <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden z-50 sticky top-0 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
