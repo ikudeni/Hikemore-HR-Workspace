@@ -53,29 +53,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = async () => {
-    if (!reportPreviewData) return;
-    const element = document.getElementById("pdf-report-content");
-    if (!element) return;
-    
-    setIsDownloading(true);
-
-    try {
-      const opt = {
-        margin: 0,
-        filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
-        image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: 1024 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] }
-      };
-
-      await html2pdf().set(opt).from(element).save();
-    } catch (err) {
-      console.error("PDF Error:", err);
-      alert("Terjadi kesalahan saat membuat PDF.");
-    } finally {
-      setIsDownloading(false);
-    }
+    window.print();
   };
 
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
@@ -2681,15 +2659,13 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleDownloadPDF}
-                    disabled={isDownloading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2"
                   >
                     <Icon
-                      name={isDownloading ? "refresh-cw" : "download"}
+                      name={"download"}
                       size={14}
-                      className={isDownloading ? "animate-spin" : ""}
                     />
-                    {isDownloading ? "Mengunduh..." : "Unduh PDF"}
+                    Unduh / Cetak PDF
                   </button>
                   <button
                     onClick={() => setReportPreviewData(null)}
@@ -2704,8 +2680,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                 {/* PDF Document Styling container */}
                 <div
                   id="pdf-report-content"
-                  className="bg-white w-full max-w-[210mm] sm:min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:h-auto p-6 sm:p-12 text-slate-800 mx-auto relative font-sans print:m-0"
+                  className="w-full flex justify-center flex-col gap-8 items-center font-sans tracking-normal print:block print:gap-0"
                 >
+                  {/* --- PERFORMA PREVIEW PAGE 1 --- */}
+                  <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:max-w-none print:w-full print:p-0">
                   {/* Header Section */}
                   <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
                     <div className="flex items-center gap-3">
@@ -2866,14 +2844,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       </tbody>
                     </table>
 
-                    <div className="html2pdf__page-break"></div>
-                    <div data-html2canvas-ignore="true" className="w-full flex items-center justify-center my-6 relative print:hidden">
-                       <div className="absolute top-1/2 left-0 right-0 border-t-2 border-dashed border-slate-300"></div>
-                       <span className="relative px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white z-10 text-center">
-                          ---------- Batas Halaman ----------
-                       </span>
-                    </div>
+                  </div> {/* Mengakhiri div .space-y-6 pada Page 1 */}
+                </div> {/* Mengakhiri div Page 1 */}
 
+                {/* --- PERFORMA PREVIEW PAGE 2 --- */}
+                <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:max-w-none print:w-full print:p-0">
+                  <div className="space-y-6">
                     <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
                       <thead>
                         <tr className="bg-slate-200">
@@ -3220,9 +3196,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       </tbody>
                     </table>
                   </div>
-                </div>
-              </div>
-            </div>
+                  </div> {/* Mengakhiri div .space-y-6 pada Page 2 */}
+                </div> {/* Mengakhiri div Page 2 */}
+              </div> {/* Mengakhiri pdf-report-content */}
+            </div> {/* Mengakhiri div flex-1 print:bg-white */}
           </div>
         ) : null;
       })()}
