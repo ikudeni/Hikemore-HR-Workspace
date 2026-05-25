@@ -53,7 +53,57 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = async () => {
-    window.print();
+    if (!reportPreviewData) return;
+    const container = document.getElementById("pdf-report-content");
+    if (!container) return;
+    
+    setIsDownloading(true);
+
+    // Save original styles
+    const originalContainerClass = container.className;
+    const pages = Array.from(container.children) as HTMLElement[];
+    const originalPageClasses = pages.map(p => p.className);
+
+    // Apply print-friendly styles (remove gaps, shadow, background on container)
+    container.className = "w-full max-w-[210mm] mx-auto bg-white";
+    pages.forEach(p => {
+      // Keep only necessary styles, remove shadow, borders, min-h, rounded, etc.
+      p.className = "bg-white w-full p-6 sm:p-12 text-slate-800 relative";
+    });
+
+    // We can also insert an explicit page break between them for html2pdf
+    // But since page 1 is one div, we can just append html2pdf__page-break to the end of page 1
+    const pageBreakDiv = document.createElement("div");
+    pageBreakDiv.className = "html2pdf__page-break";
+    if (pages.length > 0) {
+      pages[0].appendChild(pageBreakDiv);
+    }
+
+    try {
+      const opt = {
+        margin: [0, 0, 0, 0],
+        filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
+        image: { type: "jpeg", quality: 1 },
+        html2canvas: { scale: 2, useCORS: true, windowWidth: parseInt(window.innerWidth.toString()) > 1024 ? window.innerWidth : 1024 }, // Maintain high res for wide screens
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] }
+      };
+
+      await html2pdf().set(opt).from(container).save();
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Terjadi kesalahan saat membuat PDF.");
+    } finally {
+      // Revert styles
+      container.className = originalContainerClass;
+      pages.forEach((p, i) => {
+        p.className = originalPageClasses[i];
+      });
+      if (pages.length > 0) {
+        pages[0].removeChild(pageBreakDiv);
+      }
+      setIsDownloading(false);
+    }
   };
 
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
@@ -2659,13 +2709,15 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={handleDownloadPDF}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2"
+                    disabled={isDownloading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Icon
-                      name={"download"}
+                      name={isDownloading ? "refresh-cw" : "download"}
                       size={14}
+                      className={isDownloading ? "animate-spin" : ""}
                     />
-                    Unduh / Cetak PDF
+                    {isDownloading ? "Mengunduh..." : "Unduh PDF"}
                   </button>
                   <button
                     onClick={() => setReportPreviewData(null)}
@@ -2683,7 +2735,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   className="w-full flex justify-center flex-col gap-8 items-center font-sans tracking-normal print:block print:gap-0"
                 >
                   {/* --- PERFORMA PREVIEW PAGE 1 --- */}
-                  <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:max-w-none print:w-full print:p-0">
+                  <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:w-[210mm]">
                   {/* Header Section */}
                   <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
                     <div className="flex items-center gap-3">
@@ -2848,7 +2900,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                 </div> {/* Mengakhiri div Page 1 */}
 
                 {/* --- PERFORMA PREVIEW PAGE 2 --- */}
-                <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:max-w-none print:w-full print:p-0">
+                <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:w-[210mm]">
                   <div className="space-y-6">
                     <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
                       <thead>
@@ -3161,7 +3213,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                   <strong>
                                     {reportPreviewData.rekomendasi}
                                   </strong>
-                                  .
+                                  . Khusus untuk rekomendasi promosi/kenaikan gaji, keputusan akhir tetap disesuaikan dengan kondisi omset perusahaan.
                                 </>
                               );
                             })()}
