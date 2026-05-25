@@ -53,104 +53,11 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   const [isDownloading, setIsDownloading] = useState(false);
 
   const handleDownloadPDF = async () => {
-    if (!reportPreviewData) return;
-    const element = document.getElementById("pdf-report-content");
-    if (!element) return;
-    
     setIsDownloading(true);
-
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.width = "210mm";
-    clone.style.height = "auto";
-    clone.style.padding = "0";
-    clone.style.backgroundColor = "white";
-    clone.style.margin = "0";
-    clone.style.position = "absolute";
-    clone.style.top = "-9999px";
-    clone.style.display = "block"; // override flex with gap
-    clone.className = "font-sans"; // Remove gap-8 etc
-
-    const pages = clone.querySelectorAll('.break-after-page');
-    pages.forEach((p, index) => {
-      const htm = p as HTMLElement;
-      htm.style.boxShadow = "none";
-      htm.style.margin = "0";
-      htm.style.border = "none";
-      if (index === 0) {
-        // Add a dedicated page break div after the first page
-        const pb = document.createElement("div");
-        pb.className = "html2pdf__page-break";
-        htm.appendChild(pb);
-      }
-    });
-
-    document.body.appendChild(clone);
-
-    // FIX FOR TAILWIND V4 OKLCH COLORS IN HTML2CANVAS
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      const convertColorStr = (str: string) => {
-        if (!str || (!str.includes("oklch") && !str.includes("oklab"))) return str;
-        const regex = /(oklch|oklab)\([^)]+\)/g;
-        return str.replace(regex, (match) => {
-          ctx.fillStyle = match;
-          const hex = ctx.fillStyle;
-          return hex.includes("oklch") ? "#000000" : hex;
-        });
-      };
-
-      const cloneElements = [clone, ...Array.from(clone.querySelectorAll("*"))];
-      cloneElements.forEach((el) => {
-        const htm = el as HTMLElement;
-        const computed = window.getComputedStyle(htm);
-        
-        const propsToColor = [
-          "color", "backgroundColor", "borderBottomColor", "borderTopColor", 
-          "borderLeftColor", "borderRightColor", "outlineColor", "textDecorationColor",
-          "fill", "stroke"
-        ];
-        
-        propsToColor.forEach((prop) => {
-          const val = computed[prop as any];
-          if (val && (val.includes("oklch") || val.includes("oklab"))) {
-            htm.style[prop as any] = convertColorStr(val);
-          }
-        });
-        
-        const shadow = computed.boxShadow;
-        if (shadow && shadow !== "none" && (shadow.includes("oklch") || shadow.includes("oklab"))) {
-           htm.style.boxShadow = convertColorStr(shadow);
-           if (htm.style.boxShadow.includes("oklch")) {
-             htm.style.boxShadow = "none";
-           }
-        }
-
-        const bgImg = computed.backgroundImage;
-        if (bgImg && bgImg !== "none" && (bgImg.includes("oklch") || bgImg.includes("oklab"))) {
-           htm.style.backgroundImage = convertColorStr(bgImg);
-        }
-      });
-    }
-
-    try {
-      const opt = {
-        margin: 0,
-        filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
-        image: { type: "jpeg" as const, quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: 1024 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy", "avoid"], avoid: "tr" }
-      };
-
-      await html2pdf().set(opt).from(clone).save();
-    } catch (err) {
-      console.error("PDF Error:", err);
-      alert("Terjadi kesalahan saat membuat PDF.");
-    } finally {
-      document.body.removeChild(clone);
+    setTimeout(() => {
+      window.print();
       setIsDownloading(false);
-    }
+    }, 500);
   };
 
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
