@@ -124,7 +124,7 @@ export const ProfileDropdown = ({ currentUser, onLogoutRequest }: ProfileDropdow
         className="flex items-center gap-4 hover:bg-slate-100 p-2 pr-4 rounded-2xl transition-colors"
       >
         <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-lg shadow-sm border-2 border-white ring-1 ring-blue-50">
-          {currentUser.name ? currentUser.name.split(' ').map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase() : 'U'}
+          {currentUser.name ? currentUser.name.trim().split(/\s+/).map(n => n.charAt(0)).join('').substring(0, 2).toUpperCase() : 'U'}
         </div>
         <div className="hidden lg:block text-left relative flex flex-col justify-center gap-1">
           <p className="text-[15px] font-black text-slate-900 truncate w-44 leading-none">{currentUser.name ? currentUser.name : 'User'}</p>

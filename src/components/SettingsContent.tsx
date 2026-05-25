@@ -410,7 +410,7 @@ export function SettingsContent() {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-black text-xs">
-                        {usernameItem.charAt(0).toUpperCase()}
+                        {usernameItem.trim().charAt(0).toUpperCase()}
                       </div>
                       <span className="text-sm font-bold text-slate-700">{usernameItem}</span>
                       {superAdmins.includes(usernameItem) && (

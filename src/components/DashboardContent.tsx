@@ -1308,7 +1308,7 @@ export const DashboardContent = ({
                         <div className="flex items-center gap-3 cursor-pointer">
                           <span className="text-slate-400 font-bold text-[11px] min-w-[20px]">{index + 1}.</span>
                           <div className="w-9 h-9 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-primary font-bold text-sm shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                            {emp.name.charAt(0)}
+                            {emp.name.trim().charAt(0).toUpperCase()}
                           </div>
                           <span className="text-[13px] font-bold text-slate-800 group-hover:text-primary transition-colors leading-tight">
                             {emp.name}

@@ -25,6 +25,7 @@ import { auth, db, handleFirestoreError, OperationType, logActivity } from './fi
 import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { ResetPasswordView } from './components/ResetPasswordView';
 import { PublicAssetView } from './components/PublicAssetView';
+import { PublicEvaluasiView } from './components/PublicEvaluasiView';
 
 const UnderConstructionView = ({ menuName }: { menuName: string }) => (
   <div className="flex flex-col items-center justify-center h-full bg-white rounded-3xl border border-slate-100 shadow-sm opacity-80">
@@ -609,8 +610,27 @@ export default function App() {
     return null;
   });
 
+  const [isEvaluasiMode, setIsEvaluasiMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('mode') === 'evaluasi';
+    }
+    return false;
+  });
+
   if (resetOobCode) {
     return <ResetPasswordView oobCode={resetOobCode} onSuccess={() => setResetOobCode(null)} />;
+  }
+
+  if (isEvaluasiMode) {
+    return (
+      <PublicEvaluasiView 
+        onGoToLogin={() => {
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setIsEvaluasiMode(false);
+        }}
+      />
+    );
   }
 
   if (scanParam) {

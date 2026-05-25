@@ -348,6 +348,18 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
             </div>
             <div className="flex items-center gap-3">
               <button
+                onClick={() => {
+                  const url = `${window.location.origin}${window.location.pathname}?mode=evaluasi`;
+                  navigator.clipboard.writeText(url);
+                  alert('Link publik penilaian berhasil disalin!');
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 hover:bg-emerald-100 transition-colors shadow-sm flex items-center gap-2"
+                title="Bagikan link ini ke evaluator"
+              >
+                <Icon name="link" size={16} /> 
+                <span>Salin Link Publik</span>
+              </button>
+              <button
                 onClick={() => setIsGuideModalOpen(true)}
                 className="px-4 py-2 rounded-xl text-xs font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 transition-colors shadow-sm flex items-center gap-2"
               >
@@ -918,7 +930,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                     <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-white sticky top-0 z-10">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-white border border-blue-100 text-blue-600 flex items-center justify-center font-black text-lg shadow-sm">
-                          {emp.name.charAt(0)}
+                          {emp.name.trim().charAt(0).toUpperCase()}
                         </div>
                         <div>
                           <h3 className="font-black text-xl text-slate-800">{emp.name}</h3>

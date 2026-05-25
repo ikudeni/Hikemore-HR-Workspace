@@ -452,7 +452,7 @@ export const KaryawanContent = ({
                   </td>
                   <td className="px-4 py-3 sticky left-[52px] bg-white group-hover:bg-slate-50 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)] z-10 min-w-[220px]">
                     <div className="flex gap-3 items-center">
-                      <div className="w-10 h-10 rounded-full bg-blue-100/50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-base shrink-0">{emp.name.charAt(0)}</div>
+                      <div className="w-10 h-10 rounded-full bg-blue-100/50 text-blue-600 border border-blue-200 flex items-center justify-center font-bold text-base shrink-0">{emp.name.trim().charAt(0).toUpperCase()}</div>
                       <div className="flex flex-col">
                         <span className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
                           {emp.name}
