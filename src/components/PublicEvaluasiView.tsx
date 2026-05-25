@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, query, collection, getDocs, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
 import { Employee } from '../types';
 
 interface PublicEvaluasiViewProps {
@@ -21,33 +21,21 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     growth_1: 0, growth_2: 0, growth_3: 0, growth_4: 0, growth_5: 0,
     prof_1: 0, prof_2: 0, prof_3: 0, prof_4: 0, prof_5: 0,
     sus_1: 0, sus_2: 0, sus_3: 0, sus_4: 0, sus_5: 0,
-    telat: 0, ijin: 0, mangkir: 0, sp: 0,
-    gaji: 0, levelJabatan: 'Staff', customMultiplier: null, customLevelName: '',
+    telat: 0, ijin: 0, mangkir: 0, sp: 0, // Even though concealed, keep data shape
+    gaji: 0, levelJabatan: '', 
     periodeStart: '', periodeEnd: '', namaPenilai: '',
     weight_grit: 30, weight_growth: 20, weight_prof: 30, weight_sus: 20
   });
 
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
-  
-  // Job levels for custom selection
-  const [jobLevels, setJobLevels] = useState<{ id: string, label: string, multiplier: number }[]>([
-    { id: 'Staff', label: 'Staff (1.0x)', multiplier: 1.0 },
-    { id: 'Senior Staff', label: 'Senior Staff (1.35x)', multiplier: 1.35 },
-    { id: 'Kepala Toko', label: 'Kepala Toko (1.75x)', multiplier: 1.75 },
-    { id: 'Supervisor', label: 'Supervisor (1.8x)', multiplier: 1.8 },
-    { id: 'Head Department', label: 'Head Department (2.8x)', multiplier: 2.8 },
-    { id: 'Direktur', label: 'Direktur (4.5x)', multiplier: 4.5 },
-  ]);
 
   useEffect(() => {
-    // get evalId from URL ?evalId=xyz
     const params = new URLSearchParams(window.location.search);
     const id = params.get('evalId');
     if (id) {
       setEvalId(id);
     } else {
-      // no id, load all employees so reviewer can select
       const fetchEmployees = async () => {
         try {
           const snapshot = await getDocs(collection(db, 'employees'));
@@ -79,7 +67,6 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Load Employee Details
         const empDoc = await getDoc(doc(db, 'employees', evalId));
         if (!empDoc.exists()) {
           setError('Karyawan tidak ditemukan.');
@@ -88,14 +75,11 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
         }
         setEmployee({ id: empDoc.id, ...empDoc.data() } as Employee);
 
-        // Load Performa Data
         const pDoc = await getDoc(doc(db, 'settings', 'performaData'));
         if (pDoc.exists()) {
           const pData = pDoc.data();
-          if (pData.globalSettings && pData.globalSettings.jobLevels) {
-            setJobLevels(pData.globalSettings.jobLevels);
-          }
           if (pData.performaDataMap && pData.performaDataMap[evalId]) {
+             // Let any existing values map. 
             setData(prev => ({ ...prev, ...pData.performaDataMap[evalId] }));
           }
         }
@@ -132,7 +116,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
       await setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: currentMap, globalSettings: globalSet }, { merge: true });
       
       setSuccessMsg('Penilaian berhasil disimpan!');
-      setTimeout(() => setSuccessMsg(''), 5000); // hide after 5 sec
+      setTimeout(() => setSuccessMsg(''), 5000);
     } catch (err) {
       console.error(err);
       setError('Gagal menyimpan penilaian');
@@ -149,28 +133,97 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     );
   }
 
-  // Helper render for Score Box
-  const renderScoreInput = (category: string, title: string, keyPrefix: string, fields: any[]) => {
+  const renderScoreSection = (
+    categoryTitle: string,
+    weight: number,
+    keyPrefix: string,
+    fields: string[],
+    legends: { title: string, desc: string, color: string }[]
+  ) => {
+    const keys = fields.map((_, i) => `${keyPrefix}_${i + 1}`);
+    let sum = 0;
+    let count = 0;
+    keys.forEach(k => {
+      if (data[k]) {
+        sum += data[k];
+        count++;
+      }
+    });
+    
+    // Scale is 20 points per step (1=20, 2=40, etc.)
+    // Max per item = 100, so real sum is out of 500 max.
+    const avgScore100 = count > 0 ? (sum / count) : 0;
+    const avgScale = count > 0 ? (avgScore100 / 20) : null;
+    const totalScaled = count > 0 ? (avgScore100 * (weight / 100)) : 0;
+
     return (
-      <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col gap-4">
-        <h4 className="font-extrabold text-[15px] text-slate-800 uppercase tracking-wide border-b border-slate-100 pb-2 mb-2">{title}</h4>
-        {fields.map((f, i) => {
-          const fieldKey = `${keyPrefix}_${i + 1}`;
-          const val = data[fieldKey] || 0;
-          return (
-            <div key={fieldKey}>
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[13px] font-bold text-slate-700">{i + 1}. {f.label}</span>
-                <span className={`text-[15px] font-black w-14 text-center rounded-lg px-2 py-1 ${val >= 85 ? 'text-emerald-700 bg-emerald-50' : val >= 70 ? 'text-blue-700 bg-blue-50' : val >= 50 ? 'text-amber-700 bg-amber-50' : val > 0 ? 'text-rose-700 bg-rose-50' : 'text-slate-400 bg-slate-50'}`}>{val}</span>
+      <div className="bg-white p-6 sm:p-8 rounded-3xl border border-blue-50 shadow-[0_8px_30px_rgb(0,0,0,0.04)] flex flex-col gap-6 mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-100 pb-4 gap-4">
+          <div>
+            <h3 className="font-black text-xl text-slate-800 uppercase tracking-widest">{categoryTitle}</h3>
+            <p className="text-sm font-bold text-slate-500 mt-1">Skor Rata-rata: {avgScale ? avgScale.toFixed(1) : '-'}</p>
+          </div>
+          <div className="bg-white text-blue-700 px-5 py-2.5 rounded-xl text-sm font-black border border-blue-100 shadow-sm shrink-0">
+             BOBOT: <span className="text-blue-900">{weight}%</span>
+          </div>
+        </div>
+  
+        {/* Legend Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+           {legends.map((leg, i) => (
+             <div key={i} className="border border-slate-100 rounded-xl p-4 bg-white hover:border-blue-200 transition-colors shadow-sm">
+                <p className={`text-[12px] font-black mb-1.5 ${leg.color}`}>{leg.title}</p>
+                <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{leg.desc}</p>
+             </div>
+           ))}
+        </div>
+  
+        {/* Questions */}
+        <div className="flex flex-col gap-3 mt-4">
+           {fields.map((f, i) => {
+              const fieldKey = `${keyPrefix}_${i + 1}`;
+              const val = data[fieldKey] || 0;
+              return (
+                <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50/30 transition-colors gap-4 shadow-sm">
+                   <span className="text-[14px] font-bold text-slate-700 flex-1 leading-snug">{i + 1}. {f}</span>
+                   <div className="flex items-center gap-3 shrink-0">
+                      <div className="w-11 h-11 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-base font-black text-blue-600 shadow-sm">
+                        {val ? (val / 20) : '-'}
+                      </div>
+                      <select 
+                        value={val}
+                        onChange={(e) => handleChange(fieldKey, parseInt(e.target.value))}
+                        className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm appearance-none min-w-[160px] relative"
+                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '16px' }}
+                      >
+                         <option value={0} disabled>Silahkan pilih</option>
+                         <option value={20}>Skor 1</option>
+                         <option value={40}>Skor 2</option>
+                         <option value={60}>Skor 3</option>
+                         <option value={80}>Skor 4</option>
+                         <option value={100}>Skor 5</option>
+                      </select>
+                   </div>
+                </div>
+              );
+           })}
+        </div>
+  
+        {/* Summary Footer */}
+        <div className="bg-blue-50/50 rounded-2xl p-5 mt-4 border border-blue-100 shadow-sm flex items-center justify-between">
+           <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-blue-50">
+                 <Icon name="sigma" size={24} />
               </div>
-              <input 
-                type="range" min="0" max="100" step="5" value={val} 
-                onChange={(e) => handleChange(fieldKey, parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
-              />
-            </div>
-          );
-        })}
+              <div>
+                 <p className="text-sm font-black text-slate-800 uppercase tracking-wide mb-1">Total Nilai {categoryTitle.split(' ')[0]}</p>
+                 <p className="text-[11px] font-bold text-slate-500">Rata-rata ({avgScale ? avgScale.toFixed(1) : '-'}) × Bobot {weight}%</p>
+              </div>
+           </div>
+           <div className="text-4xl font-black text-blue-600 tracking-tight">
+              {totalScaled > 0 ? totalScaled.toFixed(1) : '0.0'}
+           </div>
+        </div>
       </div>
     );
   };
@@ -188,7 +241,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-        <div className="max-w-4xl mx-auto flex flex-col gap-6 pb-24">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6 pb-24">
           
           {error && (
             <div className="bg-rose-50 text-rose-700 p-4 rounded-xl border border-rose-200 text-sm font-bold flex items-center gap-2">
@@ -202,14 +255,13 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
           )}
 
           {!evalId ? (
-            // Select Employee Mode
-            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center">
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 text-center max-w-xl mx-auto w-full">
                <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
                  <Icon name="users" size={32} />
                </div>
                <h3 className="text-lg font-black text-slate-800 mb-2">Pilih Karyawan yang Ingin Dinilai</h3>
-               <p className="text-slate-500 text-sm mb-6">Silakan pilih karyawan dari daftar di bawah untuk memberikan penilaian kompetensi dan kedisiplinannya.</p>
-               <div className="max-w-md mx-auto relative">
+               <p className="text-slate-500 text-sm mb-6">Silakan pilih karyawan dari daftar di bawah untuk memberikan penilaian kompetensi.</p>
+               <div className="relative">
                  <select 
                    className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm"
                    onChange={(e) => {
@@ -226,7 +278,6 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                </div>
             </div>
           ) : employee && (
-            // Form Mode
             <>
               {/* Header Info */}
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-[0_2px_15px_-5px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -239,52 +290,79 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                     <p className="text-slate-500 font-bold text-sm tracking-wide">{employee.pos} • {employee.dept}</p>
                   </div>
                 </div>
-                {/* Meta Inputs */}
+                {/* Meta Inputs (Period removed) */}
                 <div className="w-full sm:w-auto">
                     <div>
                       <label className="block text-[11px] font-black text-slate-500 mb-1">Nama Penilai</label>
-                      <input type="text" placeholder="John Doe" value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-xs font-bold bg-slate-50 border border-slate-200 p-2.5 rounded-lg focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none transition-all shadow-sm min-w-[200px]" />
+                      <input type="text" placeholder="Masukkan nama..." value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-sm font-bold bg-slate-50 border border-slate-200 p-3 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none transition-all shadow-sm min-w-[250px]" />
                     </div>
                 </div>
               </div>
 
               {/* Kompetensi Container */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
-                 {renderScoreInput('grit', 'Grit (Ketangguhan) - 30%', 'grit', [
-                    { label: 'Ulet / Semangat Mencapai Target' },
-                    { label: 'Positif Terhadap Tekanan' },
-                    { label: 'Tahan Banting / Resiliensi' },
-                    { label: 'Proaktif / Inisiatif' },
-                    { label: 'Adaptasi Terhadap Perubahan' }
+              <div className="flex flex-col gap-4">
+                 {renderScoreSection('GRIT (KETEKUNAN)', 30, 'grit', [
+                    'Kemauan belajar hal baru yang menjadi tuntutan pekerjaan',
+                    'Kemauan extra effort dalam penyelesaian hambatan pekerjaan',
+                    'Menunjukkan sikap give & take pada pekerjaan',
+                    'Fokus pada penyelesaian tugas hingga tuntas',
+                    'Ketahanan dan pantang menyerah dalam menghadapi tekanan'
+                 ], [
+                    { title: 'Skor 1 (Sangat Kurang)', desc: 'Sangat mudah menyerah, menolak tugas.', color: 'text-rose-600' },
+                    { title: 'Skor 2 (Kurang)', desc: 'Kurang tekun, inisiatif minim, banyak alasan.', color: 'text-amber-600' },
+                    { title: 'Skor 3 (Standar)', desc: 'Penyelesaian standar, inisiatif butuh arahan.', color: 'text-slate-600' },
+                    { title: 'Skor 4 (Bagus)', desc: 'Tekun, inisiatif mandiri, pantang menyerah.', color: 'text-blue-600' },
+                    { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat gigih, proaktif, kualitas luar biasa.', color: 'text-emerald-600' }
                  ])}
-                 {renderScoreInput('growth', 'Growth System (Pertumbuhan) - 20%', 'growth', [
-                    { label: 'Keinginan Belajar (Growth Mindset)' },
-                    { label: 'Perkembangan Skill Teknis' },
-                    { label: 'Mendengarkan Feedback / Kritik' },
-                    { label: 'Problem Solving Skill' },
-                    { label: 'Membimbing / Membantu Rekan' }
+
+                 {renderScoreSection('GROWTH SYSTEM', 20, 'growth', [
+                    'Keinginan Belajar (Growth Mindset)',
+                    'Perkembangan Skill Teknis',
+                    'Mendengarkan Feedback / Kritik',
+                    'Problem Solving Skill',
+                    'Membimbing / Membantu Rekan'
+                 ], [
+                    { title: 'Skor 1 (Sangat Kurang)', desc: 'Menolak belajar, stagnan.', color: 'text-rose-600' },
+                    { title: 'Skor 2 (Kurang)', desc: 'Lambat belajar, butuh didorong terus.', color: 'text-amber-600' },
+                    { title: 'Skor 3 (Standar)', desc: 'Belajar bila diminta, progres standar.', color: 'text-slate-600' },
+                    { title: 'Skor 4 (Bagus)', desc: 'Mandiri mencari ilmu, adaptif.', color: 'text-blue-600' },
+                    { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat proaktif & berbagi ilmu positif.', color: 'text-emerald-600' }
                  ])}
-                 {renderScoreInput('prof', 'Profesionalisme - 30%', 'prof', [
-                    { label: 'Integritas / Kejujuran' },
-                    { label: 'Tanggung Jawab Pekerjaan' },
-                    { label: 'Komunikasi & Teamwork' },
-                    { label: 'Kerapian / Standar Kualitas' },
-                    { label: 'Attitude Terhadap Atasan / Rekan' }
+
+                 {renderScoreSection('PROFESIONALISME', 30, 'prof', [
+                    'Integritas / Kejujuran',
+                    'Tanggung Jawab Pekerjaan',
+                    'Komunikasi & Teamwork',
+                    'Kerapian / Standar Kualitas',
+                    'Attitude Terhadap Atasan / Rekan'
+                 ], [
+                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Sering melanggar, komunikasi buruk.', color: 'text-rose-600' },
+                     { title: 'Skor 2 (Kurang)', desc: 'Lalai tanggung jawab, kurang kolaborasi.', color: 'text-amber-600' },
+                     { title: 'Skor 3 (Standar)', desc: 'Cukup profesional, komunikasi standar.', color: 'text-slate-600' },
+                     { title: 'Skor 4 (Bagus)', desc: 'Bertanggung jawab baik, team player.', color: 'text-blue-600' },
+                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Kepercayaan total, kolaborasi luar biasa.', color: 'text-emerald-600' }
                  ])}
-                 {renderScoreInput('sus', 'System Under System - 20%', 'sus', [
-                    { label: 'Kepatuhan Pada SOP' },
-                    { label: 'Dokumentasi Tugas' },
-                    { label: 'Kerapian Tools & Workspace' },
-                    { label: 'Bekerja Sesuai Arahan/Sistem' },
-                    { label: 'Efisiensi Waktu Kerja' }
+
+                 {renderScoreSection('SYSTEM UNDER SYSTEM', 20, 'sus', [
+                    'Kepatuhan Pada SOP',
+                    'Dokumentasi Tugas',
+                    'Kerapian Tools & Workspace',
+                    'Bekerja Sesuai Arahan/Sistem',
+                    'Efisiensi Waktu Kerja'
+                 ], [
+                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Abaikan SOP, hasil berantakan.', color: 'text-rose-600' },
+                     { title: 'Skor 2 (Kurang)', desc: 'Sering lupa prosedur, kurang rapi.', color: 'text-amber-600' },
+                     { title: 'Skor 3 (Standar)', desc: 'Patuh SOP dasar, dokumentasi cukup.', color: 'text-slate-600' },
+                     { title: 'Skor 4 (Bagus)', desc: 'Konsisten & rapi ikut arahan.', color: 'text-blue-600' },
+                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Inisiatif perbaikan sistem, sangat teliti.', color: 'text-emerald-600' }
                  ])}
               </div>
 
                {/* Fixed Save Button Panel */}
               <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/50 flex justify-end z-[100] drop-shadow-2xl">
-                 <button disabled={isSaving} onClick={handleSave} className="w-full sm:w-auto px-10 py-3.5 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 text-white rounded-2xl font-bold shadow-[0_4px_12px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-2">
-                   {isSaving ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Icon name="save" size={18} />}
-                   {isSaving ? 'Menyimpan...' : 'Simpan Penilaian'}
+                 <button disabled={isSaving} onClick={handleSave} className="w-full sm:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 text-white rounded-2xl font-black text-lg shadow-[0_4px_12px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3">
+                   {isSaving ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Icon name="save" size={20} />}
+                   {isSaving ? 'Menyimpan...' : 'Simpan Penilaian Evaluator'}
                  </button>
               </div>
             </>
@@ -295,3 +373,4 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     </div>
   );
 };
+
