@@ -28,6 +28,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
 
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -93,7 +94,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
       await setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: currentMap, globalSettings: globalSet }, { merge: true });
       
       setSuccessMsg('Penilaian berhasil disimpan!');
-      setTimeout(() => setSuccessMsg(''), 5000);
+      setIsSubmitted(true);
     } catch (err) {
       console.error(err);
       setError('Gagal menyimpan penilaian');
@@ -242,6 +243,17 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                   Kembali
                </button>
             </div>
+          ) : isSubmitted ? (
+            <div className="bg-white p-10 rounded-3xl shadow-sm border border-emerald-100 text-center max-w-xl mx-auto w-full mt-10">
+               <div className="w-24 h-24 bg-emerald-50 text-emerald-500 rounded-[2rem] flex items-center justify-center mx-auto mb-8 shadow-sm">
+                 <Icon name="check-circle" size={48} />
+               </div>
+               <h3 className="text-2xl font-black text-emerald-800 mb-4 tracking-tight">Penilaian Berhasil Dikirim</h3>
+               <p className="text-slate-600 font-medium mb-8 max-w-md mx-auto leading-relaxed">Terima kasih atas waktu yang Anda berikan. Penilaian performa untuk <span className="font-bold text-slate-800">{employee?.name}</span> telah berhasil disimpan secara permanen di sistem.</p>
+               <button onClick={onGoToLogin} className="bg-slate-50 border border-slate-200 text-slate-600 font-bold px-8 py-3.5 rounded-xl hover:bg-slate-100 hover:text-slate-800 transition-colors shadow-sm">
+                  Tutup Halaman Ini
+               </button>
+            </div>
           ) : employee && (
             <>
               {/* Header Info */}
@@ -324,8 +336,8 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
               </div>
 
                {/* Fixed Save Button Panel */}
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/50 flex justify-end z-[100] drop-shadow-2xl">
-                 <button disabled={isSaving} onClick={handleSave} className="w-full sm:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 text-white rounded-2xl font-black text-lg shadow-[0_4px_12px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3">
+              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/50 flex justify-center z-[100] drop-shadow-2xl">
+                 <button disabled={isSaving} onClick={handleSave} className="w-full sm:w-auto min-w-[300px] px-12 py-4 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 text-white rounded-2xl font-black text-lg shadow-[0_4px_12px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3">
                    {isSaving ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Icon name="save" size={20} />}
                    {isSaving ? 'Menyimpan...' : 'Simpan Penilaian Evaluator'}
                  </button>
