@@ -2855,8 +2855,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
 
                 {/* --- PERFORMA PREVIEW PAGE 2 --- */}
                 <div className="bg-white w-full max-w-[210mm] min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 p-6 sm:p-12 text-slate-800 relative break-after-page print:m-0 print:border-none print:shadow-none print:w-[210mm]">
-                  <div className="space-y-6">
-                    <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
+                  <div className="space-y-4">
+                    <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-4 shadow-sm">
                       <thead>
                         <tr className="bg-slate-200">
                           <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12">
@@ -3178,26 +3178,26 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   </div>
 
                   {/* Footer / Signature */}
-                  <div className="mt-8 pt-4 break-inside-avoid">
+                  <div className="mt-4 pt-2 break-inside-avoid">
                     <table className="w-full max-w-xl mx-auto border-collapse border border-slate-900 text-center">
                       <thead>
                         <tr className="bg-slate-100">
-                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                          <th className="border border-slate-900 py-1.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
                             Kepala Divisi
                           </th>
-                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                          <th className="border border-slate-900 py-1.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
                             HRD
                           </th>
-                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                          <th className="border border-slate-900 py-1.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
                             Direktur
                           </th>
                         </tr>
                       </thead>
                       <tbody>
                         <tr>
-                          <td className="border border-slate-900 h-24 sm:h-32"></td>
-                          <td className="border border-slate-900 h-24 sm:h-32"></td>
-                          <td className="border border-slate-900 h-24 sm:h-32"></td>
+                          <td className="border border-slate-900 h-20 sm:h-24"></td>
+                          <td className="border border-slate-900 h-20 sm:h-24"></td>
+                          <td className="border border-slate-900 h-20 sm:h-24"></td>
                         </tr>
                       </tbody>
                     </table>
