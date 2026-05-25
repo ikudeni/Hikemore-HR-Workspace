@@ -170,15 +170,15 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                       <select 
                         value={val}
                         onChange={(e) => handleChange(fieldKey, parseInt(e.target.value))}
-                        className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm appearance-none min-w-[160px] relative"
+                        className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm appearance-none min-w-[200px] relative"
                         style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '16px' }}
                       >
                          <option value={0} disabled>Silahkan pilih</option>
-                         <option value={20}>Skor 1</option>
-                         <option value={40}>Skor 2</option>
-                         <option value={60}>Skor 3</option>
-                         <option value={80}>Skor 4</option>
-                         <option value={100}>Skor 5</option>
+                         <option value={20}>Skor 1 (Sangat Kurang)</option>
+                         <option value={40}>Skor 2 (Kurang)</option>
+                         <option value={60}>Skor 3 (Standar)</option>
+                         <option value={80}>Skor 4 (Bagus)</option>
+                         <option value={100}>Skor 5 (Sangat Bagus)</option>
                       </select>
                    </div>
                 </div>
