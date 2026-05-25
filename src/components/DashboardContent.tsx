@@ -212,12 +212,21 @@ export const DashboardContent = ({
   const [overtimeSearchName, setOvertimeSearchName] = useState<string>('');
   const [overtimeStartDate, setOvertimeStartDate] = useState<string | null>(() => {
     const today = new Date();
-    const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
-    return `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
+    if (today.getDate() > 20) {
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-21`;
+    } else {
+      const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
+      return `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
+    }
   });
   const [overtimeEndDate, setOvertimeEndDate] = useState<string | null>(() => {
     const today = new Date();
-    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
+    if (today.getDate() > 20) {
+      const nextMonthDate = new Date(today.getFullYear(), today.getMonth() + 1, 20);
+      return `${nextMonthDate.getFullYear()}-${String(nextMonthDate.getMonth() + 1).padStart(2, '0')}-20`;
+    } else {
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
+    }
   });
   
   const [overtimeForm, setOvertimeForm] = useState({
@@ -229,7 +238,7 @@ export const DashboardContent = ({
     startTime: '',
     endTime: '',
     duration: 0,
-    attachment: null as File | null,
+    attachment: null as File | string | null,
     attachmentName: ''
   });
 
@@ -1762,9 +1771,20 @@ export const DashboardContent = ({
               <div className="flex flex-wrap items-center gap-2">
                 {(() => {
                   const today = new Date();
-                  const prevMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 21);
-                  const defaultStart = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-21`;
-                  const defaultEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
+                  let defaultStartStr = '';
+                  let defaultEndStr = '';
+                  if (today.getDate() > 20) {
+                    defaultStartStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-21`;
+                    const nextM = new Date(today.getFullYear(), today.getMonth() + 1, 20);
+                    defaultEndStr = `${nextM.getFullYear()}-${String(nextM.getMonth() + 1).padStart(2, '0')}-20`;
+                  } else {
+                    const prevM = new Date(today.getFullYear(), today.getMonth() - 1, 21);
+                    defaultStartStr = `${prevM.getFullYear()}-${String(prevM.getMonth() + 1).padStart(2, '0')}-21`;
+                    defaultEndStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-20`;
+                  }
+                  
+                  const defaultStart = defaultStartStr;
+                  const defaultEnd = defaultEndStr;
                   const hasFilters = overtimeFilterDept !== 'Semua Divisi' || overtimeFilterStatus !== 'Semua Status' || overtimeStartDate !== defaultStart || overtimeEndDate !== defaultEnd || overtimeFilterName || overtimeSearchName !== '';
                   
                   return (

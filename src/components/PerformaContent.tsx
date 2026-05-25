@@ -478,7 +478,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
 
   return (
     <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative print:p-0 print:h-auto print:overflow-visible print:block">
-      <div className={`w-full flex-1 flex flex-col space-y-6 pb-8 ${reportPreviewData ? "print:hidden" : ""}`}>
+      <div className={`w-full flex-1 flex flex-col space-y-6 pb-8 ${reportPreviewData ? "print:hidden !print:hidden [print-color-adjust:exact] print-hide" : ""}`}>
         {/* Header & Overview Cards Container */}
         <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -570,46 +570,6 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                         {uniqueDepts.map((d) => (
                           <option key={d as string} value={d as string}>
                             {d as string}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <Icon name="chevron-down" size={16} />
-                      </div>
-                    </div>
-
-                    {/* Level Select */}
-                    <div className="relative">
-                      <select
-                        className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[150px]"
-                        value={filterLevel}
-                        onChange={(e) => setFilterLevel(e.target.value)}
-                      >
-                        <option value="All Level">Semua Level</option>
-                        {uniqueLevels.map((l) => (
-                          <option key={l as string} value={l as string}>
-                            {l as string}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                        <Icon name="chevron-down" size={16} />
-                      </div>
-                    </div>
-
-                    {/* Penilaian Select */}
-                    <div className="relative">
-                      <select
-                        className="appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[150px]"
-                        value={filterPenilaian}
-                        onChange={(e) => setFilterPenilaian(e.target.value)}
-                      >
-                        <option value="All Penilaian">Semua Penilaian</option>
-                        <option value="Sudah Dinilai">Sudah Dinilai</option>
-                        <option value="Belum Dinilai">Belum Dinilai</option>
-                        {uniquePenilaian.map((p) => (
-                          <option key={p as string} value={p as string}>
-                            {p as string}
                           </option>
                         ))}
                       </select>

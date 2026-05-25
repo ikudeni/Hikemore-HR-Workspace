@@ -1,5 +1,4 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Icon } from './Icon';
 
@@ -11,7 +10,10 @@ interface DateRangePickerProps {
 
 export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [currentMonth, setCurrentMonth] = useState(new Date(2026, 3)); // April 2026
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth());
+  });
   
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -247,17 +249,13 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
       </div>
 
       <AnimatePresence>
-        {isOpen && createPortal(
+        {isOpen && (
           <motion.div 
             ref={dropdownRef}
             initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            style={{ 
-              top: `${dropdownPosition.top}px`, 
-              right: `${dropdownPosition.right}px` 
-            }}
-            className="absolute bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] p-5 w-[calc(100vw-32px)] sm:w-[600px] flex flex-col"
+            className="absolute bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] p-5 w-[calc(100vw-32px)] sm:w-[600px] flex flex-col top-full right-0 mt-2 origin-top-right"
           >
             <div className="flex flex-col sm:flex-row gap-8">
               {/* Left Calendar */}
@@ -352,8 +350,7 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
                 </button>
               </div>
             </div>
-          </motion.div>,
-          document.body
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
