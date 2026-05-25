@@ -240,58 +240,16 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                   </div>
                 </div>
                 {/* Meta Inputs */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full sm:w-auto">
-                    <div>
-                      <label className="block text-[11px] font-black text-slate-500 mb-1">Periode Form</label>
-                      <input type="month" value={data.periodeStart} onChange={e => handleChange('periodeStart', e.target.value)} className="w-full text-xs font-bold bg-slate-50 border border-slate-200 p-2 rounded-lg" />
-                    </div>
+                <div className="w-full sm:w-auto">
                     <div>
                       <label className="block text-[11px] font-black text-slate-500 mb-1">Nama Penilai</label>
-                      <input type="text" placeholder="John Doe" value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-xs font-bold bg-slate-50 border border-slate-200 p-2 rounded-lg" />
+                      <input type="text" placeholder="John Doe" value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-xs font-bold bg-slate-50 border border-slate-200 p-2.5 rounded-lg focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none transition-all shadow-sm min-w-[200px]" />
                     </div>
-                </div>
-              </div>
-
-              {/* Data Primer */}
-              <div className="bg-slate-800 rounded-3xl p-6 shadow-xl relative overflow-hidden text-white">
-                <Icon name="database" size={140} className="absolute -bottom-8 -right-8 text-slate-700/50 rotate-12" />
-                <h3 className="font-black text-lg mb-6 relative z-10 flex items-center gap-2"><Icon name="dollar-sign" size={20} className="text-emerald-400" /> Profiling Nilai & Gaji (Wajib)</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 relative z-10">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Level Jabatan Aktif</label>
-                    <div className="relative">
-                      <select 
-                        value={data.levelJabatan} onChange={e => handleChange('levelJabatan', e.target.value)}
-                        className="w-full appearance-none bg-slate-700/50 border border-slate-600 text-white text-sm font-bold rounded-xl px-4 py-2.5 pr-10 focus:ring-2 focus:ring-blue-500 outline-none"
-                      >
-                        <option value="">-- Pilih Level Jabatan --</option>
-                        {jobLevels.map((l: any) => <option key={l.id} value={l.id}>{l.label}</option>)}
-                        <option value="Custom">Custom Jabatan</option>
-                      </select>
-                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
-                    </div>
-                  </div>
-                  {data.levelJabatan === 'Custom' && (
-                    <>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Nama Jabatan Custom</label>
-                        <input type="text" placeholder="Misal: CTO" value={data.customLevelName} onChange={e => handleChange('customLevelName', e.target.value)} className="bg-slate-700/50 border border-slate-600 px-4 py-2.5 rounded-xl font-bold text-sm text-white" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Custom Multiplier</label>
-                        <input type="number" step="0.01" placeholder="Misal: 3.5" value={data.customMultiplier || ''} onChange={e => handleChange('customMultiplier', parseFloat(e.target.value) || null)} className="bg-slate-700/50 border border-slate-600 px-4 py-2.5 rounded-xl font-bold text-sm text-white" />
-                      </div>
-                    </>
-                  )}
-                  <div className="flex flex-col gap-1">
-                    <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex justify-between">Gaji Total <span className="text-slate-500 font-medium">Rp</span></label>
-                    <input type="number" placeholder="0" value={data.gaji || ''} onChange={e => handleChange('gaji', parseInt(e.target.value) || 0)} className="bg-slate-700/50 border border-slate-600 px-4 py-2.5 rounded-xl font-bold text-sm text-emerald-400 input-no-spinners" />
-                  </div>
                 </div>
               </div>
 
               {/* Kompetensi Container */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
                  {renderScoreInput('grit', 'Grit (Ketangguhan) - 30%', 'grit', [
                     { label: 'Ulet / Semangat Mencapai Target' },
                     { label: 'Positif Terhadap Tekanan' },
@@ -320,32 +278,6 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                     { label: 'Bekerja Sesuai Arahan/Sistem' },
                     { label: 'Efisiensi Waktu Kerja' }
                  ])}
-              </div>
-
-              {/* Kedisiplinan Container */}
-              <div className="bg-rose-50 border border-rose-100 rounded-3xl p-6 mb-12 shadow-sm">
-                <div className="flex items-center gap-2 mb-6 text-rose-700">
-                  <Icon name="alert-triangle" size={24} />
-                  <h3 className="font-black text-lg">Poin Pelanggaran Kedisiplinan</h3>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Terlambat (-1)</p>
-                    <input type="number" min="0" value={data.telat} onChange={e => handleChange('telat', parseInt(e.target.value) || 0)} className="w-[80px] bg-slate-50 border border-slate-200 text-slate-700 font-extrabold text-xl py-2 rounded-lg text-center mx-auto outline-none transition-colors focus:border-rose-300 focus:bg-rose-50/30" />
-                  </div>
-                  <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2">Izin (-1)</p>
-                    <input type="number" min="0" value={data.ijin} onChange={e => handleChange('ijin', parseInt(e.target.value) || 0)} className="w-[80px] bg-slate-50 border border-slate-200 text-slate-700 font-extrabold text-xl py-2 rounded-lg text-center mx-auto outline-none transition-colors focus:border-rose-300 focus:bg-rose-50/30" />
-                  </div>
-                  <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 text-rose-600">Alpa/Mangkir (-3)</p>
-                    <input type="number" min="0" value={data.mangkir} onChange={e => handleChange('mangkir', parseInt(e.target.value) || 0)} className="w-[80px] bg-rose-50 border border-rose-200 text-rose-700 font-extrabold text-xl py-2 rounded-lg text-center mx-auto outline-none transition-colors focus:border-rose-300" />
-                  </div>
-                  <div className="bg-white rounded-xl p-4 shadow-sm text-center">
-                    <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-2 text-rose-600">Terkena SP (-5)</p>
-                    <input type="number" min="0" value={data.sp} onChange={e => handleChange('sp', parseInt(e.target.value) || 0)} className="w-[80px] bg-rose-50 border border-rose-200 text-rose-700 font-extrabold text-xl py-2 rounded-lg text-center mx-auto outline-none transition-colors focus:border-rose-300" />
-                  </div>
-                </div>
               </div>
 
                {/* Fixed Save Button Panel */}
