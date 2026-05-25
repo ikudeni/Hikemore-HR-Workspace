@@ -15,7 +15,7 @@ import { EduGaugeChart } from './ui/EduGaugeChart';
 import { getSourceBadgeClass, removeUndefined } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from '../types';
 import { db, logActivity, storage } from '../firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 const STATUS_COLORS_MAP: Record<string, string> = {
@@ -238,14 +238,17 @@ export const DashboardContent = ({
   const [overtimeRecordsReact, setOvertimeRecordsReact] = useState<{id: number, date: string, name: string, dept: string, status?: string, desc: string, startTime: string, endTime: string, duration: number, attachment?: any}[]>([]);
 
   useEffect(() => {
+    let unsubscribeRecords: (() => void) | undefined;
     const q = doc(db, 'settings', 'overtimeRecords');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+    unsubscribeRecords = onSnapshot(q, (snapshot) => {
+      if (snapshot.exists()) {
         const data = snapshot.data();
         if (data.records) setOvertimeRecordsReact(data.records);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeRecords) unsubscribeRecords();
+    };
   }, []);
 
   const overtimeRecords = overtimeRecordsReact;
@@ -344,14 +347,40 @@ export const DashboardContent = ({
       setIsSaving(false);
 
       // Save to Firestore without blocking the UI
-      const sanitized = removeUndefined(updatedList);
-      setDoc(docRef, { records: sanitized }, { merge: true })
-        .then(() => {
-          logActivity(editingOvertimeId ? 'Update Lembur' : 'Input Lembur', { date: overtimeForm.date });
-        })
-        .catch(err => {
-          console.error("Failed to sync with Firestore", err);
-        });
+      try {
+        const docSnap = await getDoc(docRef);
+        let latestRecords: any[] = [];
+        if (docSnap.exists() && docSnap.data().records) {
+          latestRecords = docSnap.data().records;
+        }
+
+        let updatedDbList = [];
+        if (editingOvertimeId) {
+          updatedDbList = latestRecords.map(r => r.id === editingOvertimeId ? { 
+            ...r,
+            date: overtimeForm.date,
+            desc: overtimeForm.desc,
+            attachment: attachmentUrl,
+            ...(overtimeEntries[0] || { name: r.name, dept: r.dept, startTime: r.startTime, endTime: r.endTime, duration: r.duration })
+          } : r);
+        } else {
+          let maxDbId = latestRecords.length > 0 ? Math.max(...latestRecords.map(r => r.id)) : 0;
+          const newDbRecords = overtimeEntries.map((e, idx) => ({
+            id: maxDbId + 1 + idx,
+            date: overtimeForm.date,
+            desc: overtimeForm.desc,
+            attachment: attachmentUrl,
+            ...e
+          }));
+          updatedDbList = [...latestRecords, ...newDbRecords];
+        }
+
+        const sanitized = removeUndefined(updatedDbList);
+        await setDoc(docRef, { records: sanitized }, { merge: true });
+        logActivity(editingOvertimeId ? 'Update Lembur' : 'Input Lembur', { date: overtimeForm.date });
+      } catch (err) {
+        console.error("Failed to sync with Firestore", err);
+      }
 
     } catch (error) {
       console.error("Failed to save overtime record", error);
@@ -366,10 +395,11 @@ export const DashboardContent = ({
     setDeleteOvertimeConfirm({ isOpen: true, id });
   };
 
-  const executeDeleteOvertime = () => {
+  const executeDeleteOvertime = async () => {
     if (deleteOvertimeConfirm.id !== null) {
       try {
-        const updatedRecords = overtimeRecords.filter(r => r.id !== deleteOvertimeConfirm.id);
+        const idToDelete = deleteOvertimeConfirm.id;
+        const updatedRecords = overtimeRecords.filter(r => r.id !== idToDelete);
         const docRef = doc(db, 'settings', 'overtimeRecords');
         
         // Update UI immediately
@@ -377,9 +407,15 @@ export const DashboardContent = ({
         setDeleteOvertimeConfirm({ isOpen: false, id: null });
         
         // Sync in background
-        setDoc(docRef, { records: removeUndefined(updatedRecords) }, { merge: true })
-          .then(() => logActivity('Hapus Lembur', { id: deleteOvertimeConfirm.id }))
-          .catch(console.error);
+        const docSnap = await getDoc(docRef);
+        let latestRecords: any[] = [];
+        if (docSnap.exists() && docSnap.data().records) {
+          latestRecords = docSnap.data().records;
+        }
+        const updatedDbList = latestRecords.filter(r => r.id !== idToDelete);
+        
+        await setDoc(docRef, { records: removeUndefined(updatedDbList) }, { merge: true });
+        logActivity('Hapus Lembur', { id: idToDelete });
       } catch (error) {
         console.error("Failed to delete overtime record", error);
         alert('Gagal menghapus data lembur');
@@ -464,14 +500,17 @@ export const DashboardContent = ({
   const [contractOverridesReact, setContractOverridesReact] = useState<Record<string, any>>({});
 
   useEffect(() => {
+    let unsubscribeContract: (() => void) | undefined;
     const q = doc(db, 'settings', 'contractOverrides');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
+    unsubscribeContract = onSnapshot(q, (snapshot) => {
+      if (snapshot.exists()) {
         const data = snapshot.data();
         if (data.overrides) setContractOverridesReact(data.overrides);
       }
     });
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeContract) unsubscribeContract();
+    };
   }, []);
 
   const contractOverrides = contractOverridesReact;
@@ -479,7 +518,21 @@ export const DashboardContent = ({
     setContractOverridesReact(prev => {
       const newVal = typeof valOrFn === 'function' ? valOrFn(prev) : valOrFn;
       const sanitizedVal = removeUndefined(newVal);
-      setDoc(doc(db, 'settings', 'contractOverrides'), { overrides: sanitizedVal }, { merge: true }).catch(console.error);
+      
+      const docRef = doc(db, 'settings', 'contractOverrides');
+      getDoc(docRef).then(docSnap => {
+        let latest = {};
+        if (docSnap.exists() && docSnap.data().overrides) {
+          latest = docSnap.data().overrides;
+        }
+        // Instead of completely replacing, since valOrFn operates on `prev` locally, we should just merge the new changes
+        // Since we don't know exactly what changed if it's deeply changed, merging at the top 'overrides' level is safest.
+        // Actually since we only update one employee at a time in the UI, we can just mix `latest` and `newVal`.
+        // The safest approach is:
+        const combined = { ...latest, ...sanitizedVal };
+        setDoc(docRef, { overrides: combined }, { merge: true }).catch(console.error);
+      }).catch(console.error);
+      
       return newVal;
     });
   }, []);
@@ -1701,7 +1754,7 @@ export const DashboardContent = ({
           {/* Top Summary Section Wrapper */}
           <Card className="flex flex-col p-6 gap-6 relative z-30">
             {/* Header & Filters */}
-            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+            <div className="relative z-[100] flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
               <div className="flex flex-col">
                 <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight">Ringkasan Lembur Karyawan</h2>
                 <p className="text-sm font-medium text-slate-400 mt-1">Klik pada data visual untuk memfilter.</p>

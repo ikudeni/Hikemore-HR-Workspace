@@ -102,7 +102,7 @@ export interface Schedule {
   location?: string;
   participants: string[]; // for now just URLs or IDs
   link?: string;
-  attendance?: 'Hadir' | 'Tidak Hadir' | null;
+  attendance?: 'Hadir' | 'Tidak Hadir' | 'Selesai' | null;
 }
 
 export interface DashboardWidget {

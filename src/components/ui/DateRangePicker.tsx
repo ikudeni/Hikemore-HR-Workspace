@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Icon } from './Icon';
 
@@ -11,7 +12,10 @@ interface DateRangePickerProps {
 export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRangePickerProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [currentMonth, setCurrentMonth] = useState(new Date(2026, 3)); // April 2026
+  
+  const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, right: 0 });
 
   const [tempStart, setTempStart] = useState<string | null>(startDate);
   const [tempEnd, setTempEnd] = useState<string | null>(endDate);
@@ -24,6 +28,25 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
     setTempYearLeft(currentMonth.getFullYear());
     setTempYearRight(currentMonth.getFullYear()); // rightMonth's year is usually currentMonth or next, let's derive it
   }, [currentMonth]);
+
+  const updatePosition = () => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const rightEdge = window.innerWidth - rect.right;
+      setDropdownPosition({
+        top: rect.bottom + window.scrollY + 8,
+        right: Math.max(8, rightEdge)
+      });
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePosition();
+      window.addEventListener('resize', updatePosition);
+      return () => window.removeEventListener('resize', updatePosition);
+    }
+  }, [isOpen]);
 
   const toggleDropdown = () => {
     setTempStart(startDate);
@@ -38,13 +61,17 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) && 
+          containerRef.current && !containerRef.current.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
-    document.addEventListener('mousedown', handleClickOutside);
+
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [isOpen]);
 
   const formatDateLabel = (dateStr: string | null) => {
     if (!dateStr) return '';
@@ -208,7 +235,7 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" ref={containerRef}>
       <div 
         onClick={toggleDropdown}
         className="flex items-center justify-between gap-2 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold rounded-lg px-3 py-2 hover:border-slate-300 w-full sm:w-auto min-w-[200px] cursor-pointer shadow-sm transition-all"
@@ -220,12 +247,17 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
       </div>
 
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && createPortal(
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 10 }}
+            ref={dropdownRef}
+            initial={{ opacity: 0, scale: 0.95, y: -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 10 }}
-            className="absolute top-11 right-0 bg-white border border-slate-200 rounded-xl shadow-2xl z-[999] p-5 w-[calc(100vw-32px)] sm:w-[600px] max-w-full flex flex-col"
+            exit={{ opacity: 0, scale: 0.95, y: -10 }}
+            style={{ 
+              top: `${dropdownPosition.top}px`, 
+              right: `${dropdownPosition.right}px` 
+            }}
+            className="absolute bg-white border border-slate-200 rounded-xl shadow-2xl z-[9999] p-5 w-[calc(100vw-32px)] sm:w-[600px] flex flex-col"
           >
             <div className="flex flex-col sm:flex-row gap-8">
               {/* Left Calendar */}
@@ -320,7 +352,8 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
                 </button>
               </div>
             </div>
-          </motion.div>
+          </motion.div>,
+          document.body
         )}
       </AnimatePresence>
     </div>
