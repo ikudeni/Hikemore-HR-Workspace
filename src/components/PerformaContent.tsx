@@ -261,6 +261,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         };
 
         const normalizeScore = (s: number) => {
+          if (s === 1) return 25;
+          if (s === 2) return 50;
+          if (s === 3) return 75;
+          if (s === 4) return 100;
+          if (s === 5) return 125;
+
           // Check if data is legacy by checking for strictly legacy values
           const isLegacy = Object.keys(data).some(k => {
              const val = data[k];
@@ -1566,6 +1572,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     };
 
                     const normalizeScore = (s: number) => {
+                      if (s === 1) return 25;
+                      if (s === 2) return 50;
+                      if (s === 3) return 75;
+                      if (s === 4) return 100;
+                      if (s === 5) return 125;
+
                       const isLegacy = Object.keys(data).some(k => {
                          const val = data[k as keyof typeof data];
                          return val === 20 || val === 40 || val === 60 || val === 80;
@@ -2786,6 +2798,12 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                               const qKey =
                                 `${cat.id}_${qIdx + 1}` as keyof typeof reportPreviewData;
                               const normalizeScoreForView = (s: number) => {
+                                if (s === 1) return 25;
+                                if (s === 2) return 50;
+                                if (s === 3) return 75;
+                                if (s === 4) return 100;
+                                if (s === 5) return 125;
+
                                 const isLegacy = Object.keys(reportPreviewData).some(k => {
                                    const val = reportPreviewData[k as keyof typeof reportPreviewData];
                                    return val === 20 || val === 40 || val === 60 || val === 80;
