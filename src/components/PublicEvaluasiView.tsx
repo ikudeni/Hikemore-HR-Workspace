@@ -15,6 +15,8 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
   const [evalId, setEvalId] = useState<string | null>(null);
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [empSearchQuery, setEmpSearchQuery] = useState('');
+  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
 
   const [data, setData] = useState<any>({
     grit_1: 0, grit_2: 0, grit_3: 0, grit_4: 0, grit_5: 0,
@@ -261,20 +263,57 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                </div>
                <h3 className="text-lg font-black text-slate-800 mb-2">Pilih Karyawan yang Ingin Dinilai</h3>
                <p className="text-slate-500 text-sm mb-6">Silakan pilih karyawan dari daftar di bawah untuk memberikan penilaian kompetensi.</p>
-               <div className="relative">
-                 <select 
-                   className="w-full appearance-none bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm"
-                   onChange={(e) => {
-                     if (e.target.value) {
-                       window.location.search = `?mode=evaluasi&evalId=${e.target.value}`;
-                     }
-                   }}
-                   defaultValue=""
+               <div className="relative text-left z-50">
+                 <div
+                   className="w-full bg-slate-50 border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-100/50 transition-all cursor-text shadow-sm flex items-center"
+                   onClick={() => setIsEmpDropdownOpen(true)}
                  >
-                    <option value="" disabled>-- Pilih Karyawan --</option>
-                    {employees.map(emp => <option key={emp.id} value={emp.id}>{emp.name} ({emp.pos})</option>)}
-                 </select>
+                   <input
+                     type="text"
+                     className="bg-transparent outline-none w-full placeholder:text-slate-400"
+                     placeholder="-- Cari & Pilih Karyawan --"
+                     value={empSearchQuery}
+                     onChange={(e) => {
+                       setEmpSearchQuery(e.target.value);
+                       setIsEmpDropdownOpen(true);
+                     }}
+                     onFocus={() => setIsEmpDropdownOpen(true)}
+                   />
+                 </div>
                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={18} /></div>
+                 
+                 {isEmpDropdownOpen && (
+                   <div 
+                     className="absolute mt-2 w-full max-h-[300px] overflow-y-auto bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-2 divide-y divide-slate-50"
+                   >
+                     {employees.filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase()) || emp.pos.toLowerCase().includes(empSearchQuery.toLowerCase())).length > 0 ? (
+                       employees.filter(emp => emp.name.toLowerCase().includes(empSearchQuery.toLowerCase()) || emp.pos.toLowerCase().includes(empSearchQuery.toLowerCase())).map(emp => (
+                         <div
+                           key={emp.id}
+                           className="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors flex flex-col items-start"
+                           onClick={() => {
+                             setIsEmpDropdownOpen(false);
+                             window.location.search = `?mode=evaluasi&evalId=${emp.id}`;
+                           }}
+                         >
+                           <span className="font-bold text-slate-800 text-sm">{emp.name}</span>
+                           <span className="text-xs text-slate-500 font-medium">{emp.pos} • {emp.dept}</span>
+                         </div>
+                       ))
+                     ) : (
+                       <div className="px-4 py-6 text-center text-sm font-medium text-slate-500 flex flex-col items-center gap-2">
+                         <Icon name="x" size={24} className="text-slate-300" />
+                         Tidak ada karyawan dengan nama "{empSearchQuery}"
+                       </div>
+                     )}
+                   </div>
+                 )}
+                 {isEmpDropdownOpen && (
+                   <div 
+                     className="fixed inset-0 z-40" 
+                     onClick={() => setIsEmpDropdownOpen(false)} 
+                   />
+                 )}
                </div>
             </div>
           ) : employee && (
