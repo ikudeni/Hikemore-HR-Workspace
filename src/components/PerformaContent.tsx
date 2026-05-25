@@ -52,48 +52,30 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   const [reportPreviewData, setReportPreviewData] = useState<any | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
     if (!reportPreviewData) return;
     const element = document.getElementById("pdf-report-content");
     if (!element) return;
-
+    
     setIsDownloading(true);
 
-    // Create a clone to fix standard font sizes during PDF generation
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.transform = "none";
-    clone.style.width = "210mm";
-    clone.style.maxWidth = "210mm";
-    clone.style.height = "auto";
-    clone.style.padding = "10mm";
-    clone.style.backgroundColor = "white";
-    clone.style.margin = "0";
-    clone.style.position = "absolute";
-    clone.style.top = "-9999px";
-    document.body.appendChild(clone);
+    try {
+      const opt = {
+        margin: 0,
+        filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
+        image: { type: "jpeg", quality: 1 },
+        html2canvas: { scale: 2, useCORS: true, windowWidth: 1024 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy"] }
+      };
 
-    const opt = {
-      margin: 0,
-      filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
-      image: { type: "jpeg" as "jpeg", quality: 1 },
-      html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"] },
-    };
-
-    html2pdf()
-      .set(opt)
-      .from(clone)
-      .save()
-      .then(() => {
-        document.body.removeChild(clone);
-        setIsDownloading(false);
-      })
-      .catch((err: any) => {
-        console.error(err);
-        document.body.removeChild(clone);
-        setIsDownloading(false);
-      });
+      await html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("PDF Error:", err);
+      alert("Terjadi kesalahan saat membuat PDF.");
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
@@ -2884,7 +2866,13 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       </tbody>
                     </table>
 
-                    <div className="html2pdf__page-break w-full h-[10px]"></div>
+                    <div className="html2pdf__page-break"></div>
+                    <div data-html2canvas-ignore="true" className="w-full flex items-center justify-center my-6 relative print:hidden">
+                       <div className="absolute top-1/2 left-0 right-0 border-t-2 border-dashed border-slate-300"></div>
+                       <span className="relative px-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-white z-10 text-center">
+                          ---------- Batas Halaman ----------
+                       </span>
+                    </div>
 
                     <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
                       <thead>
