@@ -3,6 +3,7 @@ import { Icon } from './ui/Icon';
 import { db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Employee } from '../types';
+import { upgradePerformaData } from '../utils';
 
 interface PublicEvaluasiViewProps {
   onGoToLogin: () => void;
@@ -58,7 +59,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
           const pData = pDoc.data();
           if (pData.performaDataMap && pData.performaDataMap[evalId]) {
              // Let any existing values map. 
-            setData(prev => ({ ...prev, ...pData.performaDataMap[evalId] }));
+            setData(prev => ({ ...prev, ...upgradePerformaData(pData.performaDataMap[evalId]) }));
           }
         }
       } catch (err) {
@@ -118,35 +119,13 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     fields: string[],
     legends: { title: string, desc: string, color: string }[]
   ) => {
-    const normalizeScore = (s: number) => {
-      if (s === 1) return 25;
-      if (s === 2) return 50;
-      if (s === 3) return 75;
-      if (s === 4) return 100;
-      if (s === 5) return 125;
-
-      const isLegacy = Object.keys(data).some(k => {
-         const val = data[k as keyof typeof data];
-         return val === 20 || val === 40 || val === 60 || val === 80;
-      });
-      
-      if (isLegacy) {
-        if (s === 20) return 25;
-        if (s === 40) return 50;
-        if (s === 60) return 75;
-        if (s === 80) return 100;
-        if (s === 100) return 125;
-      }
-      return s;
-    };
-
     const keys = fields.map((_, i) => `${keyPrefix}_${i + 1}`);
     let sum = 0;
     let count = 0;
     keys.forEach(k => {
       const val = data[k];
       if (val !== undefined && val !== "") {
-        sum += normalizeScore(Number(val));
+        sum += Number(val);
         count++;
       }
     });
@@ -184,7 +163,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
            {fields.map((f, i) => {
               const fieldKey = `${keyPrefix}_${i + 1}`;
               const val = data[fieldKey];
-              const displayVal = val ? normalizeScore(Number(val)) : '-';
+              const displayVal = (val !== "" && val !== undefined) ? Number(val) : '-';
               return (
                 <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50/30 transition-colors gap-4 shadow-sm">
                    <span className="text-[14px] font-bold text-slate-700 flex-1 leading-snug">{i + 1}. {f}</span>

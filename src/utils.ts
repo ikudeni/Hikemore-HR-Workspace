@@ -77,6 +77,45 @@ export const saveToSpreadsheet = (action: string, data: any) => {
   }
 };
 
+export const QUESTION_KEYS = [
+  "grit_1", "grit_2", "grit_3", "grit_4", "grit_5",
+  "growth_1", "growth_2", "growth_3", "growth_4", "growth_5",
+  "prof_1", "prof_2", "prof_3", "prof_4", "prof_5",
+  "sus_1", "sus_2", "sus_3", "sus_4", "sus_5"
+];
+
+export const upgradePerformaData = (rawData: any) => {
+   if (!rawData) return rawData;
+   const upgraded = { ...rawData };
+   let isLegacy20 = false;
+   let isLegacy1 = false;
+   
+   for (const k of QUESTION_KEYS) {
+      if (upgraded[k] === 20 || upgraded[k] === 40 || upgraded[k] === 60 || upgraded[k] === 80) isLegacy20 = true;
+      if (upgraded[k] === 1 || upgraded[k] === 2 || upgraded[k] === 3 || upgraded[k] === 4 || upgraded[k] === 5) isLegacy1 = true;
+   }
+   
+   if (isLegacy1 || isLegacy20) {
+     for (const k of QUESTION_KEYS) {
+        const v = upgraded[k];
+        if (isLegacy1) {
+           if (v === 1) upgraded[k] = 25;
+           if (v === 2) upgraded[k] = 50;
+           if (v === 3) upgraded[k] = 75;
+           if (v === 4) upgraded[k] = 100;
+           if (v === 5) upgraded[k] = 125;
+        } else if (isLegacy20) {
+           if (v === 20) upgraded[k] = 25;
+           if (v === 40) upgraded[k] = 50;
+           if (v === 60) upgraded[k] = 75;
+           if (v === 80) upgraded[k] = 100;
+           if (v === 100) upgraded[k] = 125;
+        }
+     }
+   }
+   return upgraded;
+};
+
 export const downloadFile = async (dataUrl: string, fileName: string) => {
   try {
     const response = await fetch(dataUrl);

@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 import { Icon } from "./ui/Icon";
 import { logActivity } from "../firebase";
 import { Employee } from "../types";
+import { upgradePerformaData } from "../utils";
 import {
   ScatterChart,
   Scatter,
@@ -247,7 +248,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   const performaData = useMemo(() => {
     return employees
       .map((emp) => {
-        const data = performaDataMap[emp.id] || {
+        const rawData = performaDataMap[emp.id] || {
           grit: 0,
           growth: 0,
           prof: 0,
@@ -260,31 +261,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
           levelJabatan: "",
         };
 
-        const normalizeScore = (s: number) => {
-          if (s === 1) return 25;
-          if (s === 2) return 50;
-          if (s === 3) return 75;
-          if (s === 4) return 100;
-          if (s === 5) return 125;
-
-          // Check if data is legacy by checking for strictly legacy values
-          const isLegacy = Object.keys(data).some(k => {
-             const val = data[k];
-             return val === 20 || val === 40 || val === 60 || val === 80;
-          });
-          
-          if (isLegacy) {
-            if (s === 20) return 25;
-            if (s === 40) return 50;
-            if (s === 60) return 75;
-            if (s === 80) return 100;
-            if (s === 100) return 125;
-          }
-          return s;
-        };
+        const data = upgradePerformaData(rawData);
 
         const safeCalc = (keys: string[]) => {
-          const sum = keys.reduce((acc, k) => acc + normalizeScore(data[k] || 0), 0);
+          const sum = keys.reduce((acc, k) => acc + (data[k] || 0), 0);
           return sum / keys.length;
         };
 
@@ -1543,7 +1523,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     const emp = employees.find((e) => e.id === selectedEmpId)!;
 
                     const storedData = performaDataMap[selectedEmpId];
-                    const data = storedData || {
+                    const rawData = storedData || {
                       grit: 0,
                       growth: 0,
                       prof: 0,
@@ -1555,6 +1535,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       gaji: 0,
                       levelJabatan: "",
                     };
+
+                    const data = upgradePerformaData(rawData);
 
                     const handleChange = (
                       field: string,
@@ -1571,32 +1553,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       });
                     };
 
-                    const normalizeScore = (s: number) => {
-                      if (s === 1) return 25;
-                      if (s === 2) return 50;
-                      if (s === 3) return 75;
-                      if (s === 4) return 100;
-                      if (s === 5) return 125;
-
-                      const isLegacy = Object.keys(data).some(k => {
-                         const val = data[k as keyof typeof data];
-                         return val === 20 || val === 40 || val === 60 || val === 80;
-                      });
-                      
-                      if (isLegacy) {
-                        if (s === 20) return 25;
-                        if (s === 40) return 50;
-                        if (s === 60) return 75;
-                        if (s === 80) return 100;
-                        if (s === 100) return 125;
-                      }
-                      return s;
-                    };
-
                     // Kalkulasi total real-time
                     const safeCalc = (keys: string[]) => {
                       const sum = keys.reduce(
-                        (acc, k) => acc + normalizeScore(data[k as keyof typeof data] || 0),
+                        (acc, k) => acc + (data[k as keyof typeof data] || 0),
                         0,
                       ) as number;
                       return sum / keys.length;
@@ -2294,7 +2254,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                               data[q.id as keyof typeof data] === "" ||
                                               data[q.id as keyof typeof data] === 0
                                                 ? "-"
-                                                : normalizeScore(Number(data[q.id as keyof typeof data]))}
+                                                : Number(data[q.id as keyof typeof data])}
                                             </div>
                                             <div className="w-36 md:w-44 flex-shrink-0 relative">
                                               <select
@@ -2303,7 +2263,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                                   data[q.id as keyof typeof data] === undefined ||
                                                   data[q.id as keyof typeof data] === ""
                                                     ? ""
-                                                    : normalizeScore(Number(data[q.id as keyof typeof data]))
+                                                    : Number(data[q.id as keyof typeof data])
                                                 }
                                                 onChange={(e) => {
                                                   if (e.target.value === "") {
@@ -2802,28 +2762,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                             {cat.questions.map((q, qIdx) => {
                               const qKey =
                                 `${cat.id}_${qIdx + 1}` as keyof typeof reportPreviewData;
-                              const normalizeScoreForView = (s: number) => {
-                                if (s === 1) return 25;
-                                if (s === 2) return 50;
-                                if (s === 3) return 75;
-                                if (s === 4) return 100;
-                                if (s === 5) return 125;
-
-                                const isLegacy = Object.keys(reportPreviewData).some(k => {
-                                   const val = reportPreviewData[k as keyof typeof reportPreviewData];
-                                   return val === 20 || val === 40 || val === 60 || val === 80;
-                                });
-
-                                if (isLegacy) {
-                                  if (s === 20) return 25;
-                                  if (s === 40) return 50;
-                                  if (s === 60) return 75;
-                                  if (s === 80) return 100;
-                                  if (s === 100) return 125;
-                                }
-                                return s;
-                              };
-                              const qScore = normalizeScoreForView(reportPreviewData[qKey] || 0);
+                              const qScore = reportPreviewData[qKey] || 0;
                               let kategori = "-";
                               if (qScore === 25)
                                 kategori = "Skor 1 (Sangat Kurang)";
