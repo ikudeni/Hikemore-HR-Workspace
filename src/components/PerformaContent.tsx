@@ -2291,9 +2291,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                           <div className="flex items-center gap-2">
                                             <div className="w-14 h-9 bg-blue-50/80 border border-blue-100 rounded-lg flex items-center justify-center text-[13px] font-black text-blue-600 shadow-sm">
                                               {data[q.id as keyof typeof data] === undefined ||
-                                              data[q.id as keyof typeof data] === ""
+                                              data[q.id as keyof typeof data] === "" ||
+                                              data[q.id as keyof typeof data] === 0
                                                 ? "-"
-                                                : normalizeScore(Number(data[q.id as keyof typeof data]))}
+                                                : normalizeScore(Number(data[q.id as keyof typeof data])) / 25}
                                             </div>
                                             <div className="w-36 md:w-44 flex-shrink-0 relative">
                                               <select
@@ -2338,31 +2339,35 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                                   Tidak Ada
                                                 </option>
                                               </select>
-                                              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
+                                              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                                                 {data[
                                                   q.id as keyof typeof data
                                                 ] !== undefined &&
                                                   data[
                                                     q.id as keyof typeof data
-                                                  ] !== "" && (
+                                                  ] !== "" &&
+                                                  data[
+                                                    q.id as keyof typeof data
+                                                  ] !== 0 && (
                                                     <button
                                                       type="button"
                                                       onClick={() =>
                                                         handleChange(q.id, "")
                                                       }
-                                                      className="text-red-400 hover:text-red-600 transition-colors p-1 z-10 relative cursor-pointer"
+                                                      className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors p-1.5 rounded-md z-10 relative cursor-pointer flex items-center justify-center"
                                                       title="Kosongkan nilai"
                                                     >
                                                       <Icon
                                                         name="x"
                                                         size={14}
+                                                        strokeWidth={3}
                                                       />
                                                     </button>
                                                   )}
                                                 <div className="pointer-events-none text-slate-400">
                                                   <Icon
                                                     name="chevron-down"
-                                                    size={14}
+                                                    size={16}
                                                   />
                                                 </div>
                                               </div>
