@@ -280,46 +280,46 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat gigih, proaktif, kualitas luar biasa.', color: 'text-emerald-600' }
                  ])}
 
-                 {renderScoreSection('GROWTH SYSTEM', 20, 'growth', [
-                    'Keinginan Belajar (Growth Mindset)',
-                    'Perkembangan Skill Teknis',
-                    'Mendengarkan Feedback / Kritik',
-                    'Problem Solving Skill',
-                    'Membimbing / Membantu Rekan'
+                 {renderScoreSection('GROWTH (PERTUMBUHAN)', 20, 'growth', [
+                    'Memiliki skill yang berkembang seiring waktu',
+                    'Tidak mengulang kesalahan yang sama dalam pekerjaan',
+                    'Keterbukaan terhadap saran & kritik dalam bekerja',
+                    'Menunjukkan kesiapan saat diberikan tanggung jawab lebih',
+                    'Kontribusi pada peningkatan sistem kerja'
                  ], [
-                    { title: 'Skor 1 (Sangat Kurang)', desc: 'Menolak belajar, stagnan.', color: 'text-rose-600' },
-                    { title: 'Skor 2 (Kurang)', desc: 'Lambat belajar, butuh didorong terus.', color: 'text-amber-600' },
-                    { title: 'Skor 3 (Standar)', desc: 'Belajar bila diminta, progres standar.', color: 'text-slate-600' },
-                    { title: 'Skor 4 (Bagus)', desc: 'Mandiri mencari ilmu, adaptif.', color: 'text-blue-600' },
-                    { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat proaktif & berbagi ilmu positif.', color: 'text-emerald-600' }
+                    { title: 'Skor 1 (Sangat Kurang)', desc: 'Menolak masukan, performa terus menurun.', color: 'text-rose-600' },
+                    { title: 'Skor 2 (Kurang)', desc: 'Kurang proaktif, mengulang kesalahan sama.', color: 'text-amber-600' },
+                    { title: 'Skor 3 (Standar)', desc: 'Belajar bila diminta, terbuka terhadap masukan ringan.', color: 'text-slate-600' },
+                    { title: 'Skor 4 (Bagus)', desc: 'Terbuka inovasi, kinerja mulai terlihat meningkat.', color: 'text-blue-600' },
+                    { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat proaktif belajar inovasi, kinerja melesat.', color: 'text-emerald-600' }
                  ])}
 
-                 {renderScoreSection('PROFESIONALISME', 30, 'prof', [
-                    'Integritas / Kejujuran',
-                    'Tanggung Jawab Pekerjaan',
-                    'Komunikasi & Teamwork',
-                    'Kerapian / Standar Kualitas',
-                    'Attitude Terhadap Atasan / Rekan'
+                 {renderScoreSection('PROFESSIONALISM', 30, 'prof', [
+                    'Tanggung jawab terhadap pekerjaan & komunikasi efektif',
+                    'Bekerja dengan integritas dan etika',
+                    'Kepatuhan pada prosedur dan aturan kerja',
+                    'Kemampuan berkolaborasi dalam alur kerja tim',
+                    'Kemampuan melakukan efisiensi dan produktifitas'
                  ], [
-                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Sering melanggar, komunikasi buruk.', color: 'text-rose-600' },
-                     { title: 'Skor 2 (Kurang)', desc: 'Lalai tanggung jawab, kurang kolaborasi.', color: 'text-amber-600' },
-                     { title: 'Skor 3 (Standar)', desc: 'Cukup profesional, komunikasi standar.', color: 'text-slate-600' },
-                     { title: 'Skor 4 (Bagus)', desc: 'Bertanggung jawab baik, team player.', color: 'text-blue-600' },
-                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Kepercayaan total, kolaborasi luar biasa.', color: 'text-emerald-600' }
+                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Sering melanggar aturan, tidak bertanggung jawab.', color: 'text-rose-600' },
+                     { title: 'Skor 2 (Kurang)', desc: 'Kurang tanggap, komunikasi seadanya, perlu diawasi.', color: 'text-amber-600' },
+                     { title: 'Skor 3 (Standar)', desc: 'Tanggung jawab tercapai, komunikasi cukup, patuh.', color: 'text-slate-600' },
+                     { title: 'Skor 4 (Bagus)', desc: 'Bertanggung jawab penuh, komunikasi lancar.', color: 'text-blue-600' },
+                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Integritas sangat tinggi, menjadi teladan profesional.', color: 'text-emerald-600' }
                  ])}
 
-                 {renderScoreSection('SYSTEM UNDER SYSTEM', 20, 'sus', [
-                    'Kepatuhan Pada SOP',
-                    'Dokumentasi Tugas',
-                    'Kerapian Tools & Workspace',
-                    'Bekerja Sesuai Arahan/Sistem',
-                    'Efisiensi Waktu Kerja'
+                 {renderScoreSection('SUSTAINABLE (ADAPTASI)', 20, 'sus', [
+                    'Kemampuan adaptasi pada perubahan pola kerja',
+                    'Memiliki loyalitas bertahan di perusahaan',
+                    'Konsistensi dalam memberikan hasil kerja yang berkualitas',
+                    'Memiliki komitmen untuk tumbuh bersama tujuan perusahaan',
+                    'Kemampuan mempertahankan motivasi kerja dalam jangka panjang'
                  ], [
-                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Abaikan SOP, hasil berantakan.', color: 'text-rose-600' },
-                     { title: 'Skor 2 (Kurang)', desc: 'Sering lupa prosedur, kurang rapi.', color: 'text-amber-600' },
-                     { title: 'Skor 3 (Standar)', desc: 'Patuh SOP dasar, dokumentasi cukup.', color: 'text-slate-600' },
-                     { title: 'Skor 4 (Bagus)', desc: 'Konsisten & rapi ikut arahan.', color: 'text-blue-600' },
-                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Inisiatif perbaikan sistem, sangat teliti.', color: 'text-emerald-600' }
+                     { title: 'Skor 1 (Sangat Kurang)', desc: 'Menolak keras perubahan, banyak mengeluh.', color: 'text-rose-600' },
+                     { title: 'Skor 2 (Kurang)', desc: 'Lambat beradaptasi, sering bingung metode baru.', color: 'text-amber-600' },
+                     { title: 'Skor 3 (Standar)', desc: 'Bisa beradaptasi bila diajari, kualitas stabil.', color: 'text-slate-600' },
+                     { title: 'Skor 4 (Bagus)', desc: 'Cepat menyesuaikan diri, mendukung inisiatif perusahaan.', color: 'text-blue-600' },
+                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat efisien adaptasi, loyalitas kuat jangka panjang.', color: 'text-emerald-600' }
                  ])}
               </div>
 
