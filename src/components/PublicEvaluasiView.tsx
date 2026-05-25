@@ -266,7 +266,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
 
               {/* Kompetensi Container */}
               <div className="flex flex-col gap-4">
-                 {renderScoreSection('GRIT (KETEKUNAN)', 30, 'grit', [
+                 {renderScoreSection('GRIT', 30, 'grit', [
                     'Kemauan belajar hal baru yang menjadi tuntutan pekerjaan',
                     'Kemauan extra effort dalam penyelesaian hambatan pekerjaan',
                     'Menunjukkan sikap give & take pada pekerjaan',
@@ -280,7 +280,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                     { title: 'Skor 5 (Sangat Bagus)', desc: 'Sangat gigih, proaktif, kualitas luar biasa.', color: 'text-emerald-600' }
                  ])}
 
-                 {renderScoreSection('GROWTH (PERTUMBUHAN)', 20, 'growth', [
+                 {renderScoreSection('GROWTH', 20, 'growth', [
                     'Memiliki skill yang berkembang seiring waktu',
                     'Tidak mengulang kesalahan yang sama dalam pekerjaan',
                     'Keterbukaan terhadap saran & kritik dalam bekerja',
@@ -308,7 +308,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                      { title: 'Skor 5 (Sangat Bagus)', desc: 'Integritas sangat tinggi, menjadi teladan profesional.', color: 'text-emerald-600' }
                  ])}
 
-                 {renderScoreSection('SUSTAINABLE (ADAPTASI)', 20, 'sus', [
+                 {renderScoreSection('SUSTAINABLE', 20, 'sus', [
                     'Kemampuan adaptasi pada perubahan pola kerja',
                     'Memiliki loyalitas bertahan di perusahaan',
                     'Konsistensi dalam memberikan hasil kerja yang berkualitas',

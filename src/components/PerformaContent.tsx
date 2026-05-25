@@ -1174,7 +1174,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                           </h4>
                           {[
                             { 
-                              id: 'grit', label: 'Grit (Ketekunan)', bobotKey: 'weight_grit', defaultBobot: 30, 
+                              id: 'grit', label: 'Grit', bobotKey: 'weight_grit', defaultBobot: 30, 
                               desc1: 'Sangat mudah menyerah, menolak tugas.', 
                               desc2: 'Kurang tekun, inisiatif minim, banyak alasan.', 
                               desc3: 'Penyelesaian standar, inisiatif butuh arahan.', 
@@ -1189,7 +1189,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               ]
                             },
                             { 
-                              id: 'growth', label: 'Growth (Pertumbuhan)', bobotKey: 'weight_growth', defaultBobot: 20, 
+                              id: 'growth', label: 'Growth', bobotKey: 'weight_growth', defaultBobot: 20, 
                               desc1: 'Menolak masukan, performa terus menurun.', 
                               desc2: 'Kurang proaktif, mengulang kesalahan sama.', 
                               desc3: 'Belajar bila diminta, terbuka terhadap masukan ringan.', 
@@ -1219,7 +1219,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({ employees, per
                               ]
                             },
                             { 
-                              id: 'sus', label: 'Sustainable (Adaptasi)', bobotKey: 'weight_sus', defaultBobot: 20, 
+                              id: 'sus', label: 'Sustainable', bobotKey: 'weight_sus', defaultBobot: 20, 
                               desc1: 'Menolak keras perubahan, banyak mengeluh.', 
                               desc2: 'Lambat beradaptasi, sering bingung metode baru.', 
                               desc3: 'Bisa beradaptasi bila diajari, kualitas stabil.', 
