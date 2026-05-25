@@ -1,4 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
+// @ts-ignore
+import html2pdf from "html2pdf.js";
 import { Icon } from "./ui/Icon";
 import { logActivity } from "../firebase";
 import { Employee } from "../types";
@@ -48,6 +50,52 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   );
   const [isGuideModalOpen, setIsGuideModalOpen] = useState(false);
   const [reportPreviewData, setReportPreviewData] = useState<any | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPDF = () => {
+    if (!reportPreviewData) return;
+    const element = document.getElementById("pdf-report-content");
+    if (!element) return;
+
+    setIsDownloading(true);
+
+    // Create a clone to fix standard font sizes during PDF generation
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.style.transform = "none";
+    clone.style.width = "210mm";
+    clone.style.maxWidth = "210mm";
+    clone.style.height = "auto";
+    clone.style.padding = "10mm";
+    clone.style.backgroundColor = "white";
+    clone.style.margin = "0";
+    clone.style.position = "absolute";
+    clone.style.top = "-9999px";
+    document.body.appendChild(clone);
+
+    const opt = {
+      margin: 0,
+      filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
+      image: { type: "jpeg" as "jpeg", quality: 1 },
+      html2canvas: { scale: 2, useCORS: true, windowWidth: 800 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"] },
+    };
+
+    html2pdf()
+      .set(opt)
+      .from(clone)
+      .save()
+      .then(() => {
+        document.body.removeChild(clone);
+        setIsDownloading(false);
+      })
+      .catch((err: any) => {
+        console.error(err);
+        document.body.removeChild(clone);
+        setIsDownloading(false);
+      });
+  };
+
   const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
     employees.length > 0 ? employees[0].id : null,
   );
@@ -1298,7 +1346,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                 Value
                               </span>
                               <span className="font-bold text-emerald-600">
-                                Rp {Math.round(d.nilaiKontribusi).toLocaleString("id-ID")}
+                                Rp{" "}
+                                {Math.round(d.nilaiKontribusi).toLocaleString(
+                                  "id-ID",
+                                )}
                               </span>
                             </div>
                           </div>
@@ -2250,20 +2301,38 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                           </label>
                                           <div className="flex items-center gap-2">
                                             <div className="w-14 h-9 bg-blue-50/80 border border-blue-100 rounded-lg flex items-center justify-center text-[13px] font-black text-blue-600 shadow-sm">
-                                              {data[q.id as keyof typeof data] === undefined ||
-                                              data[q.id as keyof typeof data] === "" ||
-                                              data[q.id as keyof typeof data] === 0
+                                              {data[
+                                                q.id as keyof typeof data
+                                              ] === undefined ||
+                                              data[
+                                                q.id as keyof typeof data
+                                              ] === "" ||
+                                              data[
+                                                q.id as keyof typeof data
+                                              ] === 0
                                                 ? "-"
-                                                : Number(data[q.id as keyof typeof data])}
+                                                : Number(
+                                                    data[
+                                                      q.id as keyof typeof data
+                                                    ],
+                                                  )}
                                             </div>
                                             <div className="w-36 md:w-44 flex-shrink-0 relative">
                                               <select
                                                 className={`appearance-none w-full bg-slate-50 border border-slate-200 font-bold rounded-lg pl-3 pr-16 py-2 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition-all text-[13px] cursor-pointer ${data[q.id as keyof typeof data] === undefined || data[q.id as keyof typeof data] === "" ? "text-slate-500" : "text-slate-800"}`}
                                                 value={
-                                                  data[q.id as keyof typeof data] === undefined ||
-                                                  data[q.id as keyof typeof data] === ""
+                                                  data[
+                                                    q.id as keyof typeof data
+                                                  ] === undefined ||
+                                                  data[
+                                                    q.id as keyof typeof data
+                                                  ] === ""
                                                     ? ""
-                                                    : Number(data[q.id as keyof typeof data])
+                                                    : Number(
+                                                        data[
+                                                          q.id as keyof typeof data
+                                                        ],
+                                                      )
                                                 }
                                                 onChange={(e) => {
                                                   if (e.target.value === "") {
@@ -2272,7 +2341,9 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                                     // Since the form outputs 25-base natively now, we just save it directly.
                                                     handleChange(
                                                       q.id,
-                                                      parseInt(e.target.value) || 0,
+                                                      parseInt(
+                                                        e.target.value,
+                                                      ) || 0,
                                                     );
                                                   }
                                                 }}
@@ -2532,487 +2603,641 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         )}
       </div>
 
-      {reportPreviewData && (
-        <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
-          <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto">
-            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden z-50 sticky top-0 shrink-0">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <Icon name="file-text" size={16} />
-                </div>
-                <div>
-                  <h3 className="font-extrabold text-slate-800 tracking-tight text-sm">
-                    Pratinjau Dokumen Report
-                  </h3>
-                  <p className="text-xs font-bold text-slate-400">
-                    PDF Assessment Karyawan
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2"
-                >
-                  <Icon name="download" size={14} />
-                  Cetak / Unduh PDF
-                </button>
-                <button
-                  onClick={() => setReportPreviewData(null)}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                >
-                  <Icon name="x" size={20} />
-                </button>
-              </div>
-            </div>
+      {(() => {
+        const renderCategoryRow = (cat: {
+          id: string;
+          label: string;
+          questions: string[];
+        }) => {
+          if (!reportPreviewData) return null;
+          const weightKey =
+            `weight_${cat.id}` as keyof typeof reportPreviewData;
+          const weightValue =
+            reportPreviewData[weightKey] ??
+            (cat.id === "grit" || cat.id === "prof" ? 30 : 20);
+          const avgValue =
+            reportPreviewData[cat.id as keyof typeof reportPreviewData] || 0;
+          const weightedValue = avgValue * (weightValue / 100);
 
-            <div className="flex-1 overflow-y-auto bg-slate-100 py-6 px-2 sm:p-8 flex flex-col items-center print:bg-white print:p-0 print:overflow-visible print:block hide-scrollbar">
-              {/* PDF Document Styling container */}
-              <div
-                id="pdf-report-content"
-                className="bg-white w-full max-w-[210mm] sm:min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:h-auto p-6 sm:p-12 text-slate-800 mx-auto relative font-sans print:m-0"
-              >
-                {/* Header Section */}
-                <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src="/logo.svg"
-                      alt="Hikemore Logo"
-                      className="w-16 h-16 object-contain text-slate-900"
-                      style={{ filter: "grayscale(100%) brightness(0%)" }}
-                    />
-                    <div className="font-sans">
-                      <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none">
-                        HIKEMORE
-                      </h1>
-                      <p className="text-[12px] font-bold tracking-widest text-slate-500 uppercase">
-                        HR Workspace
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right flex justify-end">
-                    <h2 className="text-3xl font-black tracking-widest text-slate-900 uppercase">
-                      RAHASIA
-                    </h2>
-                  </div>
-                </div>
+          return (
+            <React.Fragment key={cat.id}>
+              <tr className="bg-slate-100">
+                <td
+                  colSpan={5}
+                  className="py-2 px-3 border border-slate-300 font-black text-slate-800 text-[11px] uppercase tracking-wider"
+                >
+                  {cat.label} (BOBOT: {weightValue}%)
+                </td>
+              </tr>
+              {cat.questions.map((q, qIdx) => {
+                const qKey =
+                  `${cat.id}_${qIdx + 1}` as keyof typeof reportPreviewData;
+                const qScore = reportPreviewData[qKey] || 0;
+                let kategori = "-";
+                if (qScore === 25) kategori = "Skor 1 (Sangat Kurang)";
+                else if (qScore === 50) kategori = "Skor 2 (Kurang)";
+                else if (qScore === 75) kategori = "Skor 3 (Standar)";
+                else if (qScore === 100) kategori = "Skor 4 (Bagus)";
+                else if (qScore === 125) kategori = "Skor 5 (Sangat Bagus)";
 
-                <div className="mb-8">
-                  {/* Identitas Diri */}
-                  <div className="w-full bg-slate-200 px-3 py-1.5 mb-2">
-                    <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">
-                      Identitas Diri
+                return (
+                  <tr key={qIdx} className="bg-white">
+                    <td className="py-1 px-3 border border-slate-300 text-center text-xs font-bold text-slate-500">
+                      {qIdx + 1}
+                    </td>
+                    <td className="py-1 px-3 border border-slate-300 text-xs text-slate-700">
+                      {q}
+                    </td>
+                    <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-bold text-slate-600">
+                      {kategori}
+                    </td>
+                    <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-medium text-slate-500">
+                      {qScore > 0 ? `${qScore / 25} × 25` : "-"}
+                    </td>
+                    <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-900 bg-slate-50">
+                      {qScore}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-slate-50">
+                <td
+                  colSpan={3}
+                  className="py-1.5 px-3 border border-slate-300 text-right text-[10px] font-black text-slate-600 uppercase tracking-wider"
+                >
+                  TOTAL NILAI {cat.label}
+                </td>
+                <td className="py-1.5 px-3 border border-slate-300 text-center text-[9px] font-medium text-slate-600">
+                  Rata-rata ({avgValue.toFixed(1)}) <br /> × Bobot {weightValue}
+                  %
+                </td>
+                <td className="py-1.5 px-3 border border-slate-300 text-center font-black text-blue-600 text-sm bg-blue-50/50">
+                  {weightedValue.toFixed(1)}
+                </td>
+              </tr>
+            </React.Fragment>
+          );
+        };
+
+        return reportPreviewData ? (
+          <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
+            <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto">
+              <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden z-50 sticky top-0 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                    <Icon name="file-text" size={16} />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-800 tracking-tight text-sm">
+                      Pratinjau Dokumen Report
                     </h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-2 text-sm">
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">Nama</span>
-                      <span className="font-medium text-slate-900">
-                        : {reportPreviewData.name}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">
-                        Departemen
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        : {reportPreviewData.dept}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">
-                        Jabatan & Level
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        : {reportPreviewData.pos}{" "}
-                        {reportPreviewData.levelJabatan
-                          ? `(${reportPreviewData.levelJabatan})`
-                          : ""}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">
-                        Periode Evaluasi
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        :{" "}
-                        {reportPreviewData.periodeStart &&
-                        reportPreviewData.periodeEnd
-                          ? `${reportPreviewData.periodeStart} - ${reportPreviewData.periodeEnd}`
-                          : "-"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">
-                        Status Karyawan
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        : {reportPreviewData.status || "-"}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
-                      <span className="font-semibold text-slate-700">
-                        Tanggal Cetak
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        :{" "}
-                        {new Date().toLocaleDateString("id-ID", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })}
-                      </span>
-                    </div>
+                    <p className="text-xs font-bold text-slate-400">
+                      PDF Assessment Karyawan
+                    </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleDownloadPDF}
+                    disabled={isDownloading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[11px] font-black tracking-wider uppercase hover:bg-blue-700 transition-colors shadow-sm shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Icon
+                      name={isDownloading ? "refresh-cw" : "download"}
+                      size={14}
+                      className={isDownloading ? "animate-spin" : ""}
+                    />
+                    {isDownloading ? "Mengunduh..." : "Unduh PDF"}
+                  </button>
+                  <button
+                    onClick={() => setReportPreviewData(null)}
+                    className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <Icon name="x" size={20} />
+                  </button>
+                </div>
+              </div>
 
-                {/* Main Content Sections */}
-                <div className="space-y-6">
-                  <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-0 shadow-sm">
-                    <thead>
-                      <tr className="bg-slate-200">
-                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12">
-                          No
-                        </th>
-                        <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700">
-                          Area Asesmen & Performa
-                        </th>
-                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28">
-                          Kategori
-                        </th>
-                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-32">
-                          Kalkulasi
-                          <div className="text-[8px] font-medium text-slate-500 normal-case tracking-normal mt-0.5 leading-tight">
-                            (Skor × 25 Poin Base)
-                          </div>
-                        </th>
-                        <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-20">
-                          Skor
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[
-                        {
-                          id: "grit",
-                          label: "GRIT",
-                          questions: [
-                            "Kemauan belajar hal baru yang menjadi tuntutan pekerjaan",
-                            "Kemauan extra effort dalam penyelesaian hambatan pekerjaan",
-                            "Menunjukkan sikap give & take pada pekerjaan",
-                            "Fokus pada penyelesaian tugas hingga tuntas",
-                            "Ketahanan dan pantang menyerah dalam menghadapi tekanan",
-                          ],
-                        },
-                        {
-                          id: "growth",
-                          label: "GROWTH",
-                          questions: [
-                            "Memiliki skill yang berkembang seiring waktu",
-                            "Tidak mengulang kesalahan yang sama dalam pekerjaan",
-                            "Keterbukaan terhadap saran & kritik dalam bekerja",
-                            "Menunjukkan kesiapan saat diberikan tanggung jawab lebih",
-                            "Kontribusi pada peningkatan sistem kerja",
-                          ],
-                        },
-                        {
-                          id: "prof",
-                          label: "PROFESSIONALISM",
-                          questions: [
-                            "Tanggung jawab terhadap pekerjaan & komunikasi efektif",
-                            "Bekerja dengan integritas dan etika",
-                            "Kepatuhan pada prosedur dan aturan kerja",
-                            "Kemampuan berkolaborasi dalam alur kerja tim",
-                            "Kemampuan melakukan efisiensi dan produktifitas",
-                          ],
-                        },
-                        {
-                          id: "sus",
-                          label: "SUSTAINABLE",
-                          questions: [
-                            "Kemampuan adaptasi pada perubahan pola kerja",
-                            "Memiliki loyalitas bertahan di perusahaan",
-                            "Konsistensi dalam memberikan hasil kerja yang berkualitas",
-                            "Memiliki komitmen untuk tumbuh bersama tujuan perusahaan",
-                            "Kemampuan mempertahankan motivasi kerja dalam jangka panjang",
-                          ],
-                        },
-                      ].map((cat) => {
-                        const weightKey =
-                          `weight_${cat.id}` as keyof typeof reportPreviewData;
-                        const weightValue =
-                          reportPreviewData[weightKey] ??
-                          (cat.id === "grit" || cat.id === "prof" ? 30 : 20);
-                        const avgValue =
-                          reportPreviewData[
-                            cat.id as keyof typeof reportPreviewData
-                          ] || 0;
-                        const weightedValue = avgValue * (weightValue / 100);
-
-                        return (
-                          <React.Fragment key={cat.id}>
-                            <tr className="bg-slate-100">
-                              <td
-                                colSpan={5}
-                                className="py-2 px-3 border border-slate-300 font-black text-slate-800 text-[11px] uppercase tracking-wider"
-                              >
-                                {cat.label} (BOBOT: {weightValue}%)
-                              </td>
-                            </tr>
-                            {cat.questions.map((q, qIdx) => {
-                              const qKey =
-                                `${cat.id}_${qIdx + 1}` as keyof typeof reportPreviewData;
-                              const qScore = reportPreviewData[qKey] || 0;
-                              let kategori = "-";
-                              if (qScore === 25)
-                                kategori = "Skor 1 (Sangat Kurang)";
-                              else if (qScore === 50)
-                                kategori = "Skor 2 (Kurang)";
-                              else if (qScore === 75)
-                                kategori = "Skor 3 (Standar)";
-                              else if (qScore === 100)
-                                kategori = "Skor 4 (Bagus)";
-                              else if (qScore === 125)
-                                kategori = "Skor 5 (Sangat Bagus)";
-
-                              return (
-                                <tr key={qIdx} className="bg-white">
-                                  <td className="py-1 px-3 border border-slate-300 text-center text-xs font-bold text-slate-500">
-                                    {qIdx + 1}
-                                  </td>
-                                  <td className="py-1 px-3 border border-slate-300 text-xs text-slate-700">
-                                    {q}
-                                  </td>
-                                  <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-bold text-slate-600">
-                                    {kategori}
-                                  </td>
-                                  <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-medium text-slate-500">
-                                    {qScore > 0 ? `${qScore / 25} × 25` : "-"}
-                                  </td>
-                                  <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-900 bg-slate-50">
-                                    {qScore}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                            <tr className="bg-slate-50">
-                              <td
-                                colSpan={3}
-                                className="py-1.5 px-3 border border-slate-300 text-right text-[10px] font-black text-slate-600 uppercase tracking-wider"
-                              >
-                                TOTAL NILAI {cat.label}
-                              </td>
-                              <td className="py-1.5 px-3 border border-slate-300 text-center text-[9px] font-medium text-slate-600">
-                                Rata-rata ({avgValue.toFixed(1)}) <br /> × Bobot{" "}
-                                {weightValue}%
-                              </td>
-                              <td className="py-1.5 px-3 border border-slate-300 text-center font-black text-blue-600 text-sm bg-blue-50/50">
-                                {weightedValue.toFixed(1)}
-                              </td>
-                            </tr>
-                          </React.Fragment>
-                        );
-                      })}
-
-                      <tr className="bg-slate-50">
-                        <td
-                          colSpan={5}
-                          className="py-1.5 px-3 border border-slate-300 text-xs font-bold text-rose-800 uppercase tracking-widest"
-                        >
-                          Pelanggaran Kedisiplinan (-)
-                        </td>
-                      </tr>
-                      {[
-                        {
-                          label: "Datang Lambat/Pulang Cepat",
-                          key: "telat",
-                          mul: 1,
-                        },
-                        {
-                          label: "Sakit/Ijin",
-                          key: "ijin",
-                          mul: 1,
-                        },
-                        {
-                          label: "Mangkir/Alfa",
-                          key: "mangkir",
-                          mul: 3,
-                        },
-                        {
-                          label: "Surat Peringatan",
-                          key: "sp",
-                          mul: 5,
-                        },
-                      ].map((item, idx) => {
-                        const val =
-                          reportPreviewData[
-                            item.key as keyof typeof reportPreviewData
-                          ] || 0;
-                        const dec = val * item.mul;
-                        return (
-                          <tr
-                            key={idx}
-                            className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
-                          >
-                            <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-500">
-                              -
-                            </td>
-                            <td className="py-1 px-3 border border-slate-300 text-xs text-slate-700">
-                              {item.label}
-                            </td>
-                            <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-bold text-slate-600 bg-slate-100/50">
-                              Kasus: {val}
-                            </td>
-                            <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-medium text-slate-500">
-                              {val > 0 ? `${val} × (-${item.mul})` : `-${item.mul} / kali`}
-                            </td>
-                            <td className={`py-1 px-3 border border-slate-300 text-center font-black bg-slate-100 ${dec > 0 ? "text-rose-600" : "text-slate-400"}`}>
-                              {dec > 0 ? `-${dec}` : "0"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-
-                      <tr className="bg-slate-50">
-                        <td
-                          colSpan={4}
-                          className="py-1.5 px-3 border border-slate-300 text-right text-[10px] font-black uppercase tracking-wider text-slate-600"
-                        >
-                          Total Skor Kalkulasi
-                        </td>
-                        <td className="py-1.5 px-3 border border-slate-300 text-center font-black text-sm text-slate-900 bg-slate-50/50">
-                          {reportPreviewData.nilaiAkhir}
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-
-                  {/* Analisis Nilai Kontribusi */}
-                  <div className="w-full mt-6 pt-6 border-t-2 border-slate-900 border-dashed break-inside-avoid">
-                    <div className="bg-slate-50 border border-slate-300 rounded-xl p-5 shadow-sm">
-                      <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
-                        <Icon name="bar-chart-2" size={16} className="text-blue-600" />
-                        Analisis Evaluasi Kinerja (Executive Summary)
-                      </h3>
-
-                      <div className="space-y-4">
-                        <p className="text-xs text-slate-600 leading-relaxed text-justify">
-                          Nilai Kontribusi merupakan estimasi ekuivalensi moneter dari output dan performa aktual yang diberikan karyawan kepada perusahaan. 
-                          Kalkulasi efisiensi kinerja menggunakan rasio <em>Value-to-Cost (VCR)</em> untuk mengkomparasi nilai kontribusi tersebut dengan beban gaji aktual.
-                        </p>
-
-                        {/* Kalkulasi Box */}
-                        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm text-xs text-slate-700">
-                          <h4 className="font-bold text-slate-800 mb-3 uppercase tracking-wider text-[11px]">Parameter Kalkulasi:</h4>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-3 font-mono text-[11px]">
-                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                              <span className="text-slate-500">1. Gaji Aktual Karyawan</span>
-                              <span className="font-bold text-slate-800">Rp {(reportPreviewData.gaji || 0).toLocaleString("id-ID")}</span>
-                            </div>
-                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                              <span className="text-slate-500">2. Skor Kinerja Akhir</span>
-                              <span className="font-bold text-blue-600">{reportPreviewData.nilaiAkhir} Point</span>
-                            </div>
-                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                              <span className="text-slate-500">3. Multiplier Jabatan</span>
-                              <span className="font-bold text-slate-800">{getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)}x ({reportPreviewData.levelJabatan})</span>
-                            </div>
-                            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                              <span className="text-slate-500">4. Nilai BEP Kinerja</span>
-                              <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">75 Point</span>
-                            </div>
-                          </div>
-                          <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col gap-3 font-mono">
-                            {/* Rumus VCR */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
-                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Ratio VCR:</span>
-                              <span className="font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded border border-blue-100 text-[11px]">
-                                (Skor {reportPreviewData.nilaiAkhir} ÷ 75) × {getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)}
-                              </span>
-                              <span className="font-sans font-bold text-slate-500 hidden sm:block">=</span>
-                              <span className={`font-black px-3 py-1.5 rounded border text-[12px] ${(reportPreviewData.nilaiKontribusi || 0) < (reportPreviewData.gaji || 0) ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
-                                {((reportPreviewData.nilaiAkhir / 75) * getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)).toFixed(2)}x Ratio
-                              </span>
-                            </div>
-
-                            {/* Konversi Value */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
-                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Nilai Kontribusi:</span>
-                              <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
-                                VCR {((reportPreviewData.nilaiAkhir / 75) * getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)).toFixed(2)} × Rp {(reportPreviewData.gaji || 0).toLocaleString("id-ID")}
-                              </span>
-                              <span className="font-sans font-bold text-slate-500 hidden sm:block">=</span>
-                              <span className="font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-100 text-[13px]">
-                                Rp {Math.round(reportPreviewData.nilaiKontribusi || 0).toLocaleString("id-ID")}
-                              </span>
-                            </div>
-
-                            {/* Penilaian Output */}
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
-                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Penilaian Output:</span>
-                              <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
-                                Rp {Math.round(reportPreviewData.nilaiKontribusi || 0).toLocaleString("id-ID")} - Rp {(reportPreviewData.gaji || 0).toLocaleString("id-ID")}
-                              </span>
-                              <span className="font-sans font-bold text-slate-500 hidden sm:block">=</span>
-                              {(() => {
-                                const diff = (reportPreviewData.nilaiKontribusi || 0) - (reportPreviewData.gaji || 0);
-                                const isMinus = diff < 0;
-                                const isZero = diff === 0;
-                                return (
-                                  <span className={`font-black px-3 py-1.5 rounded border text-[13px] ${isMinus ? 'text-rose-600 bg-rose-50 border-rose-100' : isZero ? 'text-slate-600 bg-slate-50 border-slate-200' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
-                                    {isMinus ? '-' : (isZero ? '' : '+')}Rp {Math.abs(Math.round(diff)).toLocaleString("id-ID")}
-                                  </span>
-                                );
-                              })()}
-                            </div>
-                          </div>
-                        </div>
-
-                        <p className="text-xs text-slate-600 leading-relaxed text-justify mt-4">
-                          {(() => {
-                            const diff = (reportPreviewData.nilaiKontribusi || 0) - (reportPreviewData.gaji || 0);
-                            const isMinus = diff < 0;
-                            const isZero = diff === 0;
-                            const vcr = ((reportPreviewData.nilaiKontribusi || 0) / (reportPreviewData.gaji || 1)).toFixed(2);
-                            
-                            const effText = isMinus ? `defisit efisiensi kinerja sebesar - Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}` : isZero ? `performa seimbang (break-even)` : `surplus efisiensi kinerja sebesar + Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}`;
-
-                            return (
-                              <>
-                                <strong>Kesimpulan:</strong> Berdasarkan metrik produktivitas aktual, <strong>{reportPreviewData.name}</strong> menghasilkan {effText}. Dengan Ratio VCR {vcr}x, performa karyawan terklasifikasi <strong>{reportPreviewData.classification}</strong>. Tindakan direkomendasikan: <strong>{reportPreviewData.rekomendasi}</strong>.
-                              </>
-                            );
-                          })()}
+              <div className="flex-1 overflow-y-auto bg-slate-100 py-6 px-2 sm:p-8 flex flex-col items-center print:bg-white print:p-0 print:overflow-visible print:block hide-scrollbar">
+                {/* PDF Document Styling container */}
+                <div
+                  id="pdf-report-content"
+                  className="bg-white w-full max-w-[210mm] sm:min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:h-auto p-6 sm:p-12 text-slate-800 mx-auto relative font-sans print:m-0"
+                >
+                  {/* Header Section */}
+                  <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src="/logo.svg"
+                        alt="Hikemore Logo"
+                        className="w-16 h-16 object-contain text-slate-900"
+                        style={{ filter: "grayscale(100%) brightness(0%)" }}
+                      />
+                      <div className="font-sans">
+                        <h1 className="text-2xl font-black tracking-tight text-slate-900 leading-none">
+                          HIKEMORE
+                        </h1>
+                        <p className="text-[12px] font-bold tracking-widest text-slate-500 uppercase">
+                          HR Workspace
                         </p>
                       </div>
                     </div>
+                    <div className="text-right flex justify-end">
+                      <h2 className="text-3xl font-black tracking-widest text-slate-900 uppercase">
+                        RAHASIA
+                      </h2>
+                    </div>
                   </div>
-                </div>
 
-                {/* Footer / Signature */}
-                <div className="mt-8 pt-4 break-inside-avoid">
-                  <table className="w-full max-w-xl mx-auto border-collapse border border-slate-900 text-center">
-                    <thead>
-                      <tr className="bg-slate-100">
-                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">Kepala Divisi</th>
-                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">HRD</th>
-                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">Direktur</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="border border-slate-900 h-24 sm:h-32"></td>
-                        <td className="border border-slate-900 h-24 sm:h-32"></td>
-                        <td className="border border-slate-900 h-24 sm:h-32"></td>
-                      </tr>
-                    </tbody>
-                  </table>
+                  <div className="mb-8">
+                    {/* Identitas Diri */}
+                    <div className="w-full bg-slate-200 px-3 py-1.5 mb-2">
+                      <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase">
+                        Identitas Diri
+                      </h3>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 px-2 text-sm">
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Nama
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          : {reportPreviewData.name}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Departemen
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          : {reportPreviewData.dept}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Jabatan & Level
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          : {reportPreviewData.pos}{" "}
+                          {reportPreviewData.levelJabatan
+                            ? `(${reportPreviewData.levelJabatan})`
+                            : ""}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Periode Evaluasi
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          :{" "}
+                          {reportPreviewData.periodeStart &&
+                          reportPreviewData.periodeEnd
+                            ? `${reportPreviewData.periodeStart} - ${reportPreviewData.periodeEnd}`
+                            : "-"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Status Karyawan
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          : {reportPreviewData.status || "-"}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-[120px_1fr] border-b border-slate-300 py-1">
+                        <span className="font-semibold text-slate-700">
+                          Tanggal Cetak
+                        </span>
+                        <span className="font-medium text-slate-900">
+                          :{" "}
+                          {new Date().toLocaleDateString("id-ID", {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          })}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Main Content Sections */}
+                  <div className="space-y-6">
+                    <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-0 shadow-sm">
+                      <thead>
+                        <tr className="bg-slate-200">
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12">
+                            No
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700">
+                            Area Asesmen & Performa
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28">
+                            Kategori
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-32">
+                            Kalkulasi
+                            <div className="text-[8px] font-medium text-slate-500 normal-case tracking-normal mt-0.5 leading-tight">
+                              (Skor × 25 Poin Base)
+                            </div>
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-20">
+                            Skor
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          {
+                            id: "grit",
+                            label: "GRIT",
+                            questions: [
+                              "Kemauan belajar hal baru yang menjadi tuntutan pekerjaan",
+                              "Kemauan extra effort dalam penyelesaian hambatan pekerjaan",
+                              "Menunjukkan sikap give & take pada pekerjaan",
+                              "Fokus pada penyelesaian tugas hingga tuntas",
+                              "Ketahanan dan pantang menyerah dalam menghadapi tekanan",
+                            ],
+                          },
+                          {
+                            id: "growth",
+                            label: "GROWTH",
+                            questions: [
+                              "Memiliki skill yang berkembang seiring waktu",
+                              "Tidak mengulang kesalahan yang sama dalam pekerjaan",
+                              "Keterbukaan terhadap saran & kritik dalam bekerja",
+                              "Menunjukkan kesiapan saat diberikan tanggung jawab lebih",
+                              "Kontribusi pada peningkatan sistem kerja",
+                            ],
+                          },
+                          {
+                            id: "prof",
+                            label: "PROFESSIONALISM",
+                            questions: [
+                              "Tanggung jawab terhadap pekerjaan & komunikasi efektif",
+                              "Bekerja dengan integritas dan etika",
+                              "Kepatuhan pada prosedur dan aturan kerja",
+                              "Kemampuan berkolaborasi dalam alur kerja tim",
+                              "Kemampuan melakukan efisiensi dan produktifitas",
+                            ],
+                          },
+                        ].map(renderCategoryRow)}
+                      </tbody>
+                    </table>
+
+                    <div className="html2pdf__page-break w-full h-[10px]"></div>
+
+                    <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
+                      <thead>
+                        <tr className="bg-slate-200">
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12 text-transparent select-none bg-slate-200/50">
+                            NO
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700 bg-slate-200/50">
+                            Area Asesmen (Lanjutan)
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28 text-transparent select-none bg-slate-200/50">
+                            KAT
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-32 text-transparent select-none bg-slate-200/50">
+                            KAL
+                          </th>
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-20 text-transparent select-none bg-slate-200/50">
+                            SKR
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          {
+                            id: "sus",
+                            label: "SUSTAINABLE",
+                            questions: [
+                              "Kemampuan adaptasi pada perubahan pola kerja",
+                              "Memiliki loyalitas bertahan di perusahaan",
+                              "Konsistensi dalam memberikan hasil kerja yang berkualitas",
+                              "Memiliki komitmen untuk tumbuh bersama tujuan perusahaan",
+                              "Kemampuan mempertahankan motivasi kerja dalam jangka panjang",
+                            ],
+                          },
+                        ].map(renderCategoryRow)}
+
+                        <tr className="bg-slate-50">
+                          <td
+                            colSpan={5}
+                            className="py-1.5 px-3 border border-slate-300 text-xs font-bold text-rose-800 uppercase tracking-widest"
+                          >
+                            Pelanggaran Kedisiplinan (-)
+                          </td>
+                        </tr>
+                        {[
+                          {
+                            label: "Datang Lambat/Pulang Cepat",
+                            key: "telat",
+                            mul: 1,
+                          },
+                          {
+                            label: "Sakit/Ijin",
+                            key: "ijin",
+                            mul: 1,
+                          },
+                          {
+                            label: "Mangkir/Alfa",
+                            key: "mangkir",
+                            mul: 3,
+                          },
+                          {
+                            label: "Surat Peringatan",
+                            key: "sp",
+                            mul: 5,
+                          },
+                        ].map((item, idx) => {
+                          const val =
+                            reportPreviewData[
+                              item.key as keyof typeof reportPreviewData
+                            ] || 0;
+                          const dec = val * item.mul;
+                          return (
+                            <tr
+                              key={idx}
+                              className={`${idx % 2 === 0 ? "bg-white" : "bg-slate-50"}`}
+                            >
+                              <td className="py-1 px-3 border border-slate-300 text-center font-bold text-slate-500">
+                                -
+                              </td>
+                              <td className="py-1 px-3 border border-slate-300 text-xs text-slate-700">
+                                {item.label}
+                              </td>
+                              <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-bold text-slate-600 bg-slate-100/50">
+                                Kasus: {val}
+                              </td>
+                              <td className="py-1 px-3 border border-slate-300 text-center text-[10px] font-medium text-slate-500">
+                                {val > 0
+                                  ? `${val} × (-${item.mul})`
+                                  : `-${item.mul} / kali`}
+                              </td>
+                              <td
+                                className={`py-1 px-3 border border-slate-300 text-center font-black bg-slate-100 ${dec > 0 ? "text-rose-600" : "text-slate-400"}`}
+                              >
+                                {dec > 0 ? `-${dec}` : "0"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+
+                        <tr className="bg-slate-50">
+                          <td
+                            colSpan={4}
+                            className="py-1.5 px-3 border border-slate-300 text-right text-[10px] font-black uppercase tracking-wider text-slate-600"
+                          >
+                            Total Skor Kalkulasi
+                          </td>
+                          <td className="py-1.5 px-3 border border-slate-300 text-center font-black text-sm text-slate-900 bg-slate-50/50">
+                            {reportPreviewData.nilaiAkhir}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+
+                    {/* Analisis Nilai Kontribusi */}
+                    <div className="w-full mt-6 pt-6 border-t-2 border-slate-900 border-dashed break-inside-avoid print:border-none print:pt-0 print:mt-0">
+                      <div className="bg-slate-50 border border-slate-300 rounded-xl p-5 shadow-sm">
+                        <h3 className="font-extrabold text-sm tracking-wide text-slate-800 uppercase border-b border-slate-200 pb-3 mb-4 flex items-center gap-2">
+                          <Icon
+                            name="bar-chart-2"
+                            size={16}
+                            className="text-blue-600"
+                          />
+                          Analisis Evaluasi Kinerja (Executive Summary)
+                        </h3>
+
+                        <div className="space-y-4">
+                          <p className="text-xs text-slate-600 leading-relaxed text-justify">
+                            Nilai Kontribusi merupakan estimasi ekuivalensi
+                            moneter dari output dan performa aktual yang
+                            diberikan karyawan kepada perusahaan. Kalkulasi
+                            efisiensi kinerja menggunakan rasio{" "}
+                            <em>Value-to-Cost (VCR)</em> untuk mengkomparasi
+                            nilai kontribusi tersebut dengan beban gaji aktual.
+                          </p>
+
+                          {/* Kalkulasi Box */}
+                          <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm text-xs text-slate-700">
+                            <h4 className="font-bold text-slate-800 mb-3 uppercase tracking-wider text-[11px]">
+                              Parameter Kalkulasi:
+                            </h4>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 gap-y-3 font-mono text-[11px]">
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                <span className="text-slate-500">
+                                  1. Gaji Aktual Karyawan
+                                </span>
+                                <span className="font-bold text-slate-800">
+                                  Rp{" "}
+                                  {(reportPreviewData.gaji || 0).toLocaleString(
+                                    "id-ID",
+                                  )}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                <span className="text-slate-500">
+                                  2. Skor Kinerja Akhir
+                                </span>
+                                <span className="font-bold text-blue-600">
+                                  {reportPreviewData.nilaiAkhir} Point
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                <span className="text-slate-500">
+                                  3. Multiplier Jabatan
+                                </span>
+                                <span className="font-bold text-slate-800">
+                                  {getMultiplier(
+                                    reportPreviewData.levelJabatan,
+                                    reportPreviewData.customMultiplier,
+                                  )}
+                                  x ({reportPreviewData.levelJabatan})
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                                <span className="text-slate-500">
+                                  4. Nilai BEP Kinerja
+                                </span>
+                                <span className="font-medium bg-slate-100 px-1.5 py-0.5 rounded text-slate-700">
+                                  75 Point
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col gap-3 font-mono">
+                              {/* Rumus VCR */}
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                                <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">
+                                  Ratio VCR:
+                                </span>
+                                <span className="font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded border border-blue-100 text-[11px]">
+                                  (Skor {reportPreviewData.nilaiAkhir} ÷ 75) ×{" "}
+                                  {getMultiplier(
+                                    reportPreviewData.levelJabatan,
+                                    reportPreviewData.customMultiplier,
+                                  )}
+                                </span>
+                                <span className="font-sans font-bold text-slate-500 hidden sm:block">
+                                  =
+                                </span>
+                                <span
+                                  className={`font-black px-3 py-1.5 rounded border text-[12px] ${(reportPreviewData.nilaiKontribusi || 0) < (reportPreviewData.gaji || 0) ? "text-amber-600 bg-amber-50 border-amber-100" : "text-emerald-600 bg-emerald-50 border-emerald-100"}`}
+                                >
+                                  {(
+                                    (reportPreviewData.nilaiAkhir / 75) *
+                                    getMultiplier(
+                                      reportPreviewData.levelJabatan,
+                                      reportPreviewData.customMultiplier,
+                                    )
+                                  ).toFixed(2)}
+                                  x Ratio
+                                </span>
+                              </div>
+
+                              {/* Konversi Value */}
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                                <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">
+                                  Nilai Kontribusi:
+                                </span>
+                                <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
+                                  VCR{" "}
+                                  {(
+                                    (reportPreviewData.nilaiAkhir / 75) *
+                                    getMultiplier(
+                                      reportPreviewData.levelJabatan,
+                                      reportPreviewData.customMultiplier,
+                                    )
+                                  ).toFixed(2)}{" "}
+                                  × Rp{" "}
+                                  {(reportPreviewData.gaji || 0).toLocaleString(
+                                    "id-ID",
+                                  )}
+                                </span>
+                                <span className="font-sans font-bold text-slate-500 hidden sm:block">
+                                  =
+                                </span>
+                                <span className="font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-100 text-[13px]">
+                                  Rp{" "}
+                                  {Math.round(
+                                    reportPreviewData.nilaiKontribusi || 0,
+                                  ).toLocaleString("id-ID")}
+                                </span>
+                              </div>
+
+                              {/* Penilaian Output */}
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                                <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">
+                                  Penilaian Output:
+                                </span>
+                                <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
+                                  Rp{" "}
+                                  {Math.round(
+                                    reportPreviewData.nilaiKontribusi || 0,
+                                  ).toLocaleString("id-ID")}{" "}
+                                  - Rp{" "}
+                                  {(reportPreviewData.gaji || 0).toLocaleString(
+                                    "id-ID",
+                                  )}
+                                </span>
+                                <span className="font-sans font-bold text-slate-500 hidden sm:block">
+                                  =
+                                </span>
+                                {(() => {
+                                  const diff =
+                                    (reportPreviewData.nilaiKontribusi || 0) -
+                                    (reportPreviewData.gaji || 0);
+                                  const isMinus = diff < 0;
+                                  const isZero = diff === 0;
+                                  return (
+                                    <span
+                                      className={`font-black px-3 py-1.5 rounded border text-[13px] ${isMinus ? "text-rose-600 bg-rose-50 border-rose-100" : isZero ? "text-slate-600 bg-slate-50 border-slate-200" : "text-emerald-600 bg-emerald-50 border-emerald-100"}`}
+                                    >
+                                      {isMinus ? "-" : isZero ? "" : "+"}Rp{" "}
+                                      {Math.abs(
+                                        Math.round(diff),
+                                      ).toLocaleString("id-ID")}
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-slate-600 leading-relaxed text-justify mt-4">
+                            {(() => {
+                              const diff =
+                                (reportPreviewData.nilaiKontribusi || 0) -
+                                (reportPreviewData.gaji || 0);
+                              const isMinus = diff < 0;
+                              const isZero = diff === 0;
+                              const vcr = (
+                                (reportPreviewData.nilaiKontribusi || 0) /
+                                (reportPreviewData.gaji || 1)
+                              ).toFixed(2);
+
+                              const effText = isMinus
+                                ? `defisit efisiensi kinerja sebesar - Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}`
+                                : isZero
+                                  ? `performa seimbang (break-even)`
+                                  : `surplus efisiensi kinerja sebesar + Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}`;
+
+                              return (
+                                <>
+                                  <strong>Kesimpulan:</strong> Berdasarkan
+                                  metrik produktivitas aktual,{" "}
+                                  <strong>{reportPreviewData.name}</strong>{" "}
+                                  menghasilkan {effText}. Dengan Ratio VCR {vcr}
+                                  x, performa karyawan terklasifikasi{" "}
+                                  <strong>
+                                    {reportPreviewData.classification}
+                                  </strong>
+                                  . Tindakan direkomendasikan:{" "}
+                                  <strong>
+                                    {reportPreviewData.rekomendasi}
+                                  </strong>
+                                  .
+                                </>
+                              );
+                            })()}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer / Signature */}
+                  <div className="mt-8 pt-4 break-inside-avoid">
+                    <table className="w-full max-w-xl mx-auto border-collapse border border-slate-900 text-center">
+                      <thead>
+                        <tr className="bg-slate-100">
+                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                            Kepala Divisi
+                          </th>
+                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                            HRD
+                          </th>
+                          <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">
+                            Direktur
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-slate-900 h-24 sm:h-32"></td>
+                          <td className="border border-slate-900 h-24 sm:h-32"></td>
+                          <td className="border border-slate-900 h-24 sm:h-32"></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        ) : null;
+      })()}
 
       {isGuideModalOpen && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
