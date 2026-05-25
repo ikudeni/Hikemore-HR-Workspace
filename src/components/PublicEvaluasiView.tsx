@@ -219,7 +219,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-8">
-        <div className="max-w-6xl mx-auto flex flex-col gap-6 pb-24">
+        <div className="max-w-6xl mx-auto flex flex-col gap-6 pb-8">
           
           {error && (
             <div className="bg-rose-50 text-rose-700 p-4 rounded-xl border border-rose-200 text-sm font-bold flex items-center gap-2">
@@ -335,8 +335,8 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                  ])}
               </div>
 
-               {/* Fixed Save Button Panel */}
-              <div className="fixed bottom-0 left-0 right-0 p-4 bg-white/80 backdrop-blur-md border-t border-slate-200/50 flex justify-center z-[100] drop-shadow-2xl">
+               {/* Save Button */}
+              <div className="flex justify-center mt-4">
                  <button disabled={isSaving} onClick={handleSave} className="w-full sm:w-auto min-w-[300px] px-12 py-4 bg-blue-600 hover:bg-blue-700 hover:scale-[1.02] active:scale-95 text-white rounded-2xl font-black text-lg shadow-[0_4px_12px_rgba(37,99,235,0.3)] transition-all flex items-center justify-center gap-3">
                    {isSaving ? <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Icon name="save" size={20} />}
                    {isSaving ? 'Menyimpan...' : 'Simpan Penilaian Evaluator'}
