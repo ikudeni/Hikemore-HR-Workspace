@@ -693,8 +693,8 @@ export default function App() {
           }}
         />
       ) : (
-        <div className="flex h-screen w-full bg-white font-sans overflow-hidden relative">
-      <aside className={`bg-white flex flex-col h-full shrink-0 overflow-y-auto hide-scrollbar pb-6 z-50 transition-all duration-300 fixed md:relative ${isSidebarOpen ? 'w-72 md:w-72 translate-x-0' : 'w-72 md:w-24 -translate-x-full md:translate-x-0'}`}>
+        <div className="flex h-screen w-full bg-white font-sans overflow-hidden relative print:h-auto print:overflow-visible">
+      <aside className={`bg-white flex flex-col h-full shrink-0 overflow-y-auto hide-scrollbar pb-6 z-50 transition-all duration-300 fixed md:relative print:hidden ${isSidebarOpen ? 'w-72 md:w-72 translate-x-0' : 'w-72 md:w-24 -translate-x-full md:translate-x-0'}`}>
         <div className={`flex items-center gap-3 py-8 mb-4 relative ${isSidebarOpen ? 'px-8' : 'px-8 md:px-0 md:justify-center min-h-[100px]'}`}>
            <div className={`shrink-0 bg-black flex items-center justify-center rounded-2xl ${isSidebarOpen ? 'w-12 h-12 p-2.5' : 'w-12 h-12 p-2.5 md:w-14 md:h-14 md:p-3'}`}>
               <img src="/logo.svg" alt="Hikemore icon" className="w-full h-full object-contain" />
@@ -792,8 +792,8 @@ export default function App() {
         />
       )}
 
-      <main className="flex-1 flex flex-col h-full overflow-hidden relative bg-slate-50 md:rounded-tl-[2.2rem] md:rounded-bl-[2.2rem] shadow-[inset_1px_0_0_rgba(255,255,255,1),-10px_0_40px_rgba(0,0,0,0.03)] border-l border-slate-200/60 dark:shadow-none dark:border-slate-800">
-        <header className="h-16 md:h-24 px-6 md:px-10 flex items-center justify-between shrink-0 bg-transparent relative z-[1000] border-b border-slate-100 md:border-b-0 shrink-0">
+      <main className="flex-1 flex flex-col h-full print:h-auto overflow-hidden print:overflow-visible relative bg-slate-50 print:bg-white md:rounded-tl-[2.2rem] md:rounded-bl-[2.2rem] shadow-[inset_1px_0_0_rgba(255,255,255,1),-10px_0_40px_rgba(0,0,0,0.03)] border-l border-slate-200/60 print:shadow-none print:border-none print:rounded-none dark:shadow-none dark:border-slate-800">
+        <header className="h-16 md:h-24 px-6 md:px-10 flex items-center justify-between shrink-0 bg-transparent relative z-[1000] border-b border-slate-100 md:border-b-0 print:hidden">
           <div className="flex items-center gap-3">
             <button 
               className="md:hidden flex items-center justify-center w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-200 text-slate-700"
@@ -811,7 +811,7 @@ export default function App() {
             </div>
           </div>
         </header>
-        <div className="flex-1 px-4 md:px-8 pb-0 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 px-4 md:px-8 pb-0 flex flex-col min-h-0 overflow-hidden print:h-auto print:overflow-visible print:px-0">
           {renderContent()}
         </div>
       </main>

@@ -185,24 +185,9 @@
       size: A4 portrait;
       margin: 10mm;
     }
-    body * {
-      visibility: hidden;
-    }
     html, body {
       font-size: 12px !important;
-    }
-    #pdf-report-content, #pdf-report-content * {
-      visibility: visible;
-    }
-    #pdf-report-content {
-      position: absolute;
-      left: 0;
-      top: 0;
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      border: none !important;
-      box-shadow: none !important;
+      background: white !important;
     }
   }
 }

@@ -2640,8 +2640,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         };
 
         return reportPreviewData ? (
-          <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
-            <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto">
+          <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-auto print:left-0 print:top-0 print:w-full print:h-auto print:bg-white print:p-0 print:block print:overflow-visible">
+            <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:block print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto print:my-0">
               <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden z-50 sticky top-0 shrink-0">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
@@ -2853,20 +2853,20 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     <table className="w-full text-sm border-collapse border-y-[2px] border-slate-400 mt-6 shadow-sm">
                       <thead>
                         <tr className="bg-slate-200">
-                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12 text-transparent select-none bg-slate-200/50">
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-12">
                             NO
                           </th>
-                          <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700 bg-slate-200/50">
-                            Area Asesmen (Lanjutan)
+                          <th className="py-2 px-3 border border-slate-300 text-left text-[10px] uppercase font-extrabold tracking-widest text-slate-700">
+                            AREA ASESMEN (LANJUTAN)
                           </th>
-                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28 text-transparent select-none bg-slate-200/50">
-                            KAT
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-28">
+                            KATEGORI
                           </th>
-                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-32 text-transparent select-none bg-slate-200/50">
-                            KAL
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-32">
+                            KALKULASI
                           </th>
-                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-20 text-transparent select-none bg-slate-200/50">
-                            SKR
+                          <th className="py-2 px-3 border border-slate-300 text-center text-[10px] uppercase font-extrabold tracking-widest text-slate-700 w-20">
+                            SKOR
                           </th>
                         </tr>
                       </thead>
