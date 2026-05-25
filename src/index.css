@@ -181,8 +181,15 @@
 
 @layer base {
   @media print {
+    @page {
+      size: A4 portrait;
+      margin: 10mm;
+    }
     body * {
       visibility: hidden;
+    }
+    html, body {
+      font-size: 12px !important;
     }
     #pdf-report-content, #pdf-report-content * {
       visibility: visible;

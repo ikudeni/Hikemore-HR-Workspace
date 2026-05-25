@@ -1290,7 +1290,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                 Gaji
                               </span>
                               <span className="font-bold text-slate-900">
-                                Rp {(d.gaji / 1000000).toFixed(1)}Jt
+                                Rp {d.gaji.toLocaleString("id-ID")}
                               </span>
                             </div>
                             <div className="flex justify-between items-center w-full gap-2">
@@ -1298,7 +1298,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                 Value
                               </span>
                               <span className="font-bold text-emerald-600">
-                                Rp {(d.nilaiKontribusi / 1000000).toFixed(1)}Jt
+                                Rp {Math.round(d.nilaiKontribusi).toLocaleString("id-ID")}
                               </span>
                             </div>
                           </div>
@@ -2533,9 +2533,9 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
       </div>
 
       {reportPreviewData && (
-        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fadeIn overflow-y-auto">
-          <div className="bg-white shadow-2xl w-full max-w-[800px] flex flex-col my-auto animate-scaleIn rounded-xl">
-            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden rounded-t-xl sticky top-0 z-50">
+        <div className="fixed inset-0 z-[2000] flex justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4 animate-fadeIn overflow-hidden print:absolute print:inset-0 print:bg-white print:p-0 print:block print:overflow-visible">
+          <div className="bg-white sm:shadow-2xl w-full max-w-[850px] flex flex-col h-full sm:max-h-[95vh] animate-scaleIn sm:rounded-xl overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none print:h-auto my-auto">
+            <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50/50 print:hidden z-50 sticky top-0 shrink-0">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
                   <Icon name="file-text" size={16} />
@@ -2566,11 +2566,11 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 overflow-auto bg-slate-100 p-8 flex justify-center print:bg-white print:p-0 print:overflow-visible my-[max(0px,auto)] min-h-[calc(100vh-100px)] hide-scrollbar">
+            <div className="flex-1 overflow-y-auto bg-slate-100 py-6 px-2 sm:p-8 flex flex-col items-center print:bg-white print:p-0 print:overflow-visible print:block hide-scrollbar">
               {/* PDF Document Styling container */}
               <div
                 id="pdf-report-content"
-                className="bg-white w-[210mm] min-h-[297mm] shadow-md border border-slate-200 print:shadow-none print:border-none print:w-full print:h-auto p-12 text-slate-800 mx-auto relative font-sans break-inside-avoid"
+                className="bg-white w-full max-w-[210mm] sm:min-h-[297mm] shadow-[0_0_15px_rgba(0,0,0,0.1)] border border-slate-200 print:shadow-none print:border-none print:max-w-none print:w-full print:h-auto p-6 sm:p-12 text-slate-800 mx-auto relative font-sans print:m-0"
               >
                 {/* Header Section */}
                 <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-900">
@@ -2887,40 +2887,6 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     </tbody>
                   </table>
 
-                  <div className="flex bg-slate-100 border-x border-b border-t-2 border-slate-300 mt-6">
-                    <div className="flex-1 p-2 px-3">
-                      <p className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
-                        Klasifikasi Kinerja
-                      </p>
-                      <p className="text-[11px] text-slate-600 font-medium">
-                        Berdasarkan kalkulasi matriks evaluasi
-                      </p>
-                    </div>
-                    <div className="bg-white border-l border-slate-300 p-2 flex items-center justify-center min-w-[200px]">
-                      <p
-                        className={`text-sm font-bold uppercase text-center leading-tight ${reportPreviewData.classification.startsWith("Sangat Bagus") ? "text-emerald-600" : reportPreviewData.classification.startsWith("Bagus") ? "text-blue-600" : reportPreviewData.classification.startsWith("Standar") ? "text-slate-700" : reportPreviewData.classification.startsWith("Kurang") && !reportPreviewData.classification.startsWith("Sangat") ? "text-amber-600" : reportPreviewData.classification.startsWith("Sangat Kurang") ? "text-rose-600" : "text-slate-800"}`}
-                      >
-                        {reportPreviewData.classification}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex bg-slate-100 border-x border-b border-slate-300 mt-[-24px]">
-                    <div className="flex-1 p-2 px-3">
-                      <p className="font-extrabold text-slate-800 text-sm uppercase tracking-wide">
-                        Tindakan / Rekomendasi
-                      </p>
-                      <p className="text-[11px] text-slate-600 font-medium">
-                        Saran tindak lanjut
-                      </p>
-                    </div>
-                    <div className="bg-white border-l border-slate-300 p-2 flex items-center justify-center min-w-[200px] text-center px-4">
-                      <p className="text-sm font-bold text-slate-800 leading-tight">
-                        {reportPreviewData.rekomendasi}
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Analisis Nilai Kontribusi */}
                   <div className="w-full mt-6 pt-6 border-t-2 border-slate-900 border-dashed break-inside-avoid">
                     <div className="bg-slate-50 border border-slate-300 rounded-xl p-5 shadow-sm">
@@ -2958,8 +2924,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                           </div>
                           <div className="mt-4 pt-4 border-t border-slate-200 flex flex-col gap-3 font-mono">
                             {/* Rumus VCR */}
-                            <div className="text-center flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
-                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[85px] text-left sm:text-right">Ratio VCR:</span>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Ratio VCR:</span>
                               <span className="font-bold text-blue-700 bg-blue-50 px-3 py-1.5 rounded border border-blue-100 text-[11px]">
                                 (Skor {reportPreviewData.nilaiAkhir} ÷ 75) × {getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)}
                               </span>
@@ -2970,65 +2936,77 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                             </div>
 
                             {/* Konversi Value */}
-                            <div className="text-center flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2">
-                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[85px] text-left sm:text-right">Nilai Kontribusi:</span>
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Nilai Kontribusi:</span>
                               <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
-                                VCR {((reportPreviewData.nilaiAkhir / 75) * getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)).toFixed(2)} × Gaji Aktual
+                                VCR {((reportPreviewData.nilaiAkhir / 75) * getMultiplier(reportPreviewData.levelJabatan, reportPreviewData.customMultiplier)).toFixed(2)} × Rp {(reportPreviewData.gaji || 0).toLocaleString("id-ID")}
                               </span>
                               <span className="font-sans font-bold text-slate-500 hidden sm:block">=</span>
                               <span className="font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded border border-emerald-100 text-[13px]">
                                 Rp {Math.round(reportPreviewData.nilaiKontribusi || 0).toLocaleString("id-ID")}
                               </span>
                             </div>
+
+                            {/* Penilaian Output */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-start gap-1.5 sm:gap-2">
+                              <span className="text-slate-500 font-sans font-medium text-[11px] w-[95px] text-left">Penilaian Output:</span>
+                              <span className="font-bold text-slate-700 bg-slate-50 px-3 py-1.5 rounded border border-slate-200 text-[11px]">
+                                Rp {Math.round(reportPreviewData.nilaiKontribusi || 0).toLocaleString("id-ID")} - Rp {(reportPreviewData.gaji || 0).toLocaleString("id-ID")}
+                              </span>
+                              <span className="font-sans font-bold text-slate-500 hidden sm:block">=</span>
+                              {(() => {
+                                const diff = (reportPreviewData.nilaiKontribusi || 0) - (reportPreviewData.gaji || 0);
+                                const isMinus = diff < 0;
+                                const isZero = diff === 0;
+                                return (
+                                  <span className={`font-black px-3 py-1.5 rounded border text-[13px] ${isMinus ? 'text-rose-600 bg-rose-50 border-rose-100' : isZero ? 'text-slate-600 bg-slate-50 border-slate-200' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
+                                    {isMinus ? '-' : (isZero ? '' : '+')}Rp {Math.abs(Math.round(diff)).toLocaleString("id-ID")}
+                                  </span>
+                                );
+                              })()}
+                            </div>
                           </div>
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed text-justify">
-                          <strong>Kesimpulan:</strong> Produktivitas aktual <strong>{reportPreviewData.name}</strong> dikonversikan setara <strong>Rp {Math.round(reportPreviewData.nilaiKontribusi || 0).toLocaleString("id-ID")}</strong>. {
-                            (reportPreviewData.nilaiKontribusi || 0) < (reportPreviewData.gaji || 0)
-                            ? `Berdasarkan rasio VCR ${((reportPreviewData.nilaiKontribusi || 0) / (reportPreviewData.gaji || 1)).toFixed(2)}x (< 1.00), terdapat defisit efisiensi (Kontribusi < Gaji), sehingga terklasifikasi Kurang / Underperforming.` 
-                            : (reportPreviewData.nilaiKontribusi || 0) > (reportPreviewData.gaji || 0)
-                              ? `Berdasarkan rasio VCR ${((reportPreviewData.nilaiKontribusi || 0) / (reportPreviewData.gaji || 1)).toFixed(2)}x (> 1.00), terdapat surplus efisiensi (Kontribusi > Gaji), indikasi kinerja melampaui ekspektasi perusahaan (Sangat Bagus).` 
-                              : `Dengan rasio VCR 1.00x, angka kontribusi seimbang (Break-Even) dengan beban gaji aktual perusahaan.`
-                          } Metrik obyektif ini dapat digunakan manajemen atau <em>owner</em> untuk menentukan ketegasan evaluasi lanjutan, orientasi pembinaan, maupun efisiensi operasional SDM.
+                        <p className="text-xs text-slate-600 leading-relaxed text-justify mt-4">
+                          {(() => {
+                            const diff = (reportPreviewData.nilaiKontribusi || 0) - (reportPreviewData.gaji || 0);
+                            const isMinus = diff < 0;
+                            const isZero = diff === 0;
+                            const vcr = ((reportPreviewData.nilaiKontribusi || 0) / (reportPreviewData.gaji || 1)).toFixed(2);
+                            
+                            const effText = isMinus ? `defisit efisiensi kinerja sebesar - Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}` : isZero ? `performa seimbang (break-even)` : `surplus efisiensi kinerja sebesar + Rp ${Math.abs(Math.round(diff)).toLocaleString("id-ID")}`;
+
+                            return (
+                              <>
+                                <strong>Kesimpulan:</strong> Berdasarkan metrik produktivitas aktual, <strong>{reportPreviewData.name}</strong> menghasilkan {effText}. Dengan Ratio VCR {vcr}x, performa karyawan terklasifikasi <strong>{reportPreviewData.classification}</strong>. Tindakan direkomendasikan: <strong>{reportPreviewData.rekomendasi}</strong>.
+                              </>
+                            );
+                          })()}
                         </p>
                       </div>
                     </div>
                   </div>
-
-                  {/* Summary / Analysis Text */}
-                  <div className="pt-4">
-                    <p className="text-xs font-medium text-slate-600 leading-relaxed text-justify">
-                      *Dokumen ini merupakan hasil cetak otomatis dari sistem HR
-                      Workspace <strong>Hikemore</strong>. Data yang tertera
-                      telah divalidasi berdasarkan input dari akun penilai
-                      terdaftar. Laporan ini bersifat rahasia dan hanya
-                      digunakan untuk keperluan internal perusahaan.
-                    </p>
-                  </div>
                 </div>
 
                 {/* Footer / Signature */}
-                <div className="mt-16 pt-8 border-t border-slate-200 flex justify-between items-end">
-                  <div className="text-[10px] text-slate-500">
-                    <p>Hikemore HR Workspace</p>
-                    <p>Email: hc.hikemore@gmail.com</p>
-                    <p>
-                      Report ID:{" "}
-                      {Math.random().toString(36).substr(2, 9).toUpperCase()}-
-                      {new Date().getFullYear()}
-                    </p>
-                  </div>
-                  <div className="text-center w-48">
-                    <p className="text-xs font-semibold text-slate-500 mb-16">
-                      Penilai,
-                    </p>
-                    <div className="border-b border-slate-800 w-full mb-2"></div>
-                    <p className="text-sm font-black text-slate-900">
-                      {reportPreviewData.namaPenilai ||
-                        "..........................................."}
-                    </p>
-                  </div>
+                <div className="mt-8 pt-4 break-inside-avoid">
+                  <table className="w-full max-w-xl mx-auto border-collapse border border-slate-900 text-center">
+                    <thead>
+                      <tr className="bg-slate-100">
+                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">Kepala Divisi</th>
+                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">HRD</th>
+                        <th className="border border-slate-900 py-2.5 text-xs sm:text-sm font-bold text-slate-800 w-1/3">Direktur</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="border border-slate-900 h-24 sm:h-32"></td>
+                        <td className="border border-slate-900 h-24 sm:h-32"></td>
+                        <td className="border border-slate-900 h-24 sm:h-32"></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
