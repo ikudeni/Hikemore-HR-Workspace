@@ -16,10 +16,10 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
   const [employee, setEmployee] = useState<Employee | null>(null);
 
   const [data, setData] = useState<any>({
-    grit_1: 0, grit_2: 0, grit_3: 0, grit_4: 0, grit_5: 0,
-    growth_1: 0, growth_2: 0, growth_3: 0, growth_4: 0, growth_5: 0,
-    prof_1: 0, prof_2: 0, prof_3: 0, prof_4: 0, prof_5: 0,
-    sus_1: 0, sus_2: 0, sus_3: 0, sus_4: 0, sus_5: 0,
+    grit_1: "", grit_2: "", grit_3: "", grit_4: "", grit_5: "",
+    growth_1: "", growth_2: "", growth_3: "", growth_4: "", growth_5: "",
+    prof_1: "", prof_2: "", prof_3: "", prof_4: "", prof_5: "",
+    sus_1: "", sus_2: "", sus_3: "", sus_4: "", sus_5: "",
     telat: 0, ijin: 0, mangkir: 0, sp: 0, // Even though concealed, keep data shape
     gaji: 0, levelJabatan: '', 
     periodeStart: '', periodeEnd: '', namaPenilai: '',
@@ -118,20 +118,43 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     fields: string[],
     legends: { title: string, desc: string, color: string }[]
   ) => {
+    const normalizeScore = (s: number) => {
+      if (s === 1) return 25;
+      if (s === 2) return 50;
+      if (s === 3) return 75;
+      if (s === 4) return 100;
+      if (s === 5) return 125;
+
+      const isLegacy = Object.keys(data).some(k => {
+         const val = data[k as keyof typeof data];
+         return val === 20 || val === 40 || val === 60 || val === 80;
+      });
+      
+      if (isLegacy) {
+        if (s === 20) return 25;
+        if (s === 40) return 50;
+        if (s === 60) return 75;
+        if (s === 80) return 100;
+        if (s === 100) return 125;
+      }
+      return s;
+    };
+
     const keys = fields.map((_, i) => `${keyPrefix}_${i + 1}`);
     let sum = 0;
     let count = 0;
     keys.forEach(k => {
-      if (data[k]) {
-        sum += data[k];
+      const val = data[k];
+      if (val !== undefined && val !== "") {
+        sum += normalizeScore(Number(val));
         count++;
       }
     });
     
-    // Scale is 20 points per step (1=20, 2=40, etc.)
-    // Max per item = 100, so real sum is out of 500 max.
+    // Scale is 25 points per step (1=25, 2=50, etc.)
+    // Max per item = 125, so real sum is out of 625 max.
     const avgScore100 = count > 0 ? (sum / count) : 0;
-    const avgScale = count > 0 ? (avgScore100 / 20) : null;
+    const avgScale = count > 0 ? (avgScore100 / 25) : null;
     const totalScaled = count > 0 ? (avgScore100 * (weight / 100)) : 0;
 
     return (
@@ -157,30 +180,54 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
         </div>
   
         {/* Questions */}
-        <div className="flex flex-col gap-3 mt-4">
+         <div className="flex flex-col gap-3 mt-4">
            {fields.map((f, i) => {
               const fieldKey = `${keyPrefix}_${i + 1}`;
-              const val = data[fieldKey] || 0;
+              const val = data[fieldKey];
+              const displayVal = val ? normalizeScore(Number(val)) : '-';
               return (
                 <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50 hover:bg-blue-50/30 transition-colors gap-4 shadow-sm">
                    <span className="text-[14px] font-bold text-slate-700 flex-1 leading-snug">{i + 1}. {f}</span>
                    <div className="flex items-center gap-3 shrink-0">
                       <div className="w-11 h-11 rounded-xl bg-white border border-blue-100 flex items-center justify-center text-base font-black text-blue-600 shadow-sm">
-                        {val ? (val / 20) : '-'}
+                        {displayVal}
                       </div>
-                      <select 
-                        value={val}
-                        onChange={(e) => handleChange(fieldKey, parseInt(e.target.value))}
-                        className="bg-white border border-slate-200 text-slate-700 text-sm font-bold rounded-xl px-4 py-3 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm appearance-none min-w-[200px] relative"
-                        style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '16px' }}
-                      >
-                         <option value={0} disabled>Silahkan pilih</option>
-                         <option value={20}>Skor 1 (Sangat Kurang)</option>
-                         <option value={40}>Skor 2 (Kurang)</option>
-                         <option value={60}>Skor 3 (Standar)</option>
-                         <option value={80}>Skor 4 (Bagus)</option>
-                         <option value={100}>Skor 5 (Sangat Bagus)</option>
-                      </select>
+                      <div className="relative flex items-center shrink-0">
+                        <select 
+                          value={val === undefined || val === "" ? "" : val}
+                          onChange={(e) => {
+                            if (e.target.value === "") {
+                               handleChange(fieldKey, "");
+                            } else {
+                               handleChange(fieldKey, parseInt(e.target.value));
+                            }
+                          }}
+                          className={`appearance-none bg-white border border-slate-200 text-sm font-bold rounded-xl pl-4 pr-12 py-3 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[200px] w-[220px] ${val === undefined || val === "" ? "text-slate-500" : "text-slate-700"}`}
+                        >
+                           <option value="" disabled>Silahkan pilih</option>
+                           <option value={125}>Skor 5 (Sangat Bagus)</option>
+                           <option value={100}>Skor 4 (Bagus)</option>
+                           <option value={75}>Skor 3 (Standar)</option>
+                           <option value={50}>Skor 2 (Kurang)</option>
+                           <option value={25}>Skor 1 (Sangat Kurang)</option>
+                           <option value={0}>Tidak Ada</option>
+                        </select>
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                          {val !== undefined && val !== "" && (
+                            <button
+                              type="button"
+                              onClick={() => handleChange(fieldKey, "")}
+                              className="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 transition-colors p-1.5 rounded-md z-10 relative cursor-pointer flex items-center justify-center"
+                              title="Kosongkan nilai"
+                            >
+                              <Icon name="x" size={14} strokeWidth={3} />
+                            </button>
+                          )}
+                          <div className="pointer-events-none text-slate-400">
+                             <Icon name="chevron-down" size={16} />
+                          </div>
+                        </div>
+                      </div>
                    </div>
                 </div>
               );

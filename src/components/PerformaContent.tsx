@@ -2294,7 +2294,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                               data[q.id as keyof typeof data] === "" ||
                                               data[q.id as keyof typeof data] === 0
                                                 ? "-"
-                                                : normalizeScore(Number(data[q.id as keyof typeof data])) / 25}
+                                                : normalizeScore(Number(data[q.id as keyof typeof data]))}
                                             </div>
                                             <div className="w-36 md:w-44 flex-shrink-0 relative">
                                               <select
