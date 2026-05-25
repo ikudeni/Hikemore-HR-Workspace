@@ -477,8 +477,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
   }, [filteredPerformaData]);
 
   return (
-    <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative">
-      <div className="w-full flex-1 flex flex-col space-y-6 pb-8">
+    <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative print:p-0">
+      <div className={`w-full flex-1 flex flex-col space-y-6 pb-8 ${reportPreviewData ? "print:hidden" : ""}`}>
         {/* Header & Overview Cards Container */}
         <div className="bg-white rounded-[24px] p-6 border border-slate-100 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex flex-col gap-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
