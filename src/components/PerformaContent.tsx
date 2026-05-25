@@ -54,54 +54,54 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
 
   const handleDownloadPDF = async () => {
     if (!reportPreviewData) return;
-    const container = document.getElementById("pdf-report-content");
-    if (!container) return;
+    const element = document.getElementById("pdf-report-content");
+    if (!element) return;
     
     setIsDownloading(true);
 
-    // Save original styles
-    const originalContainerClass = container.className;
-    const pages = Array.from(container.children) as HTMLElement[];
-    const originalPageClasses = pages.map(p => p.className);
+    const clone = element.cloneNode(true) as HTMLElement;
+    clone.style.width = "210mm";
+    clone.style.height = "auto";
+    clone.style.padding = "0";
+    clone.style.backgroundColor = "white";
+    clone.style.margin = "0";
+    clone.style.position = "absolute";
+    clone.style.top = "-9999px";
+    clone.style.display = "block"; // override flex with gap
+    clone.className = "font-sans"; // Remove gap-8 etc
 
-    // Apply print-friendly styles (remove gaps, shadow, background on container)
-    container.className = "w-full max-w-[210mm] mx-auto bg-white";
-    pages.forEach(p => {
-      // Keep only necessary styles, remove shadow, borders, min-h, rounded, etc.
-      p.className = "bg-white w-full p-6 sm:p-12 text-slate-800 relative";
+    const pages = clone.querySelectorAll('.break-after-page');
+    pages.forEach((p, index) => {
+      const htm = p as HTMLElement;
+      htm.style.boxShadow = "none";
+      htm.style.margin = "0";
+      htm.style.border = "none";
+      if (index === 0) {
+        // Add a dedicated page break div after the first page
+        const pb = document.createElement("div");
+        pb.className = "html2pdf__page-break";
+        htm.appendChild(pb);
+      }
     });
 
-    // We can also insert an explicit page break between them for html2pdf
-    // But since page 1 is one div, we can just append html2pdf__page-break to the end of page 1
-    const pageBreakDiv = document.createElement("div");
-    pageBreakDiv.className = "html2pdf__page-break";
-    if (pages.length > 0) {
-      pages[0].appendChild(pageBreakDiv);
-    }
+    document.body.appendChild(clone);
 
     try {
       const opt = {
-        margin: [0, 0, 0, 0],
+        margin: 0,
         filename: `Report_Assessment_${reportPreviewData.name}.pdf`,
         image: { type: "jpeg", quality: 1 },
-        html2canvas: { scale: 2, useCORS: true, windowWidth: parseInt(window.innerWidth.toString()) > 1024 ? window.innerWidth : 1024 }, // Maintain high res for wide screens
+        html2canvas: { scale: 2, useCORS: true, windowWidth: 1024 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] }
+        pagebreak: { mode: ["css", "legacy", "avoid"], avoid: "tr" }
       };
 
-      await html2pdf().set(opt).from(container).save();
+      await html2pdf().set(opt).from(clone).save();
     } catch (err) {
       console.error("PDF Error:", err);
       alert("Terjadi kesalahan saat membuat PDF.");
     } finally {
-      // Revert styles
-      container.className = originalContainerClass;
-      pages.forEach((p, i) => {
-        p.className = originalPageClasses[i];
-      });
-      if (pages.length > 0) {
-        pages[0].removeChild(pageBreakDiv);
-      }
+      document.body.removeChild(clone);
       setIsDownloading(false);
     }
   };
