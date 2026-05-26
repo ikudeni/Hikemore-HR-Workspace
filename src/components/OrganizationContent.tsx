@@ -17,6 +17,11 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [showBackToCenter, setShowBackToCenter] = useState(false);
+  const isDragging = useRef(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const scrollLeft = useRef(0);
+  const scrollTop = useRef(0);
 
   const centerView = () => {
     if (scrollContainerRef.current) {
@@ -60,8 +65,49 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
       }
     };
 
+    const handleMouseDown = (e: MouseEvent) => {
+      isDragging.current = true;
+      container.style.cursor = 'grabbing';
+      startX.current = e.pageX - container.offsetLeft;
+      startY.current = e.pageY - container.offsetTop;
+      scrollLeft.current = container.scrollLeft;
+      scrollTop.current = container.scrollTop;
+    };
+
+    const handleMouseLeave = () => {
+      isDragging.current = false;
+      container.style.cursor = 'grab';
+    };
+
+    const handleMouseUp = () => {
+      isDragging.current = false;
+      container.style.cursor = 'grab';
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging.current) return;
+      e.preventDefault();
+      const x = e.pageX - container.offsetLeft;
+      const y = e.pageY - container.offsetTop;
+      const walkX = (x - startX.current) * 1.5;
+      const walkY = (y - startY.current) * 1.5;
+      container.scrollLeft = scrollLeft.current - walkX;
+      container.scrollTop = scrollTop.current - walkY;
+    };
+
     container.addEventListener('wheel', handleWheel, { passive: false });
-    return () => container.removeEventListener('wheel', handleWheel);
+    container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('mouseleave', handleMouseLeave);
+    container.addEventListener('mouseup', handleMouseUp);
+    container.addEventListener('mousemove', handleMouseMove);
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mouseleave', handleMouseLeave);
+      container.removeEventListener('mouseup', handleMouseUp);
+      container.removeEventListener('mousemove', handleMouseMove);
+    };
   }, []);
 
   const handleAddExternalEmployee = async () => {
@@ -317,7 +363,7 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         </button>
       </div>
 
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative">
+      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative cursor-grab active:cursor-grabbing select-none hover-scrollbar">
         <div 
           className="w-max mx-auto p-6 pb-24 origin-top transition-transform" 
           style={{ transform: `scale(${zoom})` }}
