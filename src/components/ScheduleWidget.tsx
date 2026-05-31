@@ -467,6 +467,28 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                                   <span className="text-[11px] font-bold leading-snug">{s.location}</span>
                                 </div>
                              )}
+                             <div className="flex gap-2 mt-3 xl:justify-end w-full">
+                               {s.attendance === 'Hadir' || s.attendance === 'Selesai' ? (
+                                 <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch)); logActivity('Batal Kehadiran/Tugas Jadwal', { judul: s.title }); }} className="text-[10px] bg-emerald-100 text-emerald-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-emerald-200 transition-colors" title="Batal">
+                                   <Icon name="check-circle" size={12} /> {s.type === 'Task' ? 'Selesai' : 'Hadir'}
+                                 </button>
+                               ) : s.attendance === 'Tidak Hadir' ? (
+                                 <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: null } : sch)); logActivity('Batal Kehadiran/Tugas Jadwal', { judul: s.title }); }} className="text-[10px] bg-rose-100 text-rose-700 font-bold px-2 py-1 rounded-md flex items-center gap-1 hover:bg-rose-200 transition-colors" title="Batal">
+                                   <Icon name="x-circle" size={12} /> Tidak Hadir
+                                 </button>
+                               ) : (
+                                 <>
+                                   <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: s.type === 'Task' ? 'Selesai' : 'Hadir' } : sch)); logActivity(s.type === 'Task' ? 'Tugas Selesai' : 'Jadwal Dihadiri', { judul: s.title }); }} className="text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-emerald-200" title={s.type === 'Task' ? 'Tandai Selesai' : 'Tandai Hadir'}>
+                                     <Icon name="check" size={12} /> {s.type === 'Task' ? 'Selesai' : 'Hadir'}
+                                   </button>
+                                   {s.type !== 'Task' && (
+                                     <button onClick={() => { setSchedules(prev => prev.map(sch => sch.id === s.id ? { ...sch, attendance: 'Tidak Hadir' } : sch)); logActivity('Jadwal Tidak Dihadiri', { judul: s.title }); }} className="text-[10px] bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold px-2 py-1 rounded-md flex items-center gap-1 transition-colors border border-rose-200" title="Tandai Tidak Hadir">
+                                       <Icon name="x" size={12} /> Tidak Hadir
+                                     </button>
+                                   )}
+                                 </>
+                               )}
+                             </div>
                            </div>
                          )}
                       </div>

@@ -3618,6 +3618,46 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       <span className="text-blue-500 font-black shrink-0">
                         1.
                       </span>{" "}
+                      Nilai Base 25 Poin / Pengali 25 itu asalnya dari mana?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">
+                        A:
+                      </span>{" "}
+                      Angka pengali 25 berasal dari sistem konversi skala 1—5 menjadi persentase target pencapaian, di mana skor 4 (Bagus) ditetapkan persis memenuhi ekspektasi (100%). Rincian logikanya:
+                      <br /><br />
+                      • <strong>Skor 1 (Sangat Kurang):</strong> 1 × 25 = <strong>25 Poin</strong><br />
+                      • <strong>Skor 2 (Kurang):</strong> 2 × 25 = <strong>50 Poin</strong><br />
+                      • <strong>Skor 3 (Standar):</strong> 3 × 25 = <strong>75 Poin</strong><br />
+                      • <strong>Skor 4 (Bagus):</strong> 4 × 25 = <strong>100 Poin</strong> <em>(Sesuai Ekspektasi)</em><br />
+                      • <strong>Skor 5 (Sangat Bagus):</strong> 5 × 25 = <strong>125 Poin</strong>
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">
+                        2.
+                      </span>{" "}
+                      Kenapa BEP (Break Even / Titik Impas) Kinerja di angka 75 Point? Mengapa tidak di angka 100 saja biar standarnya tinggi?
+                    </h5>
+                    <p className="text-[13px] text-slate-600 leading-relaxed pl-6">
+                      <span className="text-emerald-600 font-black mr-1 shrink-0">
+                        A:
+                      </span>{" "}
+                      Angka 75 Point merepresentasikan kinerja <strong>Skor 3 (Standar / Cukup)</strong>. Di titik ini, karyawan dianggap sudah "impas" secara finansial—mereka sudah bekerja dengan standar yang cukup untuk membalikkan biaya gaji pokok mereka (tidak merugikan perusahaan).
+                      <br /><br />
+                      Alasan 100 point (Skor 4) dinilai sebagai "Bagus" dan bukan "BEP" adalah menghindari standar <em>survival</em> yang terlalu ekstrem. Jika Titik Impas ditetapkan pada angka 100, maka karyawan yang bekerja sesuai takaran standar (Skor 3) akan langsung dianggap "Merugikan / Overpaid". 
+                      <br /><br />
+                      Oleh karena itu, 75 digunakan sebagai batas minimal aman, sedangkan angka 100 dan 125 dipertahankan untuk mengidentifikasi siapa yang layak mendapat kenaikan gaji, bonus, atau promosi (karena memberikan profit ekstra).
+                    </p>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+                    <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
+                      <span className="text-blue-500 font-black shrink-0">
+                        3.
+                      </span>{" "}
                       Bagaimana jika Skor Performa 100, tapi Nilai Rupiahnya
                       lebih kecil dari Gaji Karyawan?
                     </h5>
@@ -3638,7 +3678,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                     <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
                       <span className="text-blue-500 font-black shrink-0">
-                        2.
+                        4.
                       </span>{" "}
                       Apa artinya jika VCR (Ratio) lebih dari 100%?
                     </h5>
@@ -3659,7 +3699,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                     <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
                       <span className="text-blue-500 font-black shrink-0">
-                        3.
+                        5.
                       </span>{" "}
                       Kenapa kita perlu hitung ke Rupiah? Bukankah skor 1-100
                       saja sudah cukup?
@@ -3680,7 +3720,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                     <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
                       <span className="text-blue-500 font-black shrink-0">
-                        4.
+                        6.
                       </span>{" "}
                       Dari mana saya harus mencari angka Target Gaji Baseline?
                     </h5>
@@ -3700,7 +3740,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                   <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
                     <h5 className="font-bold text-slate-800 text-[14px] mb-2 flex items-start gap-2">
                       <span className="text-blue-500 font-black shrink-0">
-                        5.
+                        7.
                       </span>{" "}
                       Mengapa Karyawan Level Manager butuh Multiplier yang
                       tinggi?

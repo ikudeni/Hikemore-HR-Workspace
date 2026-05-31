@@ -17,11 +17,41 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
   const [showBackToCenter, setShowBackToCenter] = useState(false);
+
+  // Drag to scroll state
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startY = useRef(0);
-  const scrollLeft = useRef(0);
-  const scrollTop = useRef(0);
+  const scrollLeftPos = useRef(0);
+  const scrollTopPos = useRef(0);
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    // Prevent dragging if clicking on a button or an input
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input')) return;
+    
+    if (!scrollContainerRef.current) return;
+    isDragging.current = true;
+    startX.current = e.pageX - scrollContainerRef.current.offsetLeft;
+    startY.current = e.pageY - scrollContainerRef.current.offsetTop;
+    scrollLeftPos.current = scrollContainerRef.current.scrollLeft;
+    scrollTopPos.current = scrollContainerRef.current.scrollTop;
+  };
+
+  const handleMouseLeaveOrUp = () => {
+    isDragging.current = false;
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isDragging.current || !scrollContainerRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - scrollContainerRef.current.offsetLeft;
+    const y = e.pageY - scrollContainerRef.current.offsetTop;
+    const walkX = (x - startX.current) * 1.5;
+    const walkY = (y - startY.current) * 1.5;
+    scrollContainerRef.current.scrollLeft = scrollLeftPos.current - walkX;
+    scrollContainerRef.current.scrollTop = scrollTopPos.current - walkY;
+  };
 
   const centerView = () => {
     if (scrollContainerRef.current) {
@@ -65,49 +95,8 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
       }
     };
 
-    const handleMouseDown = (e: MouseEvent) => {
-      isDragging.current = true;
-      container.style.cursor = 'grabbing';
-      startX.current = e.pageX - container.offsetLeft;
-      startY.current = e.pageY - container.offsetTop;
-      scrollLeft.current = container.scrollLeft;
-      scrollTop.current = container.scrollTop;
-    };
-
-    const handleMouseLeave = () => {
-      isDragging.current = false;
-      container.style.cursor = 'grab';
-    };
-
-    const handleMouseUp = () => {
-      isDragging.current = false;
-      container.style.cursor = 'grab';
-    };
-
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging.current) return;
-      e.preventDefault();
-      const x = e.pageX - container.offsetLeft;
-      const y = e.pageY - container.offsetTop;
-      const walkX = (x - startX.current) * 1.5;
-      const walkY = (y - startY.current) * 1.5;
-      container.scrollLeft = scrollLeft.current - walkX;
-      container.scrollTop = scrollTop.current - walkY;
-    };
-
     container.addEventListener('wheel', handleWheel, { passive: false });
-    container.addEventListener('mousedown', handleMouseDown);
-    container.addEventListener('mouseleave', handleMouseLeave);
-    container.addEventListener('mouseup', handleMouseUp);
-    container.addEventListener('mousemove', handleMouseMove);
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      container.removeEventListener('mousedown', handleMouseDown);
-      container.removeEventListener('mouseleave', handleMouseLeave);
-      container.removeEventListener('mouseup', handleMouseUp);
-      container.removeEventListener('mousemove', handleMouseMove);
-    };
+    return () => container.removeEventListener('wheel', handleWheel);
   }, []);
 
   const handleAddExternalEmployee = async () => {
@@ -363,7 +352,15 @@ export function OrganizationContent({ employees }: { employees: Employee[] }) {
         </button>
       </div>
 
-      <div ref={scrollContainerRef} onScroll={handleScroll} className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative cursor-grab active:cursor-grabbing select-none hover-scrollbar">
+      <div 
+        ref={scrollContainerRef} 
+        onScroll={handleScroll} 
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeaveOrUp}
+        onMouseUp={handleMouseLeaveOrUp}
+        onMouseMove={handleMouseMove}
+        className="flex-1 overflow-auto hide-scrollbar-y w-full px-8 pb-8 relative cursor-grab active:cursor-grabbing select-none"
+      >
         <div 
           className="w-max mx-auto p-6 pb-24 origin-top transition-transform" 
           style={{ transform: `scale(${zoom})` }}
