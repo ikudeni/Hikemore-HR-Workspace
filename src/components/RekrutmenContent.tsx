@@ -477,10 +477,14 @@ export const RekrutmenContent = ({
     if (!draggedCandidate) return;
     const container = e.currentTarget as HTMLElement;
     const cards = Array.from(container.querySelectorAll('.kanban-card:not(.hidden-card)'));
+    
+    const ghostTop = e.clientY - dragOffset.current.y;
+    const ghostCenter = ghostTop + (dragOffset.current.height / 2);
+    
     let insertIndex = cards.length;
     for (let i = 0; i < cards.length; i++) {
         const rect = cards[i].getBoundingClientRect();
-        if (e.clientY < rect.top + rect.height / 2) { insertIndex = i; break; }
+        if (ghostCenter < rect.top + rect.height / 2) { insertIndex = i; break; }
     }
     setDropPlaceholder(prev => (prev.stageId === stageId && prev.index === insertIndex) ? prev : { ...prev, stageId, index: insertIndex });
   };
@@ -512,20 +516,23 @@ export const RekrutmenContent = ({
       const movingCandidates = prev.filter(c => selectedIds.includes(c.id));
       const filtered = prev.filter(c => !selectedIds.includes(c.id));
       
-      const stageCands = filtered.filter(c => c.stage === dropPlaceholder.stageId);
-      const others = filtered.filter(c => c.stage !== dropPlaceholder.stageId);
-      
       const movedOnes = movingCandidates.map(c => {
         const resetTag = ['Kandidat Join', 'Talent Pool'].includes(dropPlaceholder.stageId!) ? null : c.tag;
         return { ...c, stage: dropPlaceholder.stageId!, tag: resetTag };
       });
-      stageCands.splice(dropPlaceholder.index!, 0, ...movedOnes);
+
+      // Split into current job+stage candidates and all others
+      const currentJobStageCands = filtered.filter(c => c.stage === dropPlaceholder.stageId && Number(c.jobId) === selectedJob?.id);
+      const otherCands = filtered.filter(c => !(c.stage === dropPlaceholder.stageId && Number(c.jobId) === selectedJob?.id));
+      
+      // Splice the moved ones directly into the current job+stage list
+      currentJobStageCands.splice(dropPlaceholder.index!, 0, ...movedOnes);
       
       movingCandidates.forEach(c => {
         logActivity('Kandidat Dipindah Stage', { nama: c.name, stage_baru: kanbanStages.find(s => s.id === dropPlaceholder.stageId)?.label || dropPlaceholder.stageId });
       });
 
-      return [...others, ...stageCands];
+      return [...otherCands, ...currentJobStageCands];
     });
     
     setDraggedCandidate(null); 
