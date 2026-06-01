@@ -374,7 +374,7 @@ export const RekrutmenContent = ({
 
   const handleJobDragStart = (e: React.DragEvent, id: number) => { 
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width };
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width, height: rect.height };
     
     e.dataTransfer.effectAllowed = 'move'; 
     const img = new Image();
@@ -557,7 +557,7 @@ export const RekrutmenContent = ({
     e.stopPropagation();
     const wrapper = (e.currentTarget as HTMLElement).closest('.stage-column') || e.currentTarget as HTMLElement;
     const rect = wrapper.getBoundingClientRect();
-    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width };
+    dragOffset.current = { x: e.clientX - rect.left, y: e.clientY - rect.top, width: rect.width, height: rect.height };
     setDragPosition({ x: e.clientX - dragOffset.current.x, y: e.clientY - dragOffset.current.y });
     
     e.dataTransfer.effectAllowed = 'move';
@@ -1212,15 +1212,15 @@ export const RekrutmenContent = ({
                     </div>
                   ) : (
                     <div className="flex flex-col gap-3">
-                      {documentUploadTarget.documents.map((doc, idx) => (
+                      {documentUploadTarget.documents.map((docItem, idx) => (
                         <div key={idx} className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-white shadow-sm group hover:border-blue-200 transition-colors">
                           <div className="flex items-center gap-3 overflow-hidden">
                             <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                              <Icon name={doc.name.toLowerCase().endsWith('.pdf') ? 'file-text' : 'image'} size={20} />
+                              <Icon name={docItem.name.toLowerCase().endsWith('.pdf') ? 'file-text' : 'image'} size={20} />
                             </div>
                             <div className="flex flex-col min-w-0">
-                              <span className="text-[13px] font-bold text-slate-700 truncate block">{doc.name}</span>
-                              <span className="text-[11px] font-bold text-slate-400">{doc.size ? `${(doc.size / 1024 / 1024).toFixed(1)} MB` : 'Dokumen'}</span>
+                              <span className="text-[13px] font-bold text-slate-700 truncate block">{docItem.name}</span>
+                              <span className="text-[11px] font-bold text-slate-400">{docItem.size ? `${(docItem.size / 1024 / 1024).toFixed(1)} MB` : 'Dokumen'}</span>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
@@ -1228,11 +1228,11 @@ export const RekrutmenContent = ({
                               className="w-8 h-8 rounded-full border border-slate-200 flex items-center justify-center text-slate-500 hover:text-blue-600 hover:bg-blue-50 hover:border-blue-200 transition-colors"
                               title="Download Dokumen"
                               onClick={async () => {
-                                setIsDownloadingDoc(doc.url);
+                                setIsDownloadingDoc(docItem.url);
                                 try {
-                                  let downloadUrl = doc.url;
-                                  if (doc.url && doc.url.startsWith('DB_STORED:')) {
-                                    const docId = doc.url.split(':')[1];
+                                  let downloadUrl = docItem.url;
+                                  if (docItem.url && docItem.url.startsWith('DB_STORED:')) {
+                                    const docId = docItem.url.split(':')[1];
                                     const docSnap = await getDoc(doc(db, 'fileContents', docId));
                                     const data = docSnap.data() as any;
                                     if (docSnap.exists() && data?.base64) {
@@ -1242,7 +1242,7 @@ export const RekrutmenContent = ({
 
                                   if (downloadUrl) {
                                     const { downloadFile } = await import('../utils');
-                                    await downloadFile(downloadUrl, doc.name);
+                                    await downloadFile(downloadUrl, docItem.name);
                                   } else {
                                     alert('File tidak ditemukan.');
                                   }
@@ -1254,7 +1254,7 @@ export const RekrutmenContent = ({
                                 }
                               }}
                             >
-                              {isDownloadingDoc === doc.url ? (
+                              {isDownloadingDoc === docItem.url ? (
                                 <div className="w-3.5 h-3.5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                               ) : (
                                 <Icon name="download" size={14} />

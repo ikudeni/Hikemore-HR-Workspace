@@ -38,6 +38,7 @@ export interface Employee {
   managerId?: string; // For Organization Chart
   hideFromOrgChart?: boolean;
   isExternal?: boolean;
+  isVirtualExternal?: boolean;
   avatar?: string;
   // Computed fields
   formattedJoinDate?: string;

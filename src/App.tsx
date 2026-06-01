@@ -26,6 +26,8 @@ import { collection, onSnapshot, setDoc, doc, deleteDoc, updateDoc, getDoc } fro
 import { ResetPasswordView } from './components/ResetPasswordView';
 import { PublicAssetView } from './components/PublicAssetView';
 import { PublicEvaluasiView } from './components/PublicEvaluasiView';
+import { format } from 'date-fns';
+import { id as idLocale } from 'date-fns/locale';
 
 const UnderConstructionView = ({ menuName }: { menuName: string }) => (
   <div className="flex flex-col items-center justify-center h-full bg-white rounded-3xl border border-slate-100 shadow-sm opacity-80">
@@ -282,7 +284,7 @@ export default function App() {
   useEffect(() => {
     // ONE TIME INJECT FOR SCHED
     if (schedulesReact.length > 0 && jobListingsReact.length > 0 && candidatesReact.length > 0) {
-      if (!schedulesReact.some(s => s.id === "INJECT_HC_05")) {
+      if (!schedulesReact.some(s => String(s.id) === "INJECT_HC_05")) {
          let injectCandidates = [...candidatesReact];
          let candidatesModified = false;
          
@@ -307,7 +309,7 @@ export default function App() {
              if (s.candidateName.toLowerCase().includes('rizal') || s.candidateName.toLowerCase().includes('budi')) {
                  s.candidateName = 'Farrel';
                  s.title = `Interview Offline - ${s.candidateName}`;
-                 s.id = "INJECT_HC_05"; // ensure it doesn't run again
+                 (s as any).id = "INJECT_HC_05"; // ensure it doesn't run again
                  schedModified = true;
              }
              if (s.candidateName.toLowerCase().includes('nahrowi') || s.candidateName.toLowerCase().includes('agus')) {
@@ -587,14 +589,37 @@ export default function App() {
       case 'Organization': return <OrganizationContent employees={globalEmployees} />;
       case 'Performa': return <PerformaContent employees={regularEmployees} performaDataMap={performaDataMap} setPerformaDataMap={setPerformaDataMap} />;
       case 'Rekrutmen': return <RekrutmenContent employees={regularEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} setKanbanStages={setKanbanStages} jobStagesMap={jobStagesMap} setJobStagesMap={setJobStagesMap} candidates={candidates} setCandidates={setCandidates} schedules={schedules} setSchedules={setSchedules} />;
-      case 'Schedule': return (
-        <div className="p-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn">
-          <div className="w-full mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-sm min-h-full">
-            <h2 className="text-2xl font-black tracking-tight text-slate-800 mb-6">Schedule Overview</h2>
-            <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={regularEmployees} jobListings={jobListings} />
+      case 'Schedule': {
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        const todaySchedules = schedules.filter(s => s.date === todayStr);
+        const totalCount = todaySchedules.length;
+
+        let briefingText = '';
+        if (totalCount > 0) {
+          briefingText = `Tetap fokus! Ada ${totalCount} schedule hari ini.`;
+        } else {
+          briefingText = 'Tetap fokus! Tidak ada schedule hari ini.';
+        }
+
+        const formattedToday = format(new Date(), 'd MMMM yyyy', { locale: idLocale });
+
+        return (
+          <div className="p-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn">
+            <div className="w-full mx-auto bg-white rounded-3xl p-8 border border-slate-100 shadow-sm min-h-full">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6 pb-6 border-b border-slate-100">
+                <div>
+                  <h2 className="text-2xl font-black tracking-tight text-slate-800">Schedule Overview</h2>
+                </div>
+                <div className="text-left sm:text-right">
+                  <div className="text-lg sm:text-xl font-bold tracking-tight text-slate-800">{formattedToday}</div>
+                  <div className="text-xs sm:text-sm text-slate-500 font-bold">{briefingText}</div>
+                </div>
+              </div>
+              <ScheduleWidget schedules={schedules} setSchedules={setSchedules} candidates={candidates} employees={regularEmployees} jobListings={jobListings} />
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
       case 'File Sharing': return <FileSharingContent />;
       case 'Inventory': return <InventoryContent employees={regularEmployees} />;
       case 'Akses Akun': return <SettingsContent />;
