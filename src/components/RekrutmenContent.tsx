@@ -1804,7 +1804,7 @@ export const RekrutmenContent = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto hover-scrollbar pb-16 px-6 pt-6 content-start flex-1 min-h-0"
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 overflow-y-auto hover-scrollbar pb-32 px-6 pt-6 content-start flex-1 min-h-0"
         onDragOver={(e) => e.preventDefault()}
       >
          {displayedJobs.map(job => {
@@ -1846,10 +1846,10 @@ export const RekrutmenContent = ({
               onDragEnd={handleJobDragEnd}
               onDrop={handleJobDrop}
               onClick={() => { if(!draggingJobId) { setSelectedJob(job); setView('detail'); } }} 
-              className={`rounded-[20px] transition-all group flex flex-col cursor-grab active:cursor-grabbing min-h-[190px] ${isDraggingThis ? 'bg-slate-100 border-2 border-dashed border-slate-200 shadow-none scale-95' : 'bg-white border border-slate-100 shadow-sm hover:border-primary/30 hover:shadow-xl hover:shadow-slate-200'} ${isOverThis && !isDraggingThis ? 'ring-[3px] ring-primary border-primary scale-[1.02] z-10' : ''}`}
+              className={`rounded-[20px] transition-all group flex flex-col cursor-grab active:cursor-grabbing min-h-[225px] ${isDraggingThis ? 'bg-slate-100 border-2 border-dashed border-slate-200 shadow-none scale-95' : 'bg-white border border-slate-100 shadow-sm hover:border-primary/30 hover:shadow-xl hover:shadow-slate-200'} ${isOverThis && !isDraggingThis ? 'ring-[3px] ring-primary border-primary scale-[1.02] z-10' : ''}`}
             >
                {!isDraggingThis ? (
-                 <div className="p-[18px] flex flex-col h-full">
+                 <div className="p-[18px] flex flex-col grow w-full">
                    <div className="flex justify-between items-start mb-4">
                      <h3 className="font-bold text-[16px] text-slate-800 tracking-tight leading-tight group-hover:text-primary transition-colors pr-4">{job.title}</h3>
                      <div className="relative">
@@ -1887,21 +1887,21 @@ export const RekrutmenContent = ({
                      </div>
                    </div>
 
-                   <div className="flex gap-4 mb-4">
-                     <div className="flex items-center gap-2">
-                       <span className="text-[28px] font-medium text-slate-800 tracking-tight">{jobCandidates.length}</span>
-                       <span className="text-xs font-medium text-slate-400">Candidate</span>
+                   <div className="flex gap-2.5 mb-4 items-center justify-between">
+                     <div className="flex items-center gap-1">
+                       <span className="text-[22px] font-black text-slate-800 tracking-tight leading-none">{jobCandidates.length}</span>
+                       <span className="text-[10px] font-bold text-slate-400">Candidate</span>
                      </div>
-                     <div className="flex items-center gap-2">
-                       <span className="text-[28px] font-medium text-indigo-600 tracking-tight">{progressCount}</span>
-                       <span className="text-xs font-medium text-indigo-400 whitespace-nowrap">Progress</span>
+                     <div className="flex items-center gap-1">
+                       <span className="text-[22px] font-black text-indigo-600 tracking-tight leading-none">{progressCount}</span>
+                       <span className="text-[10px] font-bold text-indigo-400 whitespace-nowrap">Progress</span>
                      </div>
-                     <div className="flex items-center gap-2">
-                       <div className="flex items-end">
-                         <span className="text-[28px] font-medium text-slate-800 tracking-tight">{joinCount}</span>
-                         <span className="text-[11px] font-medium text-slate-400 mb-1 ml-0.5">/{job.quota}</span>
+                     <div className="flex items-center gap-1">
+                       <div className="flex items-end leading-none">
+                         <span className="text-[22px] font-black text-slate-800 tracking-tight">{joinCount}</span>
+                         <span className="text-[9px] font-medium text-slate-400 ml-0.5">/{job.quota}</span>
                        </div>
-                       <span className="text-xs font-medium text-slate-400">Join</span>
+                       <span className="text-[10px] font-bold text-slate-400">Join</span>
                      </div>
                    </div>
 
