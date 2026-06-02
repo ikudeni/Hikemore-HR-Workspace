@@ -421,6 +421,7 @@ export default function App() {
     { id: 'pend', type: 'tingkatPendidikanChart', span: 1 },
     { id: 'data', type: 'dataKaryawanTable', span: 2 },
     { id: 'agama', type: 'statusAgamaChart', span: 1 },
+    { id: 'trend', type: 'trenKaryawanChart', span: 3 },
   ]);
 
   const dashboardLayout = dashboardLayoutReact;
@@ -442,7 +443,15 @@ export default function App() {
       unsubscribeDashboard = onSnapshot(q, (snapshot) => {
         if (snapshot.exists() && !snapshot.metadata.hasPendingWrites) {
            const data = snapshot.data();
-           if (data.dashboardLayout) setDashboardLayoutReact(data.dashboardLayout);
+           if (data.dashboardLayout) {
+              let loadedLayout: DashboardWidget[] = data.dashboardLayout;
+              const filtered = loadedLayout.filter(w => w.type !== 'trenKaryawanChart');
+              loadedLayout = [
+                ...filtered,
+                { id: 'trend', type: 'trenKaryawanChart', span: 3 }
+              ];
+              setDashboardLayoutReact(loadedLayout);
+           }
         }
       });
 

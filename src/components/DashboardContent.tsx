@@ -14,6 +14,7 @@ import { CustomDonutChartWidget } from './ui/DonutChart';
 import { EduGaugeChart } from './ui/EduGaugeChart';
 import { getSourceBadgeClass, removeUndefined } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from '../types';
+import { EmployeeTrendChart } from './EmployeeTrendChart';
 import { db, logActivity, storage } from '../firebase';
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -1083,6 +1084,9 @@ export const DashboardContent = ({
             </div>
           </Card>
         );
+
+      case 'trenKaryawanChart':
+        return <EmployeeTrendChart employees={employees} />;
         
       case 'distribusiChart': 
         const maxVal = Math.max(...departemenDist.map(b => b.total), 1);
