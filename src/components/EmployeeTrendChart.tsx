@@ -72,16 +72,62 @@ const isEmployeeActiveInMonth = (emp: Employee, year: number, month: number) => 
 };
 
 export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employees }) => {
+  const [filterType, setFilterType] = useState<'quick' | 'custom'>('quick');
   const [rangeMonths, setRangeMonths] = useState<6 | 12>(12);
   const now = useMemo(() => new Date(), []);
 
-  // Compute 12 trailing months (or 6 trailing months) of datasets
+  // Default custom range: trailing 12 months
+  const [startDateStr, setStartDateStr] = useState<string>(() => {
+    const d = new Date();
+    d.setMonth(d.getMonth() - 11);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return `${year}-${month}-01`;
+  });
+
+  const [endDateStr, setEndDateStr] = useState<string>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(new Date(year, d.getMonth() + 1, 0).getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+
+  const targetMonths = useMemo(() => {
+    if (filterType === 'custom') {
+      const start = parseDateSafe(startDateStr);
+      const end = parseDateSafe(endDateStr);
+      if (start && end && start <= end) {
+        const list = [];
+        let current = new Date(start.getFullYear(), start.getMonth(), 1);
+        const limit = new Date(end.getFullYear(), end.getMonth(), 1);
+        let count = 0;
+        // Limit to maximum 48 months to prevent over-dense chart
+        while (current <= limit && count < 48) {
+          list.push(new Date(current));
+          current.setMonth(current.getMonth() + 1);
+          count++;
+        }
+        if (list.length > 0) return list;
+      }
+    }
+
+    const list = [];
+    for (let i = rangeMonths - 1; i >= 0; i--) {
+      list.push(new Date(now.getFullYear(), now.getMonth() - i, 1));
+    }
+    return list;
+  }, [filterType, rangeMonths, startDateStr, endDateStr, now]);
+
+  const isCustomFilterIncomplete = filterType === 'custom' && (!startDateStr || !endDateStr);
+  const isCustomFilterInvalid = filterType === 'custom' && startDateStr && endDateStr && new Date(startDateStr) > new Date(endDateStr);
+
+  // ComputeTrailing month datasets based on targeted months list
   const chartData = useMemo(() => {
     const result = [];
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
 
-    for (let i = rangeMonths - 1; i >= 0; i--) {
-      const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    targetMonths.forEach(targetDate => {
       const targetYear = targetDate.getFullYear();
       const targetMonth = targetDate.getMonth();
 
@@ -114,28 +160,54 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
         rawMonthIndex: targetMonth,
         rawYear: targetYear,
       });
-    }
+    });
+
     return result;
-  }, [employees, rangeMonths, now]);
+  }, [employees, targetMonths]);
 
   // Compute KPIs for header comparisons
   const kpis = useMemo(() => {
-    const currentYear = now.getFullYear();
-    const currentMonthNum = now.getMonth();
+    const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
-    // Previous month (May 2026 if today is June 2026)
-    const lastMonthDate = new Date(currentYear, currentMonthNum - 1, 1);
-    const lastMonthYear = lastMonthDate.getFullYear();
-    const lastMonthNum = lastMonthDate.getMonth();
+    let labelThis = "Bulan Ini";
+    let labelLast = "Bulan Lalu";
+
+    let targetThisYear = now.getFullYear();
+    let targetThisMonth = now.getMonth();
+    let targetLastYear = targetThisYear;
+    let targetLastMonth = targetThisMonth - 1;
+    if (targetLastMonth < 0) {
+      targetLastMonth = 11;
+      targetLastYear--;
+    }
+
+    if (filterType === 'custom' && targetMonths.length > 0) {
+      const lastMonthDate = targetMonths[targetMonths.length - 1];
+      targetThisYear = lastMonthDate.getFullYear();
+      targetThisMonth = lastMonthDate.getMonth();
+      labelThis = `${monthNames[targetThisMonth]} ${targetThisYear}`;
+
+      if (targetMonths.length > 1) {
+        const prevMonthDate = targetMonths[targetMonths.length - 2];
+        targetLastYear = prevMonthDate.getFullYear();
+        targetLastMonth = prevMonthDate.getMonth();
+        labelLast = `${monthNames[targetLastMonth]} ${targetLastYear}`;
+      } else {
+        const prevMonthDate = new Date(targetThisYear, targetThisMonth - 1, 1);
+        targetLastYear = prevMonthDate.getFullYear();
+        targetLastMonth = prevMonthDate.getMonth();
+        labelLast = `${monthNames[targetLastMonth]} ${targetLastYear}`;
+      }
+    }
 
     let thisMonthCount = 0;
     let lastMonthCount = 0;
 
     employees.forEach(emp => {
-      if (isEmployeeActiveInMonth(emp, currentYear, currentMonthNum)) {
+      if (isEmployeeActiveInMonth(emp, targetThisYear, targetThisMonth)) {
         thisMonthCount++;
       }
-      if (isEmployeeActiveInMonth(emp, lastMonthYear, lastMonthNum)) {
+      if (isEmployeeActiveInMonth(emp, targetLastYear, targetLastMonth)) {
         lastMonthCount++;
       }
     });
@@ -149,9 +221,11 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
       thisMonthCount,
       lastMonthCount,
       diffCount,
-      pctChange
+      pctChange,
+      labelThis,
+      labelLast
     };
-  }, [employees, now]);
+  }, [employees, filterType, targetMonths, now]);
 
   // High contrast custom tooltip styling
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -207,7 +281,7 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
   return (
     <Card className="flex flex-col p-6 min-h-[460px] overflow-hidden bg-white shadow-sm border border-slate-100 rounded-2xl">
       {/* Header controls & titles */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-6 gap-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="p-2 bg-orange-50 text-orange-500 rounded-xl">
@@ -220,37 +294,103 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
           </div>
         </div>
 
-        {/* Range Buttons Toggle */}
-        <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/40 select-none self-end sm:self-auto">
-          <button 
-            id="toggle-6-month-trend"
-            onClick={() => setRangeMonths(6)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-              rangeMonths === 6 
-                ? 'bg-white text-slate-800 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-850'
-            }`}
-          >
-            6 Bulan
-          </button>
-          <button 
-            id="toggle-12-month-trend"
-            onClick={() => setRangeMonths(12)}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
-              rangeMonths === 12 
-                ? 'bg-white text-slate-800 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-850'
-            }`}
-          >
-            12 Bulan
-          </button>
+        {/* Range Buttons & Custom Date Toggle */}
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3 self-stretch xl:self-auto w-full xl:w-auto">
+          {filterType === 'custom' && (
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-100 w-full sm:w-auto">
+              <div className="flex items-center gap-1 flex-1 sm:flex-initial">
+                <span className="text-[10px] uppercase font-bold text-slate-400 px-1 select-none">Mulai</span>
+                <div className="relative flex items-center bg-white rounded-lg border border-slate-200/60 focus-within:ring-2 focus-within:ring-orange-500/10 focus-within:border-orange-500 transition-all flex-1 sm:flex-initial pr-1.5">
+                  <input 
+                    type="date" 
+                    value={startDateStr}
+                    onChange={(e) => setStartDateStr(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-700 px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                  />
+                  {startDateStr && (
+                    <button 
+                      type="button"
+                      onClick={() => setStartDateStr('')}
+                      className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition-all hover:bg-rose-50"
+                      title="Hapus Tanggal Mulai"
+                    >
+                      <Icon name="x" size={13} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-1 flex-1 sm:flex-initial">
+                <span className="text-[10px] uppercase font-bold text-slate-400 px-1 select-none">Sampai</span>
+                <div className="relative flex items-center bg-white rounded-lg border border-slate-200/60 focus-within:ring-2 focus-within:ring-orange-500/10 focus-within:border-orange-500 transition-all flex-1 sm:flex-initial pr-1.5">
+                  <input 
+                    type="date" 
+                    value={endDateStr}
+                    onChange={(e) => setEndDateStr(e.target.value)}
+                    className="bg-transparent text-xs font-bold text-slate-700 px-2.5 py-1.5 focus:outline-none cursor-pointer"
+                  />
+                  {endDateStr && (
+                    <button 
+                      type="button"
+                      onClick={() => setEndDateStr('')}
+                      className="text-slate-400 hover:text-rose-500 p-0.5 rounded transition-all hover:bg-rose-50"
+                      title="Hapus Tanggal Selesai"
+                    >
+                      <Icon name="x" size={13} strokeWidth={2.5} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200/40 select-none w-full sm:w-auto justify-between sm:justify-start">
+            <button 
+              id="toggle-6-month-trend"
+              onClick={() => {
+                setFilterType('quick');
+                setRangeMonths(6);
+              }}
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                filterType === 'quick' && rangeMonths === 6 
+                  ? 'bg-white text-slate-800 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-850'
+              }`}
+            >
+              6 Bulan
+            </button>
+            <button 
+              id="toggle-12-month-trend"
+              onClick={() => {
+                setFilterType('quick');
+                setRangeMonths(12);
+              }}
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                filterType === 'quick' && rangeMonths === 12 
+                  ? 'bg-white text-slate-800 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-850'
+              }`}
+            >
+              12 Bulan
+            </button>
+            <button 
+              id="toggle-custom-trend"
+              onClick={() => setFilterType('custom')}
+              className={`flex-1 sm:flex-none px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 ${
+                filterType === 'custom'
+                  ? 'bg-white text-slate-800 shadow-sm' 
+                  : 'text-slate-500 hover:text-slate-850'
+              }`}
+            >
+              Kustom
+            </button>
+          </div>
         </div>
       </div>
 
       {/* KPI Highlight row mirroring original user requirements */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 bg-slate-50/50 p-4 border border-slate-100 rounded-2xl">
         <div className="flex flex-col">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Karyawan Bulan Ini</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Karyawan {kpis.labelThis}</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-2xl font-black text-slate-900 leading-none">{kpis.thisMonthCount}</span>
             <span className="text-xs font-bold text-slate-400">karyawan aktif</span>
@@ -258,7 +398,7 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
         </div>
 
         <div className="flex flex-col border-t md:border-t-0 md:border-l border-slate-100 pt-3 md:pt-0 md:pl-5">
-          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Karyawan Bulan Lalu</span>
+          <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Karyawan {kpis.labelLast}</span>
           <div className="flex items-baseline gap-2 mt-1">
             <span className="text-2xl font-black text-slate-700 leading-none">{kpis.lastMonthCount}</span>
             <span className="text-xs font-bold text-slate-400">karyawan aktif</span>
@@ -292,71 +432,93 @@ export const EmployeeTrendChart: React.FC<EmployeeTrendChartProps> = ({ employee
 
       {/* Chart container */}
       <div className="w-full h-[320px] min-h-[300px] relative">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart 
-            data={chartData} 
-            margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
-          >
-            <defs>
-              <linearGradient id="colorCurrentTrend" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.25}/>
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid 
-              strokeDasharray="4 4" 
-              vertical={false} 
-              stroke="#f1f5f9" 
-            />
-            <XAxis 
-              dataKey="name" 
-              stroke="#94a3b8" 
-              fontSize={11} 
-              fontWeight={700} 
-              tickLine={false} 
-              axisLine={false} 
-              dy={10} 
-            />
-            <YAxis 
-              stroke="#94a3b8" 
-              fontSize={11} 
-              fontWeight={700} 
-              tickLine={false} 
-              axisLine={false} 
-              dx={-5} 
-              allowDecimals={false}
-            />
-            <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f1f5f9', strokeWidth: 1.5 }} />
-            
-            {/* Previous Year Comparison Line (Dashed Slate) */}
-            <Area 
-              type="monotone" 
-              dataKey="previous" 
-              stroke="#94a3b8" 
-              strokeWidth={2} 
-              strokeDasharray="6 4" 
-              fill="none" 
-              name="Tahun Sebelumnya" 
-              dot={{ r: 3, stroke: '#94a3b8', strokeWidth: 1.5, fill: '#fff' }} 
-              activeDot={{ r: 5, stroke: '#64748b', strokeWidth: 2, fill: '#fff' }} 
-              isAnimationActive={true}
-            />
+        {isCustomFilterIncomplete ? (
+          <div id="filter-incomplete-placeholder" className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/45 rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+            <div className="p-4 bg-orange-50 rounded-2xl text-orange-500 mb-3 shadow-sm border border-orange-100/60">
+              <Icon name="calendar" size={24} strokeWidth={2.5} />
+            </div>
+            <h4 className="text-sm font-black text-slate-800 tracking-tight">Tentukan Rentang Tanggal</h4>
+            <p className="text-xs text-slate-450 mt-1.5 leading-relaxed font-bold max-w-xs">
+              Silakan pilih <span className="text-orange-500 font-extrabold">Tanggal Mulai</span> dan <span className="text-orange-500 font-extrabold">Tanggal Selesai</span> untuk melihat visualisasi data tren karyawan.
+            </p>
+          </div>
+        ) : isCustomFilterInvalid ? (
+          <div id="filter-invalid-placeholder" className="absolute inset-0 flex flex-col items-center justify-center bg-slate-50/45 rounded-2xl border border-dashed border-slate-200 p-6 text-center">
+            <div className="p-4 bg-rose-50 rounded-2xl text-rose-500 mb-3 shadow-sm border border-rose-100/60">
+              <Icon name="alert-circle" size={24} strokeWidth={2.5} />
+            </div>
+            <h4 className="text-sm font-black text-slate-800 tracking-tight">Rentang Tanggal Tidak Valid</h4>
+            <p className="text-xs text-slate-450 mt-1.5 leading-relaxed font-bold max-w-xs">
+              Tanggal Mulai tidak boleh melewati Tanggal Selesai. Silakan tentukan rentang tanggal yang sesuai.
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart 
+              data={chartData} 
+              margin={{ top: 15, right: 10, left: -20, bottom: 5 }}
+            >
+              <defs>
+                <linearGradient id="colorCurrentTrend" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#f97316" stopOpacity={0.25}/>
+                  <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid 
+                strokeDasharray="4 4" 
+                vertical={false} 
+                stroke="#f1f5f9" 
+              />
+              <XAxis 
+                dataKey="name" 
+                stroke="#94a3b8" 
+                fontSize={11} 
+                fontWeight={700} 
+                tickLine={false} 
+                axisLine={false} 
+                dy={10} 
+              />
+              <YAxis 
+                stroke="#94a3b8" 
+                fontSize={11} 
+                fontWeight={700} 
+                tickLine={false} 
+                axisLine={false} 
+                dx={-5} 
+                allowDecimals={false}
+              />
+              <Tooltip content={<CustomTooltip />} cursor={{ stroke: '#f1f5f9', strokeWidth: 1.5 }} />
+              
+              {/* Previous Year Comparison Line (Dashed Slate) */}
+              <Area 
+                type="monotone" 
+                dataKey="previous" 
+                stroke="#94a3b8" 
+                strokeWidth={2} 
+                strokeDasharray="6 4" 
+                fill="none" 
+                name="Tahun Sebelumnya" 
+                dot={{ r: 3, stroke: '#94a3b8', strokeWidth: 1.5, fill: '#fff' }} 
+                activeDot={{ r: 5, stroke: '#64748b', strokeWidth: 2, fill: '#fff' }} 
+                isAnimationActive={true}
+              />
 
-            {/* Current Selected Range Area (Solid Orange with Gradient fill) */}
-            <Area 
-              type="monotone" 
-              dataKey="current" 
-              stroke="#f97316" 
-              strokeWidth={3} 
-              fillOpacity={1} 
-              fill="url(#colorCurrentTrend)" 
-              name="Tahun Sekarang" 
-              dot={{ r: 4, stroke: '#f97316', strokeWidth: 2.5, fill: '#fff' }} 
-              activeDot={{ r: 7, stroke: '#ea580c', strokeWidth: 3, fill: '#fff' }} 
-              isAnimationActive={true}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+              {/* Current Selected Range Area (Solid Orange with Gradient fill) */}
+              <Area 
+                type="monotone" 
+                dataKey="current" 
+                stroke="#f97316" 
+                strokeWidth={3} 
+                fillOpacity={1} 
+                fill="url(#colorCurrentTrend)" 
+                name="Tahun Sekarang" 
+                dot={{ r: 4, stroke: '#f97316', strokeWidth: 2.5, fill: '#fff' }} 
+                activeDot={{ r: 7, stroke: '#ea580c', strokeWidth: 3, fill: '#fff' }} 
+                isAnimationActive={true}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Legend and explanation section */}
