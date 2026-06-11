@@ -438,9 +438,23 @@ export const RekrutmenContent = ({
 
   const handleUpdateCandidateTag = (e: React.MouseEvent, id: number, tag: 'DITOLAK' | 'TIDAK HADIR' | 'TIDAK RESPON' | null) => {
     e.stopPropagation();
-    setCandidates(prev => prev.map(c => c.id === id ? { ...c, tag: c.tag === tag ? null : tag } : c));
+    const isTogglingOff = candidates.find(c => c.id === id)?.tag === tag;
+    const newTag = isTogglingOff ? null : tag;
+
+    setCandidates(prev => prev.map(c => c.id === id ? { ...c, tag: newTag } : c));
+
+    // Sync with schedules list if it's 'TIDAK HADIR' status
+    if (tag === 'TIDAK HADIR') {
+      setSchedules(prev => prev.map(s => {
+        if (s.candidateId === id && s.attendance !== 'Hadir') {
+          return { ...s, attendance: isTogglingOff ? null : 'Tidak Hadir' };
+        }
+        return s;
+      }));
+    }
+
     const cand = candidates.find(c => c.id === id);
-    if (cand) logActivity('Status Kandidat Diubah', { nama: cand.name, status: tag || 'Dihapus' });
+    if (cand) logActivity('Status Kandidat Diubah', { nama: cand.name, status: newTag || 'Dihapus' });
     setActiveCandidateDropdown(null);
   };
 
@@ -496,21 +510,6 @@ export const RekrutmenContent = ({
     const selectedIds = selectedCandidateIds.includes(draggedCandidate.id) 
       ? selectedCandidateIds 
       : [draggedCandidate.id];
-      
-    // Mark associated schedules as 'Hadir' if candidate is moved to a new stage
-    const movingCandidatesRaw = candidates.filter(c => selectedIds.includes(c.id));
-    const stageChangedCandidateIds = movingCandidatesRaw
-      .filter(c => c.stage !== dropPlaceholder.stageId)
-      .map(c => c.id);
-
-    if (stageChangedCandidateIds.length > 0) {
-      setSchedules(prevSchedules => prevSchedules.map(s => {
-        if (s.candidateId && stageChangedCandidateIds.includes(s.candidateId) && !s.attendance) {
-          return { ...s, attendance: 'Hadir' };
-        }
-        return s;
-      }));
-    }
 
     setCandidates(prev => {
       const movingCandidates = prev.filter(c => selectedIds.includes(c.id));
