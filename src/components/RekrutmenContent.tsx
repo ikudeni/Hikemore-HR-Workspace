@@ -1670,6 +1670,7 @@ export const RekrutmenContent = ({
                         <option value="Magang">Magang</option>
                         <option value="Kontrak">Kontrak</option>
                         <option value="Outsource">Outsource</option>
+                        <option value="Freelance">Freelance</option>
                       </select>
                       <Icon name="chevron-down" size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
@@ -1941,7 +1942,7 @@ export const RekrutmenContent = ({
                        </div>
                        <div className="px-2.5 py-1 rounded-xl border border-slate-200 bg-white">
                          <span className="text-[10px] font-bold text-slate-600 truncate max-w-[50px] inline-block">
-                           {job.status === 'Daily Worker' ? 'DW' : job.status}
+                           {job.status === 'Daily Worker' ? 'DW' : job.status === 'Freelance' ? 'FL' : job.status}
                          </span>
                        </div>
                      </div>
@@ -2032,6 +2033,7 @@ export const RekrutmenContent = ({
                       <option value="Magang">Magang</option>
                       <option value="Kontrak">Kontrak</option>
                       <option value="Outsource">Outsource</option>
+                      <option value="Freelance">Freelance</option>
                     </select>
                     <Icon name="chevron-down" size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
