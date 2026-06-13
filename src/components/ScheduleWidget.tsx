@@ -559,6 +559,17 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   };
 
   const getScheduleColorTheme = (s: Schedule) => {
+    const status = getStatus(s);
+    if (status === 'Completed' || status === 'Overdue') {
+      return {
+        card: 'bg-slate-50 border-slate-200/80 text-slate-400 hover:bg-slate-100/70 opacity-75 transition-all',
+        pill: 'bg-slate-200/60 text-slate-500 font-extrabold',
+        title: 'text-slate-500 font-bold',
+        subtitle: 'text-slate-400',
+        avatarBorder: 'border-slate-50',
+      };
+    }
+
     // Stable index based on schedule info
     const str = s.title + (s.candidateName || '') + (s.id || '');
     let hash = 0;
@@ -651,7 +662,15 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
 
   const calendarSchedules = schedules.filter(s => {
       const status = getStatus(s);
-      if (filter !== 'All' && status !== filter) return false;
+      if (filter !== 'All' && status !== filter) {
+         // For week view calendar, we don't hide overdue or completed schedules when the tab is 'Scheduled' 
+         // so they remain visible as beautiful grayed-out cards.
+         if (filter === 'Scheduled' && (status === 'Completed' || status === 'Overdue')) {
+           // Allow through
+         } else {
+           return false;
+         }
+      }
       try {
         const sDate = parseISO(s.date);
         return weekDaysStrs.includes(format(sDate, 'yyyy-MM-dd'));
