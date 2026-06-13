@@ -229,6 +229,11 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const [editingScheduleId, setEditingScheduleId] = useState<number | null>(null);
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<Schedule | null>(null);
 
+  // Drag and drop state for Schedule cards
+  const [draggedScheduleId, setDraggedScheduleId] = useState<number | null>(null);
+  const [dropTargetDate, setDropTargetDate] = useState<string | null>(null);
+  const [dropTargetScheduleId, setDropTargetScheduleId] = useState<number | null>(null);
+
   const [formData, setFormData] = useState<Partial<Schedule>>({
     title: '',
     type: 'Meeting',
@@ -314,9 +319,17 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
   const groupedSchedules = useMemo(() => {
     const groups: Record<string, Schedule[]> = {};
     const sorted = [...filteredSchedules].sort((a, b) => {
-      const timeA = new Date(`${a.date}T${a.startTime}`).getTime();
-      const timeB = new Date(`${b.date}T${b.startTime}`).getTime();
-      return timeA - timeB;
+      if (a.date !== b.date) {
+        return a.date.localeCompare(b.date);
+      }
+      const hasOrderA = a.listOrder !== undefined;
+      const hasOrderB = b.listOrder !== undefined;
+      if (hasOrderA && hasOrderB) {
+        return (a.listOrder as number) - (b.listOrder as number);
+      }
+      const timeA = a.startTime || '00:00';
+      const timeB = b.startTime || '00:00';
+      return timeA.localeCompare(timeB);
     });
 
     sorted.forEach((s) => {
@@ -390,6 +403,126 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
       const s = schedules.find(x => x.id === id);
       if (s) logActivity('Jadwal Dihapus', { judul: s.title });
     }
+  };
+
+  const handleDropOnSchedule = (target: Schedule) => {
+    if (!draggedScheduleId || draggedScheduleId === target.id) return;
+    
+    setSchedules(prev => {
+      const draggedIndex = prev.findIndex(s => s.id === draggedScheduleId);
+      const targetIndex = prev.findIndex(s => s.id === target.id);
+      if (draggedIndex === -1 || targetIndex === -1) return prev;
+      
+      const draggedSch = prev[draggedIndex];
+      const targetSch = prev[targetIndex];
+      const targetDate = targetSch.date;
+      
+      // Get all schedules on target day
+      const daySchedules = prev.filter(s => s.date === targetDate);
+      
+      // Sort daySchedules by listOrder (or by startTime if no listOrder)
+      const sortedDaySchedules = [...daySchedules].sort((a, b) => {
+        const orderA = a.listOrder !== undefined ? a.listOrder : 0;
+        const orderB = b.listOrder !== undefined ? b.listOrder : 0;
+        if (a.listOrder !== undefined && b.listOrder !== undefined) {
+          return orderA - orderB;
+        }
+        const timeA = a.startTime || '00:00';
+        const timeB = b.startTime || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      
+      let updatedDaySchedules = [...sortedDaySchedules];
+      const dIdx = updatedDaySchedules.findIndex(s => s.id === draggedScheduleId);
+      
+      if (dIdx !== -1) {
+        // Dragged is on the same day. Remove from old index and insert at new index
+        const [removed] = updatedDaySchedules.splice(dIdx, 1);
+        const tIdx = updatedDaySchedules.findIndex(s => s.id === target.id);
+        updatedDaySchedules.splice(tIdx, 0, removed);
+      } else {
+        // Dragged is from a DIFFERENT day. Change date and insert at target position
+        logActivity('Jadwal Dipindahkan Tanggal', { 
+          judul: draggedSch.title, 
+          tanggal: targetDate 
+        });
+        
+        const movedSch = { ...draggedSch, date: targetDate };
+        const tIdx = updatedDaySchedules.findIndex(s => s.id === target.id);
+        updatedDaySchedules.splice(tIdx, 0, movedSch);
+      }
+      
+      // Assign sequential listOrders to target day
+      updatedDaySchedules = updatedDaySchedules.map((s, idx) => ({
+        ...s,
+        listOrder: idx
+      }));
+      
+      // Now map back to main state
+      const finalSchedules = prev.map(s => {
+        if (s.id === draggedScheduleId) {
+          const updatedItem = updatedDaySchedules.find(x => x.id === draggedScheduleId);
+          return updatedItem || { ...s, date: targetDate, listOrder: 999 };
+        }
+        
+        const targetDayUpdatedItem = updatedDaySchedules.find(x => x.id === s.id);
+        if (targetDayUpdatedItem) {
+          return targetDayUpdatedItem;
+        }
+        
+        return s;
+      });
+      
+      logActivity('Jadwal Diatur Ulang', { 
+        detail: `Posisi ${draggedSch.title} dipindahkan` 
+      });
+      
+      return finalSchedules;
+    });
+    
+    setDraggedScheduleId(null);
+    setDropTargetScheduleId(null);
+    setDropTargetDate(null);
+  };
+
+  const handleDropOnDate = (targetDate: string) => {
+    if (!draggedScheduleId) return;
+    
+    setSchedules(prev => {
+      const draggedSch = prev.find(s => s.id === draggedScheduleId);
+      if (!draggedSch) return prev;
+      
+      if (draggedSch.date === targetDate) return prev;
+      
+      logActivity('Jadwal Dipindahkan Tanggal', { 
+        judul: draggedSch.title, 
+        tanggal: targetDate 
+      });
+      
+      const targetDaySchedules = prev.filter(s => s.date === targetDate).sort((a, b) => {
+        const orderA = a.listOrder !== undefined ? a.listOrder : 0;
+        const orderB = b.listOrder !== undefined ? b.listOrder : 0;
+        if (a.listOrder !== undefined && b.listOrder !== undefined) {
+          return orderA - orderB;
+        }
+        const timeA = a.startTime || '00:00';
+        const timeB = b.startTime || '00:00';
+        return timeA.localeCompare(timeB);
+      });
+      
+      const movedSch = { ...draggedSch, date: targetDate, listOrder: targetDaySchedules.length };
+      
+      return prev.map(s => {
+        if (s.id === draggedScheduleId) {
+          return movedSch;
+        }
+        return s;
+      });
+    });
+    
+    setDraggedScheduleId(null);
+    setDropTargetScheduleId(null);
+    setDropTargetDate(null);
   };
 
   const formatTime24 = (time: any) => {
@@ -652,7 +785,26 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                 </div>
 
                 {/* Cards block for that day */}
-                <div className="flex-1 space-y-3 pb-8">
+                <div 
+                  className={`flex-1 space-y-3 pb-8 rounded-2xl transition-all duration-200 ${
+                    dropTargetDate === dateStr && !dropTargetScheduleId ? 'bg-indigo-50/10' : ''
+                  }`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    if (draggedScheduleId) {
+                      setDropTargetDate(dateStr);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dropTargetDate === dateStr) {
+                      setDropTargetDate(null);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    handleDropOnDate(dateStr);
+                  }}
+                >
                   {items.map(s => {
                     const status = getStatus(s);
                     const displayType = s.type === 'Lainnya' ? (s.customType || 'Lainnya') : s.type;
@@ -671,7 +823,43 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                     return (
                       <div 
                         key={s.id} 
-                        className={`relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col xl:flex-row justify-between xl:items-center gap-4 transition-all hover:border-indigo-200 cursor-pointer hover:shadow-md border-l-4 ${getBorderColor(s, status)}`}
+                        draggable
+                        onDragStart={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (target.closest('button, a, input, select')) {
+                            e.preventDefault();
+                            return;
+                          }
+                          setDraggedScheduleId(s.id);
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', s.id.toString());
+                        }}
+                        onDragEnd={() => {
+                          setDraggedScheduleId(null);
+                          setDropTargetScheduleId(null);
+                          setDropTargetDate(null);
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          if (draggedScheduleId && draggedScheduleId !== s.id) {
+                            setDropTargetScheduleId(s.id);
+                            setDropTargetDate(s.date);
+                          }
+                        }}
+                        onDragLeave={() => {
+                          if (dropTargetScheduleId === s.id) {
+                            setDropTargetScheduleId(null);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          handleDropOnSchedule(s);
+                        }}
+                        className={`relative bg-white border border-slate-200 rounded-2xl p-5 flex flex-col xl:flex-row justify-between xl:items-center gap-4 transition-all hover:border-indigo-200 cursor-pointer hover:shadow-md border-l-4 ${getBorderColor(s, status)} ${
+                          draggedScheduleId === s.id ? 'opacity-40 scale-[0.98] bg-slate-50/30' : ''
+                        } ${
+                          dropTargetScheduleId === s.id ? 'border-indigo-400 bg-indigo-50/10 scale-[1.01]' : ''
+                        } select-none`}
                         onClick={(e) => { if ((e.target as HTMLElement).closest('button, a')) return; setSelectedDetailSchedule(s); }}
                       >
                         <div className="absolute top-3 right-3 flex flex-col gap-0.5 items-center z-10">

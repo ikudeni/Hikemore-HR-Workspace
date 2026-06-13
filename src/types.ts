@@ -104,6 +104,7 @@ export interface Schedule {
   participants: string[]; // for now just URLs or IDs
   link?: string;
   attendance?: 'Hadir' | 'Tidak Hadir' | 'Selesai' | null;
+  listOrder?: number;
 }
 
 export interface DashboardWidget {

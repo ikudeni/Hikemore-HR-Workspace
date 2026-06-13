@@ -18,6 +18,33 @@ import { EmployeeTrendChart } from './EmployeeTrendChart';
 import { db, logActivity, storage } from '../firebase';
 import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { 
+  BarChart as ReBarChart, 
+  Bar as ReBar, 
+  XAxis as ReXAxis, 
+  YAxis as ReYAxis, 
+  CartesianGrid as ReCartesianGrid, 
+  Tooltip as ReTooltip, 
+  Legend as ReLegend,
+  ResponsiveContainer as ReResponsiveContainer,
+  PieChart as RePieChart, 
+  Pie as RePie, 
+  Cell as ReCell
+} from 'recharts';
+
+interface BudgetAllocation {
+  dept: string;
+  allocated: number;
+}
+
+interface BudgetExpense {
+  id: string;
+  date: string;
+  dept: string;
+  category: string;
+  amount: number;
+  description: string;
+}
 
 const STATUS_COLORS_MAP: Record<string, string> = {
   'Karyawan': '#60A5FA',     // Soft Blue
@@ -568,6 +595,161 @@ export const DashboardContent = ({
     }
   };
 
+  // --- Analitik Budget States ---
+  const [budgetAllocations, setBudgetAllocations] = useState<BudgetAllocation[]>(() => {
+    const saved = localStorage.getItem('hikemore_budget_allocations');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return [
+      { dept: 'Marketing', allocated: 250000000 },
+      { dept: 'HR & GA', allocated: 150000000 },
+      { dept: 'Finance & Accounting', allocated: 120000000 },
+      { dept: 'Operational', allocated: 350000000 },
+      { dept: 'IT', allocated: 400000000 },
+      { dept: 'Production', allocated: 500000000 }
+    ];
+  });
+
+  const [budgetExpenses, setBudgetExpenses] = useState<BudgetExpense[]>(() => {
+    const saved = localStorage.getItem('hikemore_budget_expenses');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        // ignore
+      }
+    }
+    return [
+      { id: 'exp-1', date: '2026-05-10', dept: 'Marketing', category: 'Rekrutmen & Onboarding', amount: 35000000, description: 'Sponsor lowongan Glints & jobstreet' },
+      { id: 'exp-2', date: '2026-05-18', dept: 'IT', category: 'Gaji & Tunjangan', amount: 155000000, description: 'Payroll bulanan tim Developer' },
+      { id: 'exp-3', date: '2026-05-25', dept: 'HR & GA', category: 'Pelatihan & Sertifikasi', amount: 12000000, description: 'Sertifikasi HR Professional BNSP' },
+      { id: 'exp-4', date: '2026-06-01', dept: 'Operational', category: 'Kesejahteraan & Welfare', amount: 45000000, description: 'Outing kuartal I seluruh tim operasional' },
+      { id: 'exp-5', date: '2026-06-05', dept: 'Finance & Accounting', category: 'Operasional HR', amount: 8000000, description: 'Pembelian lisensi Software Pajak & Accurate' },
+      { id: 'exp-6', date: '2026-06-08', dept: 'Production', category: 'Operasional HR', amount: 120000000, description: 'Pengadaan sewa laptop high-spec tim Kreatif' }
+    ];
+  });
+
+  const [isBudgetExpenseModalOpen, setIsBudgetExpenseModalOpen] = useState(false);
+  const [isBudgetAllocationModalOpen, setIsBudgetAllocationModalOpen] = useState(false);
+
+  const [expenseFormData, setExpenseFormData] = useState({
+    date: new Date().toISOString().split('T')[0],
+    dept: 'Marketing',
+    category: 'Gaji & Tunjangan',
+    amount: '',
+    description: ''
+  });
+
+  const [allocationFormData, setAllocationFormData] = useState({
+    dept: 'Marketing',
+    allocated: '' as string | number
+  });
+
+  const [budgetFilterDept, setBudgetFilterDept] = useState('All Departemen');
+  const [budgetFilterCategory, setBudgetFilterCategory] = useState('All Kategori');
+  const [searchBudgetExpense, setSearchBudgetExpense] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem('hikemore_budget_allocations', JSON.stringify(budgetAllocations));
+  }, [budgetAllocations]);
+
+  useEffect(() => {
+    localStorage.setItem('hikemore_budget_expenses', JSON.stringify(budgetExpenses));
+  }, [budgetExpenses]);
+
+  const activeDeptsList = useMemo(() => {
+    const list = new Set([...uniqueDepts, 'Marketing', 'HR & GA', 'Finance & Accounting', 'Operational', 'IT', 'Production']);
+    return Array.from(list).filter(Boolean);
+  }, [uniqueDepts]);
+
+  const departmentBudgetSummary = useMemo(() => {
+    return activeDeptsList.map(dept => {
+      const allocation = budgetAllocations.find(a => a.dept === dept)?.allocated || 0;
+      const spent = budgetExpenses
+        .filter(exp => exp.dept === dept)
+        .reduce((sum, exp) => sum + exp.amount, 0);
+      const remaining = allocation - spent;
+      const progress = allocation ? Math.min(100, Math.round((spent / allocation) * 100)) : 0;
+      return {
+        dept,
+        allocated: allocation,
+        spent,
+        remaining,
+        progress
+      };
+    });
+  }, [activeDeptsList, budgetAllocations, budgetExpenses]);
+
+  const totalAllocated = useMemo(() => {
+    return departmentBudgetSummary.reduce((sum, item) => sum + item.allocated, 0);
+  }, [departmentBudgetSummary]);
+
+  const totalSpent = useMemo(() => {
+    return budgetExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  }, [budgetExpenses]);
+
+  const totalRemaining = totalAllocated - totalSpent;
+  const spendRate = totalAllocated ? Math.round((totalSpent / totalAllocated) * 100) : 0;
+
+  const categoryBudgetDistribution = useMemo(() => {
+    const categories = [
+      'Gaji & Tunjangan',
+      'Rekrutmen & Onboarding',
+      'Pelatihan & Sertifikasi',
+      'Kesejahteraan & Welfare',
+      'Operasional HR'
+    ];
+    return categories.map(cat => {
+      const amount = budgetExpenses
+        .filter(exp => exp.category === cat)
+        .reduce((sum, exp) => sum + exp.amount, 0);
+      return {
+        name: cat,
+        value: amount
+      };
+    }).filter(item => item.value > 0);
+  }, [budgetExpenses]);
+
+  const deptChartData = useMemo(() => {
+    return departmentBudgetSummary.map(item => ({
+      name: item.dept,
+      'Alokasi Anggaran': item.allocated,
+      'Realisasi Anggaran': item.spent
+    }));
+  }, [departmentBudgetSummary]);
+
+  const filteredBudgetExpenses = useMemo(() => {
+    return budgetExpenses.filter(exp => {
+      const matchDept = budgetFilterDept === 'All Departemen' || exp.dept === budgetFilterDept;
+      const matchCategory = budgetFilterCategory === 'All Kategori' || exp.category === budgetFilterCategory;
+      const matchSearch = exp.description.toLowerCase().includes(searchBudgetExpense.toLowerCase()) ||
+                          exp.dept.toLowerCase().includes(searchBudgetExpense.toLowerCase());
+      return matchDept && matchCategory && matchSearch;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [budgetExpenses, budgetFilterDept, budgetFilterCategory, searchBudgetExpense]);
+
+  const BUDGET_CATEGORY_COLORS: Record<string, string> = useMemo(() => ({
+    'Gaji & Tunjangan': '#3B82F6',
+    'Rekrutmen & Onboarding': '#10B981',
+    'Pelatihan & Sertifikasi': '#8B5CF6',
+    'Kesejahteraan & Welfare': '#EC4899',
+    'Operasional HR': '#F59E0B'
+  }), []);
+
+  const formatRupiah = (num: number) => {
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(num);
+  };
+
   const contractRecords = useMemo(() => {
     return employees
       .filter(emp => emp.isActive)
@@ -947,7 +1129,8 @@ export const DashboardContent = ({
     { id: 'Karyawan', label: 'Analitik Karyawan', icon: 'users' },
     { id: 'Rekrutmen', label: 'Analitik Rekrutmen', icon: 'briefcase' },
     { id: 'Kehadiran', label: 'Analitik Lembur', icon: 'calendar-check' },
-    { id: 'Kontrak', label: 'Analitik Kontrak', icon: 'file-text' }
+    { id: 'Kontrak', label: 'Analitik Kontrak', icon: 'file-text' },
+    { id: 'Budget', label: 'Analitik Budget', icon: 'wallet' }
   ] as const;
 
   const isFilterActive = filterDept !== 'All Departemen' || filterStatus !== 'All Status' || filterEdu !== 'All Pendidikan' || filterReligion !== 'All Agama' || filterGender !== 'All Gender' || filterEmployeeId !== null;
@@ -2339,6 +2522,578 @@ export const DashboardContent = ({
               </table>
             </div>
           </Card>
+        </div>
+      )}
+
+      {activeDashboardTab === 'Budget' && (
+        <div className="flex-1 flex flex-col gap-6 animate-fadeIn">
+          {/* Top Summary Header Section Wrapper */}
+          <Card className="flex flex-col p-6 gap-6 relative z-30">
+            {/* Header & Filters */}
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+              <div className="flex flex-col animate-slideDown">
+                <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
+                  <span className="w-2 h-6 bg-blue-600 rounded-full inline-block"></span>
+                  Analitik & Perencanaan Anggaran HR
+                </h2>
+                <p className="text-sm font-medium text-slate-400 mt-1 pl-4">Pantau alokasi anggaran serta pencatatan realisasi pengeluaran bulanan.</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button 
+                  onClick={() => setIsBudgetExpenseModalOpen(true)} 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm hover:shadow-md active:scale-95 flex items-center gap-1.5"
+                >
+                  <Icon name="plus" size={14} /> Catat Pengeluaran
+                </button>
+                <button 
+                  onClick={() => {
+                    const currentAllocated = budgetAllocations.find(a => a.dept === (activeDeptsList[0] || 'Marketing'))?.allocated || '';
+                    setAllocationFormData({
+                      dept: activeDeptsList[0] || 'Marketing',
+                      allocated: currentAllocated
+                    });
+                    setIsBudgetAllocationModalOpen(true);
+                  }} 
+                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition shadow-sm hover:shadow-md active:scale-95 flex items-center gap-1.5"
+                >
+                  <Icon name="tool" size={14} /> Atur Alokasi
+                </button>
+              </div>
+            </div>
+
+            {/* Summary Cards Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+              {/* Card 1 - Blue (Allocated) */}
+              <div className="relative bg-blue-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-blue-100 hover:shadow-md group cursor-default">
+                <div className="relative z-10 flex justify-between items-center w-full">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest block font-sans">Total Anggaran HR</span>
+                    <span className="text-[20px] lg:text-[22px] font-black text-blue-950 mt-1.5 tracking-tight font-sans">
+                      {formatRupiah(totalAllocated)}
+                    </span>
+                  </div>
+                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm border border-blue-50 transition-transform group-hover:rotate-6 group-hover:scale-105">
+                    <Icon name="dollar-sign" size={20} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2 - Emerald (Spent) */}
+              <div className="relative bg-emerald-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-emerald-100 hover:shadow-md group cursor-default">
+                <div className="relative z-10 flex justify-between items-center w-full">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block font-sans">Total Penyerapan</span>
+                    <span className="text-[20px] lg:text-[22px] font-black text-emerald-950 mt-1.5 tracking-tight font-sans">
+                      {formatRupiah(totalSpent)}
+                    </span>
+                  </div>
+                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm border border-emerald-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
+                    <Icon name="dollar-sign" size={20} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3 - Violet (Remaining) */}
+              <div className="relative bg-violet-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-violet-100 hover:shadow-md group cursor-default">
+                <div className="relative z-10 flex justify-between items-center w-full">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-violet-500 uppercase tracking-widest block font-sans">Sisa Anggaran HR</span>
+                    <span className={`text-[20px] lg:text-[22px] font-black mt-1.5 tracking-tight font-sans ${totalRemaining < 0 ? 'text-rose-800' : 'text-violet-950'}`}>
+                      {formatRupiah(totalRemaining)}
+                    </span>
+                  </div>
+                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-violet-500 shadow-sm border border-violet-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
+                    <Icon name="check-square" size={20} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4 - Amber (Rasio) */}
+              <div className="relative bg-amber-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-amber-100 hover:shadow-md group cursor-default">
+                <div className="relative z-10 flex justify-between items-center w-full">
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest block font-sans">Tingkat Penyerapan</span>
+                    <span className="text-[20px] lg:text-[22px] font-black text-amber-950 mt-1.5 tracking-tight font-sans">
+                      {spendRate}%
+                    </span>
+                  </div>
+                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-amber-500 shadow-sm border border-amber-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
+                    <Icon name="activity" size={20} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </Card>
+
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 z-20 relative">
+            {/* Bar Chart Allocation vs Realization */}
+            <Card className="p-6 lg:col-span-8 flex flex-col h-[400px]">
+              <div>
+                <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Perbandingan Anggaran & Pengeluaran Aktual</h3>
+                <p className="text-xs font-semibold text-slate-400 mt-1">Memonitor alokasi ceiling vs pengeluaran aktual per departemen.</p>
+              </div>
+              <div className="flex-1 w-full min-h-0 mt-6 text-slate-600">
+                <ReResponsiveContainer width="100%" height="100%">
+                  <ReBarChart data={deptChartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
+                    <ReCartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                    <ReXAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
+                    <ReYAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} tickFormatter={(val) => `Rp ${(val / 1000000)}jt`} />
+                    <ReTooltip 
+                      formatter={(val: number) => [formatRupiah(val), 'Jumlah']}
+                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} 
+                    />
+                    <ReLegend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
+                    <ReBar dataKey="Alokasi Anggaran" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    <ReBar dataKey="Realisasi Anggaran" fill="#10B981" radius={[4, 4, 0, 0]} />
+                  </ReBarChart>
+                </ReResponsiveContainer>
+              </div>
+            </Card>
+
+            {/* Pie Chart Expense by Category */}
+            <Card className="p-6 lg:col-span-4 flex flex-col h-[400px]">
+              <div>
+                <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Distribusi Pengeluaran HR</h3>
+                <p className="text-xs font-semibold text-slate-400 mt-1">Komposisi pengeluaran HR berdasarkan klaster kebutuhan.</p>
+              </div>
+              <div className="flex-1 w-full min-h-0 flex items-center justify-center relative mt-4">
+                {categoryBudgetDistribution.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
+                    <Icon name="box" size={40} className="stroke-[1.5] mb-2 text-slate-300" />
+                    Belum ada pengeluaran dicatat
+                  </div>
+                ) : (
+                  <ReResponsiveContainer width="100%" height="100%">
+                    <RePieChart>
+                      <RePie
+                        data={categoryBudgetDistribution}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={60}
+                        outerRadius={95}
+                        paddingAngle={4}
+                        dataKey="value"
+                      >
+                        {categoryBudgetDistribution.map((entry, index) => (
+                          <ReCell key={`cell-${index}`} fill={BUDGET_CATEGORY_COLORS[entry.name] || '#64748B'} />
+                        ))}
+                      </RePie>
+                      <ReTooltip formatter={(val: number) => [formatRupiah(val), 'Total']} contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} />
+                      <ReLegend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', bottom: -5 }} />
+                    </RePieChart>
+                  </ReResponsiveContainer>
+                )}
+              </div>
+            </Card>
+          </div>
+
+          {/* Tables Row: Left (Department Budgets), Right (Expenses Log) */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 z-10 relative">
+            
+            {/* Left Column: Department Budget Allocations */}
+            <Card className="xl:col-span-5 p-6 flex flex-col h-full min-h-[500px]">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Anggaran per Departemen</h3>
+                  <p className="text-xs font-semibold text-slate-400 mt-1">Daftar alokasi dan status sisa budget per departemen.</p>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
+                      <th className="pb-3 text-left font-sans">Departemen</th>
+                      <th className="pb-3 text-right font-sans">Alokasi</th>
+                      <th className="pb-3 text-right font-sans">Sisa</th>
+                      <th className="pb-3 text-center w-[80px] font-sans">Penyerapan</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {departmentBudgetSummary.map(item => {
+                      const isHighRealisasi = item.progress > 90;
+                      const isMedRealisasi = item.progress > 70 && item.progress <= 90;
+                      const progressColorClass = isHighRealisasi 
+                        ? 'bg-rose-500' 
+                        : isMedRealisasi 
+                          ? 'bg-amber-500' 
+                          : 'bg-emerald-500';
+
+                      return (
+                        <tr key={item.dept} className="border-b border-slate-50/50 hover:bg-slate-50/30 text-xs font-semibold text-slate-700">
+                          <td className="py-3.5 pl-0 max-w-[125px] truncate">
+                            <span className="font-extrabold text-slate-800 block text-[13px]">{item.dept}</span>
+                            <span className="text-[10px] text-slate-400 mt-0.5 block font-bold font-sans">Terpakai: {formatRupiah(item.spent)}</span>
+                          </td>
+                          <td className="py-3.5 text-right font-extrabold text-slate-800 text-[12px] font-sans">
+                            {formatRupiah(item.allocated)}
+                          </td>
+                          <td className={`py-3.5 text-right font-extrabold text-[12px] font-sans ${item.remaining < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
+                            {formatRupiah(item.remaining)}
+                          </td>
+                          <td className="py-3.5 text-center">
+                            <div className="flex flex-col items-center justify-center gap-1.5">
+                              <span className="text-[11px] font-bold text-slate-700 font-sans">{item.progress}%</span>
+                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                <div className={`h-full ${progressColorClass}`} style={{ width: `${item.progress}%` }}></div>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+
+            {/* Right Column: Expenditures Log */}
+            <Card className="xl:col-span-7 p-6 flex flex-col h-full min-h-[500px]">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div>
+                  <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Log Pengeluaran HR</h3>
+                  <p className="text-xs font-semibold text-slate-400 mt-1">Daftar transaksi pengeluaran anggaran HR yang tercatat.</p>
+                </div>
+                
+                {/* Search & Mini Filters */}
+                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:flex-initial">
+                    <input 
+                      type="text" 
+                      placeholder="Cari keterangan..." 
+                      value={searchBudgetExpense} 
+                      onChange={e => setSearchBudgetExpense(e.target.value)} 
+                      className="w-full md:w-[130px] placeholder:text-slate-400 pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
+                    />
+                    <Icon name="search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+
+                  <div className="relative">
+                    <select 
+                      value={budgetFilterDept} 
+                      onChange={e => setBudgetFilterDept(e.target.value)}
+                      className="appearance-none pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold text-slate-700 cursor-pointer hover:border-slate-300 transition-colors"
+                    >
+                      <option value="All Departemen">Semua Dept</option>
+                      {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                    <Icon name="chevron-down" size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+
+                  <div className="relative">
+                    <select 
+                      value={budgetFilterCategory} 
+                      onChange={e => setBudgetFilterCategory(e.target.value)}
+                      className="appearance-none pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold text-slate-700 cursor-pointer hover:border-slate-300 transition-colors"
+                    >
+                      <option value="All Kategori">Semua Kategori</option>
+                      <option value="Gaji & Tunjangan">Gaji & Tunjangan</option>
+                      <option value="Rekrutmen & Onboarding">Rekrutmen & Onboarding</option>
+                      <option value="Pelatihan & Sertifikasi">Pelatihan & Sertifikasi</option>
+                      <option value="Kesejahteraan & Welfare">Kesejahteraan & Welfare</option>
+                      <option value="Operasional HR">Operasional HR</option>
+                    </select>
+                    <Icon name="chevron-down" size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+
+                  {(searchBudgetExpense !== '' || budgetFilterDept !== 'All Departemen' || budgetFilterCategory !== 'All Kategori') && (
+                    <button 
+                      onClick={() => { setSearchBudgetExpense(''); setBudgetFilterDept('All Departemen'); setBudgetFilterCategory('All Kategori'); }} 
+                      className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-colors"
+                      title="Hapus Filter"
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-x-auto min-h-[300px]">
+                <table className="w-full text-left font-sans">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
+                      <th className="pb-3 text-left">Tanggal & Keterangan</th>
+                      <th className="pb-3 text-left font-sans">Departemen</th>
+                      <th className="pb-3 text-left font-sans">Kategori</th>
+                      <th className="pb-3 text-right font-sans">Jumlah</th>
+                      <th className="pb-3 text-center w-[60px] font-sans">Aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBudgetExpenses.map(exp => (
+                      <tr key={exp.id} className="border-b border-slate-50/50 hover:bg-slate-50/30 text-xs font-semibold text-slate-700">
+                        <td className="py-3">
+                          <span className="font-extrabold text-slate-800 block text-[12.5px] max-w-[180px] truncate" title={exp.description}>
+                            {exp.description}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold block mt-0.5 font-sans">{exp.date}</span>
+                        </td>
+                        <td className="py-3">
+                          <span className="bg-slate-100/80 text-slate-700 px-2 py-1 rounded-lg text-[10px] font-bold">
+                            {exp.dept}
+                          </span>
+                        </td>
+                        <td className="py-3 text-left font-sans">
+                          <div className="flex items-center gap-1.5">
+                            <span 
+                              className="w-2.5 h-2.5 rounded-full shrink-0" 
+                              style={{ backgroundColor: BUDGET_CATEGORY_COLORS[exp.category] || '#64748B' }}
+                            ></span>
+                            <span className="text-[11px] font-bold text-slate-600 select-none">
+                              {exp.category}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-3 text-right font-extrabold text-slate-800 text-[12.5px] font-sans">
+                          {formatRupiah(exp.amount)}
+                        </td>
+                        <td className="py-3 text-center">
+                          <button 
+                            onClick={() => {
+                              if (confirm("Apakah Anda yakin ingin menghapus catatan pengeluaran ini?")) {
+                                setBudgetExpenses(prev => prev.filter(e => e.id !== exp.id));
+                                logActivity('Hapus Pengeluaran Budget', { deskripsi: exp.description, jumlah: formatRupiah(exp.amount) });
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Hapus"
+                          >
+                            <Icon name="trash-2" size={14} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {filteredBudgetExpenses.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="py-12 text-center text-slate-400 text-xs font-semibold select-none bg-slate-50/30">
+                          <Icon name="file-text" size={32} className="mx-auto text-slate-300 stroke-[1.5] mb-2" />
+                          Tidak ada data transaksi budget yang cocok
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+
+          {/* Budget Expense Modal (Portaled) */}
+          {isBudgetExpenseModalOpen && createPortal(
+            <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center animate-fadeIn font-sans">
+              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBudgetExpenseModalOpen(false)}></div>
+              <Card className="relative w-full max-w-lg bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                      <Icon name="plus" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-extrabold text-slate-800">Catat Pengeluaran Baru</h3>
+                      <p className="text-[13px] text-slate-500 font-semibold mt-0.5">Masukkan detail pengeluaran & operasional HR.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsBudgetExpenseModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+                    <Icon name="x" size={20} />
+                  </button>
+                </div>
+                
+                <form onSubmit={e => {
+                  e.preventDefault();
+                  if (!expenseFormData.amount || !expenseFormData.description || !expenseFormData.date) {
+                    alert("Mohon lengkapi seluruh isian data.");
+                    return;
+                  }
+                  const newExpense: BudgetExpense = {
+                    id: `exp-${Date.now()}`,
+                    date: expenseFormData.date,
+                    dept: expenseFormData.dept || activeDeptsList[0] || 'Marketing',
+                    category: expenseFormData.category || 'Gaji & Tunjangan',
+                    amount: Number(expenseFormData.amount),
+                    description: expenseFormData.description
+                  };
+                  setBudgetExpenses(prev => [newExpense, ...prev]);
+                  logActivity('Tambah Pengeluaran Budget', { deskripsi: newExpense.description, jumlah: formatRupiah(newExpense.amount) });
+                  setIsBudgetExpenseModalOpen(false);
+                  setExpenseFormData({
+                    date: new Date().toISOString().split('T')[0],
+                    dept: activeDeptsList[0] || 'Marketing',
+                    category: 'Gaji & Tunjangan',
+                    amount: '',
+                    description: ''
+                  });
+                }} className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4 text-left font-sans">
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
+                    <label className="text-[13px] font-black font-sans">Tanggal Transaksi</label>
+                    <input 
+                      type="date" 
+                      value={expenseFormData.date} 
+                      onChange={e => setExpenseFormData({...expenseFormData, date: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800" 
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Departemen</label>
+                    <div className="relative">
+                      <select 
+                        value={expenseFormData.dept} 
+                        onChange={e => setExpenseFormData({...expenseFormData, dept: e.target.value})}
+                        required 
+                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
+                      >
+                        {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Kategori Pengeluaran</label>
+                    <div className="relative">
+                      <select 
+                        value={expenseFormData.category} 
+                        onChange={e => setExpenseFormData({...expenseFormData, category: e.target.value})}
+                        required 
+                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
+                      >
+                        <option value="Gaji & Tunjangan">Gaji & Tunjangan</option>
+                        <option value="Rekrutmen & Onboarding">Rekrutmen & Onboarding</option>
+                        <option value="Pelatihan & Sertifikasi font-sans">Pelatihan & Sertifikasi</option>
+                        <option value="Kesejahteraan & Welfare font-sans">Kesejahteraan & Welfare</option>
+                        <option value="Operasional HR font-sans">Operasional HR</option>
+                      </select>
+                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Jumlah Pengeluaran (Nominal Rupiah)</label>
+                    <input 
+                      type="number" 
+                      placeholder="Contoh: 15000000"
+                      value={expenseFormData.amount} 
+                      onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800" 
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Keterangan / Deskripsi</label>
+                    <textarea 
+                      rows={2} 
+                      placeholder="Masukkan deskripsi penggunaan dana..."
+                      value={expenseFormData.description} 
+                      onChange={e => setExpenseFormData({...expenseFormData, description: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none resize-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800" 
+                    />
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 mt-4 rounded-b-2xl -mx-6 -mb-6">
+                    <button type="button" onClick={() => setIsBudgetExpenseModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-[13px] text-slate-600 hover:bg-slate-200 transition-colors">
+                      Batal
+                    </button>
+                    <button 
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-1.5 shadow-sm font-sans"
+                    >
+                      <Icon name="check" size={14} /> Simpan Pengeluaran
+                    </button>
+                  </div>
+                </form>
+              </Card>
+            </div>,
+            document.body
+          )}
+
+          {/* Budget Allocation Modal (Portaled) */}
+          {isBudgetAllocationModalOpen && createPortal(
+            <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center animate-fadeIn font-sans">
+              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBudgetAllocationModalOpen(false)}></div>
+              <Card className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full font-sans">
+                <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
+                  <div className="flex items-center gap-3 font-sans">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                      <Icon name="tool" size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-extrabold text-slate-800">Atur Anggaran Alokasi</h3>
+                      <p className="text-[13px] text-slate-500 font-semibold mt-0.5">Ubah batas anggaran di departemen terpilih.</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setIsBudgetAllocationModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
+                    <Icon name="x" size={20} />
+                  </button>
+                </div>
+                
+                <form onSubmit={e => {
+                  e.preventDefault();
+                  if (!allocationFormData.dept || !allocationFormData.allocated) {
+                    alert("Mohon tentukan departemen dan nominal anggaran alokasi.");
+                    return;
+                  }
+                  
+                  setBudgetAllocations(prev => {
+                    const filtered = prev.filter(a => a.dept !== allocationFormData.dept);
+                    return [...filtered, {
+                      dept: allocationFormData.dept,
+                      allocated: Number(allocationFormData.allocated)
+                    }];
+                  });
+                  
+                  logActivity('Update Alokasi Budget', { departemen: allocationFormData.dept, alokasi: formatRupiah(Number(allocationFormData.allocated)) });
+                  setIsBudgetAllocationModalOpen(false);
+                }} className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4 text-left font-sans">
+                  <div className="flex flex-col gap-1.5 focus-within:text-emerald-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Pilih Departemen</label>
+                    <div className="relative font-sans">
+                      <select 
+                        value={allocationFormData.dept} 
+                        onChange={e => {
+                          const currentAlloc = budgetAllocations.find(a => a.dept === e.target.value)?.allocated || '';
+                          setAllocationFormData({...allocationFormData, dept: e.target.value, allocated: currentAlloc});
+                        }}
+                        required 
+                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100/50 transition-all text-slate-800"
+                      >
+                        {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
+                      </select>
+                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-emerald-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Plafon Anggaran Baru (Rupiah)</label>
+                    <input 
+                      type="number" 
+                      placeholder="Contoh: 300000000"
+                      value={allocationFormData.allocated} 
+                      onChange={e => setAllocationFormData({...allocationFormData, allocated: e.target.value})}
+                      required 
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100/50 transition-all text-slate-800" 
+                    />
+                  </div>
+
+                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 mt-4 rounded-b-2xl -mx-6 -mb-6 font-sans">
+                    <button type="button" onClick={() => setIsBudgetAllocationModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-[13px] text-slate-600 hover:bg-slate-200 transition-colors">
+                      Batal
+                    </button>
+                    <button 
+                      type="submit"
+                      className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-emerald-600 text-white hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5 shadow-sm font-sans"
+                    >
+                      <Icon name="check" size={14} /> Terapkan Alokasi
+                    </button>
+                  </div>
+                </form>
+              </Card>
+            </div>,
+            document.body
+          )}
         </div>
       )}
 

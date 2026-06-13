@@ -2,5 +2,5 @@
   "name": "HRMS Hikemore",
   "description": "Sistem Manajemen Sumber Daya Manusia (HRMS) komprehensif untuk Hikemore, mencakup analitik karyawan, manajemen data karyawan, dan pelacakan rekrutmen dengan papan Kanban.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

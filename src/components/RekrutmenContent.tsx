@@ -856,14 +856,14 @@ export const RekrutmenContent = ({
                               </span>
                             ) : null}
                             <div 
-                              className="font-extrabold text-[13px] text-slate-800 leading-tight transition-colors flex items-center justify-between cursor-pointer group/name"
+                              className="font-extrabold text-[13px] text-slate-800 leading-tight transition-colors flex items-center gap-1.5 cursor-pointer group/name w-fit"
                               onClick={(e) => handleCopyName(e, c.name, c.id)}
                             >
                               <span className={`transition-colors ${copiedNameId === c.id ? 'text-green-600' : 'group-hover:text-primary'}`}>
                                 {copiedNameId === c.id ? 'Disalin!' : c.name}
                               </span>
                               {!copiedNameId || copiedNameId !== c.id ? (
-                                <div className="opacity-0 group-hover/name:opacity-100 transition-opacity">
+                                <div className="opacity-0 group-hover/name:opacity-100 transition-opacity flex items-center">
                                   <Icon name="copy" size={12} className="text-slate-400 group-hover:text-primary" />
                                 </div>
                               ) : (
@@ -988,13 +988,13 @@ export const RekrutmenContent = ({
                         <div className="flex justify-between items-center mt-3">
                           <div className="flex items-center gap-3">
                             <div 
-                              className="flex items-center gap-2 cursor-pointer hover:text-primary group/phone" 
+                              className="flex items-center gap-1 cursor-pointer hover:text-primary group/phone" 
                               onClick={(e) => handleCopyPhone(e, c.phone || '', c.id)}
                             >
                               <span className={`text-[11px] ${copiedPhoneId === c.id ? 'text-green-600 font-bold' : 'text-slate-600 font-medium'}`}>
                                 {copiedPhoneId === c.id ? 'Tersalin' : (c.phone || '-')}
                               </span>
-                              <Icon name={copiedPhoneId === c.id ? "check" : "copy"} size={12} className={copiedPhoneId === c.id ? "text-green-500" : "text-slate-400 group-hover/phone:text-primary"} />
+                              <Icon name={copiedPhoneId === c.id ? "check" : "copy"} size={12} className={copiedPhoneId === c.id ? "text-green-500 shrink-0" : "text-slate-400 group-hover/phone:text-primary shrink-0"} />
                             </div>
                             {c.documents && c.documents.length > 0 && (
                               <button 
@@ -1079,7 +1079,7 @@ export const RekrutmenContent = ({
               </div>
             </div>
             <div className="flex justify-between items-center mt-3">
-              <div className="flex items-center gap-2 cursor-pointer">
+              <div className="flex items-center gap-1 cursor-pointer">
                 <span className="text-[11px] text-slate-600 font-medium">{draggedCandidate.phone || '-'}</span>
                 <Icon name="copy" size={12} className="text-slate-400" />
               </div>
