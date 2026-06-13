@@ -12,7 +12,7 @@ import {
   CalendarCheck, BarChart2, Calendar, Phone, XCircle, UserX, Target,
   MessageCircle, ExternalLink, Smartphone, Video, MapPin, Monitor,
   File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
-  Info, HelpCircle, FolderPlus, User, DollarSign, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
+  Info, HelpCircle, FolderPlus, User, DollarSign, Wallet, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
   Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle, Network, Link, CheckSquare, Database, PenTool, Menu
 } from 'lucide-react';
 
@@ -24,6 +24,7 @@ const iconMap = {
   'tool': PenTool,
   'menu': Menu,
   'dollar-sign': DollarSign,
+  'wallet': Wallet,
   'award': Award,
   'users': Users,
   'user': User,
