@@ -78,9 +78,50 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
 
   const handleSave = async () => {
     if (!evalId) return;
-    setIsSaving(true);
     setSuccessMsg('');
     setError('');
+
+    const missingDataWarning: string[] = [];
+    
+    if (!data.namaPenilai || data.namaPenilai.trim() === "") {
+      missingDataWarning.push("Nama Penilai belum diisi");
+    }
+
+    const categoriesToCheck = [
+      { name: 'GRIT', prefix: 'grit' },
+      { name: 'GROWTH', prefix: 'growth' },
+      { name: 'PROFESSIONALISM', prefix: 'prof' },
+      { name: 'SUSTAINABLE', prefix: 'sus' }
+    ];
+
+    const emptyCategories: string[] = [];
+    categoriesToCheck.forEach(cat => {
+      const unansweredCount = [1, 2, 3, 4, 5].filter(num => {
+        const key = `${cat.prefix}_${num}`;
+        return data[key] === undefined || data[key] === null || data[key] === "";
+      }).length;
+
+      if (unansweredCount > 0) {
+        emptyCategories.push(`${cat.name} (${unansweredCount} kriteria belum dinilai)`);
+      }
+    });
+
+    if (emptyCategories.length > 0) {
+      missingDataWarning.push(`Skor kriteria belum lengkap pada kategori: ${emptyCategories.join(', ')}`);
+    }
+
+    if (missingDataWarning.length > 0) {
+      setError(`⚠️ Gagal menyimpan penilaian! Harap lengkapi seluruh data: ${missingDataWarning.join(' dan ')}.`);
+      
+      // Scroll smoothly to the top of the container to show the notification
+      const scrollEl = document.querySelector('.overflow-y-auto');
+      if (scrollEl) {
+        scrollEl.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+      return;
+    }
+    
+    setIsSaving(true);
     
     try {
       const pDoc = await getDoc(doc(db, 'settings', 'performaData'));
