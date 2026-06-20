@@ -343,6 +343,19 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                 </div>
               </div>
 
+              {/* Petunjuk Pengisian / Performance Appraisal Policy Notice */}
+              <div className="bg-gradient-to-r from-blue-500/10 via-indigo-500/5 to-transparent border border-blue-100 p-6 sm:p-8 rounded-3xl flex flex-col md:flex-row items-start gap-5 shadow-[0_4px_20px_-4px_rgba(59,130,246,0.08)]">
+                <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-blue-200 mt-1">
+                  <Icon name="shield" size={24} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="font-black text-slate-800 text-lg uppercase tracking-tight">Performance Appraisal (Penilaian Kinerja)</h3>
+                  <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                    Formulir evaluasi ini digunakan sebagai bentuk penilaian performa komprehensif bagi rekan kerja Anda. Harap mengisi setiap item indikator dengan penuh <strong>tanggung jawab, kejujuran, dan objektifitas tinggi</strong> demi menghasilkan kesimpulan penilaian yang <strong>relevan, akurat (reliable), serta bebas dari bias</strong> untuk mendukung pengembangan atau apresiasi karier karyawan di masa mendatang.
+                  </p>
+                </div>
+              </div>
+
               {/* Kompetensi Container */}
               <div className="flex flex-col gap-4">
                  {renderScoreSection('GRIT', 30, 'grit', [
