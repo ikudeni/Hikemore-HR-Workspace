@@ -13,10 +13,14 @@ import {
   MessageCircle, ExternalLink, Smartphone, Video, MapPin, Monitor,
   File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
   Info, HelpCircle, FolderPlus, User, DollarSign, Wallet, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
-  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle, Network, Link, CheckSquare, Database, PenTool, Menu
+  Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle, Network, Link, CheckSquare, Database, PenTool, Menu,
+  Lock, Unlock, Shuffle
 } from 'lucide-react';
 
 const iconMap = {
+  'lock': Lock,
+  'unlock': Unlock,
+  'shuffle': Shuffle,
   'network': Network,
   'link': Link,
   'check-square': CheckSquare,

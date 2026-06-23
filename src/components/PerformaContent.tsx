@@ -63,9 +63,10 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
     }, 500);
   };
 
-  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(
-    employees.length > 0 ? employees[0].id : null,
-  );
+  const [selectedEmpId, setSelectedEmpId] = useState<string | null>(() => {
+    const activeOnes = employees.filter(e => e.isActive !== false);
+    return activeOnes.length > 0 ? activeOnes[0].id : (employees.length > 0 ? employees[0].id : null);
+  });
 
   const [selectedDashboardEmpId, setSelectedDashboardEmpId] = useState<string | null>(null);
 
@@ -503,6 +504,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
 
   const performaData = useMemo(() => {
     return employees
+      .filter((emp) => emp.isActive !== false)
       .map((emp) => {
         const rawData = performaDataMap[emp.id] || {
           grit: 0,
@@ -1950,6 +1952,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                 </div>
                 <div className="overflow-y-auto flex-1 p-2 space-y-1 hide-scrollbar">
                   {employees
+                    .filter((emp) => emp.isActive !== false)
                     .filter((emp) =>
                       emp.name
                         .toLowerCase()
@@ -2235,6 +2238,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                             >
                                               <option value="">-- Pilih Atasan Langsung --</option>
                                               {employees
+                                                .filter(item => item.isActive !== false)
                                                 .filter(item => item.id !== emp.id)
                                                 .map(item => (
                                                   <option key={item.id} value={item.id}>
@@ -2255,50 +2259,85 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                 {(() => {
                                   const supervisor = employees.find(e => e.id === emp.managerId);
                                   const pin = supervisor ? (globalSettings.atasanPins?.[emp.managerId || ""] || "") : "";
-                                  const url = `${window.location.origin}${window.location.pathname}?mode=evaluasi&evalId=${emp.id}`;
+                                  const urlPortal = `${window.location.origin}${window.location.pathname}?mode=evaluasi`;
+                                  const urlIndividual = `${window.location.origin}${window.location.pathname}?mode=evaluasi&evalId=${emp.id}`;
                                   
                                   return (
-                                    <div className="space-y-3 flex flex-col h-full justify-between">
-                                      <div>
-                                        <span className="block text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">
-                                          TAUTAN PENILAIAN RAHASIA
-                                        </span>
-                                        <div className="flex items-center gap-2 mt-1">
-                                          <input
-                                            type="text"
-                                            readOnly
-                                            value={url}
-                                            className="bg-slate-50 border border-slate-100 text-slate-500 font-bold rounded-xl px-3 py-2 text-xs flex-1 select-all outline-none truncate font-sans"
-                                          />
-                                          <button
-                                            type="button"
-                                            disabled={!supervisor}
-                                            onClick={() => {
-                                              navigator.clipboard.writeText(url);
-                                              alert(`Tautan penilaian untuk ${emp.name} berhasil disalin!`);
-                                            }}
-                                            className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl transition-all shadow-sm border border-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0"
-                                            title="Salin Tautan"
-                                          >
-                                            <Icon name="link" size={14} />
-                                          </button>
+                                    <div className="space-y-4 flex flex-col h-full justify-between">
+                                      <div className="space-y-3">
+                                        <div>
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="block text-[10px] font-black tracking-widest text-[#4f46e5] uppercase">
+                                              🔗 TAUTAN PORTAL ATASAN (REKOMENDASI)
+                                            </span>
+                                            <span className="text-[9px] bg-indigo-50 text-indigo-700 font-extrabold px-1.5 py-0.5 rounded">Satu Link Semua Tim</span>
+                                          </div>
+                                          <p className="text-[10px] text-slate-400 font-bold mb-1 leading-normal">
+                                            Satu tautan untuk mengakses aman seluruh tim bawahan {supervisor?.name || 'atasan'}.
+                                          </p>
+                                          <div className="flex items-center gap-2 mt-1">
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={urlPortal}
+                                              className="bg-slate-50 border border-slate-100 text-slate-500 font-bold rounded-xl px-3 py-2 text-xs flex-1 select-all outline-none truncate font-sans"
+                                            />
+                                            <button
+                                              type="button"
+                                              disabled={!supervisor}
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(urlPortal);
+                                                alert(`Tautan Portal Penilaian Atasan berhasil disalin!\nCukup kirimkan tautan ini + PIN ke Bapak/Ibu ${supervisor?.name || 'Atasan'}.`);
+                                              }}
+                                              className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl transition-all shadow-sm border border-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0"
+                                              title="Salin Link Portal"
+                                            >
+                                              <Icon name="link" size={14} />
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="pt-2 border-t border-slate-100">
+                                          <span className="block text-[10px] font-semibold text-slate-400 uppercase mb-1">
+                                            TAUTAN INDIVIDU ({emp.name.split(' ')[0]})
+                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <input
+                                              type="text"
+                                              readOnly
+                                              value={urlIndividual}
+                                              className="bg-slate-50 border border-slate-100 text-slate-400 font-semibold rounded-xl px-3 py-1.5 text-[11px] flex-1 select-all outline-none truncate font-sans"
+                                            />
+                                            <button
+                                              type="button"
+                                              disabled={!supervisor}
+                                              onClick={() => {
+                                                navigator.clipboard.writeText(urlIndividual);
+                                                alert(`Tautan penilaian individu khusus ${emp.name} berhasil disalin!`);
+                                              }}
+                                              className="p-1.5 text-slate-500 bg-slate-50 hover:bg-slate-100 rounded-lg transition-all border border-slate-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0"
+                                              title="Salin Link Individu"
+                                            >
+                                              <Icon name="link" size={12} />
+                                            </button>
+                                          </div>
                                         </div>
                                       </div>
 
-                                      <div className="pt-2 border-t border-slate-100">
+                                      <div className="pt-2 border-t border-slate-100 space-y-2">
                                         <button
                                           type="button"
                                           disabled={!supervisor || !pin}
                                           onClick={() => {
                                             if (!supervisor) return;
-                                            const message = `Yth. Bapak/Ibu *${supervisor.name}*,\n\nMohon bantu isi formulir penilaian kinerja tahunan untuk bawahan langsung Anda:\n👤 Staf: *${emp.name}*\n\n🔗 Link Penilaian Rahasia:\n${url}\n\n🔐 PIN Keamanan Atasan: *${pin}*\n_(Harap simpan kode PIN ini dan jangan disebarkan demi menjaga kerahasiaan penilaian divisi)_.\n\nTerima kasih (SDM / HRD).`;
+                                            const message = `Yth. Bapak/Ibu *${supervisor.name}*,\n\nMohon bantu isi formulir penilaian kinerja tahunan untuk seluruh bawahan langsung Bapak/Ibu.\n\n🔗 *Link Portal Penilaian Atasan*:\n${urlPortal}\n\n🔐 *PIN Keamanan Anda*: *${pin}*\n\n_(Masukkan PIN di atas setelah membuka link untuk melihat daftar nama bawahan Anda & mengisi form. Harap simpan PIN ini dengan rapat demi kerahasiaan & privasi penilaian divisi)_.\n\nTerima kasih atas bantuan dan kerja samanya.\n(Direksi & Tim SDM / HRD)`;
                                             navigator.clipboard.writeText(message);
-                                            alert(`Format pesan WhatsApp berhasil disalin ke clipboard! Siap dikirim ke ${supervisor.name}.`);
+                                            alert(`Format pesan WhatsApp berhasil disalin ke clipboard! Siap dikirim ke ${supervisor.name} untuk menyiasati satu tautan untuk semua bawahan.`);
                                           }}
                                           className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                                         >
                                           <Icon name="message-square" size={14} />
-                                          Salin Pesan Share WhatsApp
+                                          Salin Pesan WhatsApp Portal (Semua Tim)
                                         </button>
                                       </div>
                                     </div>
