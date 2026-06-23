@@ -509,15 +509,9 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
               className="text-indigo-200 hover:text-white bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer"
             >
               <Icon name="log-out" size={12} />
-              Ganti PIN / Keluar
+              Keluar
             </button>
           )}
-          <button 
-            onClick={onGoToLogin} 
-            className="text-slate-400 hover:text-slate-200 text-xs font-bold transition-colors font-semibold"
-          >
-            Kembali
-          </button>
         </div>
       </div>
 
