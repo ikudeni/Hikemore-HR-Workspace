@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from './ui/Icon';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, getDocs, collection } from 'firebase/firestore';
 import { Employee } from '../types';
 import { upgradePerformaData } from '../utils';
 
@@ -31,6 +31,15 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
 
+  // Secure PIN access state
+  const [codeAttempt, setCodeAttempt] = useState('');
+  const [passcodeError, setPasscodeError] = useState('');
+  const [isAccessGranted, setIsAccessGranted] = useState(false);
+  const [atasanName, setAtasanName] = useState('');
+  const [expectedPin, setExpectedPin] = useState('');
+  const [allAtasanPins, setAllAtasanPins] = useState<Record<string, string>>({});
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('evalId');
@@ -46,21 +55,73 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError('');
+        
+        // 1. Fetch current employee
         const empDoc = await getDoc(doc(db, 'employees', evalId));
         if (!empDoc.exists()) {
           setError('Karyawan tidak ditemukan.');
           setLoading(false);
           return;
         }
-        setEmployee({ id: empDoc.id, ...empDoc.data() } as Employee);
+        const currentEmp = { id: empDoc.id, ...empDoc.data() } as Employee;
+        setEmployee(currentEmp);
 
+        // 2. Read managerId
+        const managerId = currentEmp.managerId;
+        if (!managerId) {
+          setError('⚠️ Karyawan ini belum memiliki Atasan Langsung yang terdaftar di Bagan Organisasi. Silakan hubungi Admin HRD untuk menentukan Atasan Langsung karyawan ini terlebih dahulu sebelum melakukan penilaian.');
+          setLoading(false);
+          return;
+        }
+
+        // 3. Load supervisor name
+        let supervisorName = '';
+        if (managerId.startsWith('__EXT__::')) {
+          supervisorName = managerId.replace('__EXT__::', '');
+        } else {
+          try {
+            const mgrDoc = await getDoc(doc(db, 'employees', managerId));
+            if (mgrDoc.exists()) {
+              supervisorName = mgrDoc.data().name || 'Atasan Terdaftar';
+            } else {
+              supervisorName = 'Atasan Terdaftar';
+            }
+          } catch (e) {
+            supervisorName = 'Atasan Terdaftar';
+          }
+        }
+        setAtasanName(supervisorName);
+
+        // 4. Fetch all employees to allow PIN lookup across divisions
+        const empsSnap = await getDocs(collection(db, 'employees'));
+        const empsList: Employee[] = [];
+        empsSnap.forEach((docSnap) => {
+          empsList.push({ id: docSnap.id, ...docSnap.data() } as Employee);
+        });
+        setAllEmployees(empsList);
+
+        // 5. Fetch performaData and resolve PIN
         const pDoc = await getDoc(doc(db, 'settings', 'performaData'));
         if (pDoc.exists()) {
           const pData = pDoc.data();
+          
           if (pData.performaDataMap && pData.performaDataMap[evalId]) {
-             // Let any existing values map. 
             setData(prev => ({ ...prev, ...upgradePerformaData(pData.performaDataMap[evalId]) }));
           }
+          
+          const globalSet = pData.globalSettings || {};
+          const pins = globalSet.atasanPins || {};
+          setAllAtasanPins(pins);
+          
+          const p = pins[managerId] || '';
+          setExpectedPin(p);
+          
+          if (!p) {
+            setError(`⚠️ Akses Terkunci: Atasan Langsung (${supervisorName}) belum memiliki Kode PIN Evaluasi yang diatur oleh Admin HRD. Silakan hubungi Admin HRD untuk menetapkan PIN Atasan Langsung di dashboard terlebih dahulu.`);
+          }
+        } else {
+          setError('⚠️ Konfigurasi sistem evaluasi tidak ditemukan.');
         }
       } catch (err) {
         setError('Gagal memuat data penilaian.');
@@ -76,6 +137,36 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     setData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleVerifyPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employee) return;
+    
+    if (codeAttempt.trim() === '') {
+      setPasscodeError('Harap isi Kode PIN terlebih dahulu.');
+      return;
+    }
+    
+    if (codeAttempt.trim() === expectedPin) {
+      setIsAccessGranted(true);
+      // Auto-set namaPenilai with supervisor's name if empty
+      setData(prev => ({
+        ...prev,
+        namaPenilai: prev.namaPenilai || atasanName || ''
+      }));
+    } else {
+      // Find which manager owned this entered PIN to identify cross-divisional violation
+      const matchedOtherManagerEntry = Object.entries(allAtasanPins).find(([mgrId, val]) => val === codeAttempt.trim());
+      if (matchedOtherManagerEntry) {
+        const otherMgrId = matchedOtherManagerEntry[0];
+        const otherMgr = allEmployees.find(empItem => empItem.id === otherMgrId);
+        const otherName = otherMgr ? otherMgr.name : (otherMgrId.startsWith('__EXT__::') ? otherMgrId.replace('__EXT__::', '') : 'Manajer Lain');
+        setPasscodeError(`⚠️ PIN Terdeteksi! Halo Bapak/Ibu ${otherName}, Anda adalah Atasan dari divisi lain. Anda hanya diizinkan menilai bawahan langsung Anda sendiri. Penilaian lintas divisi dilarang demi kerahasiaan & privasi divisi.`);
+      } else {
+        setPasscodeError('❌ Kode PIN yang Anda masukkan salah atau sudah tidak aktif. Silakan tanyakan kembali pada Admin HRD atau Atasan langsung Anda.');
+      }
+    }
+  };
+
   const handleSave = async () => {
     if (!evalId) return;
     setSuccessMsg('');
@@ -84,7 +175,7 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     const missingDataWarning: string[] = [];
     
     if (!data.namaPenilai || data.namaPenilai.trim() === "") {
-      missingDataWarning.push("Nama Penilai belum diisi");
+      missingDataWarning.push("Nama Lengkap Penilai belum diisi");
     }
 
     const categoriesToCheck = [
@@ -125,14 +216,42 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
     
     try {
       const pDoc = await getDoc(doc(db, 'settings', 'performaData'));
-      let currentMap = {};
+      let currentMap: Record<string, any> = {};
       let globalSet = {};
       if (pDoc.exists()) {
         const d = pDoc.data();
         currentMap = d.performaDataMap || {};
         globalSet = d.globalSettings || {};
       }
-      currentMap[evalId] = data;
+
+      const previousEmpData = currentMap[evalId] || {};
+      const existingHistory = previousEmpData.history || [];
+      
+      // Check if previous database entry was actually filled with scores
+      const wasPreviouslyEvaluated = previousEmpData.grit_1 !== undefined && previousEmpData.grit_1 !== "";
+      
+      let finalHistory = [...existingHistory];
+      if (wasPreviouslyEvaluated) {
+        // Snapshot the old data to historical list so we don't lose it
+        const archiveLabel = previousEmpData.periodeStart || previousEmpData.periodeEnd
+          ? `Periode ${previousEmpData.periodeStart ? new Date(previousEmpData.periodeStart).toLocaleDateString('id-ID', {month: 'short', year: '2-digit'}) : ''} - ${previousEmpData.periodeEnd ? new Date(previousEmpData.periodeEnd).toLocaleDateString('id-ID', {month: 'short', year: '2-digit'}) : ''}`
+          : `Kontrak Lalu (${previousEmpData.namaPenilai || 'Penilai'})`;
+          
+        const oldSnapshot = {
+          ...previousEmpData,
+          id: `auto_${Date.now()}`,
+          namaPeriode: `${archiveLabel} (Otomatis)`,
+          history: undefined
+        };
+        finalHistory.push(oldSnapshot);
+      }
+
+      // Overwrite active with new assessment, carrying over the history
+      currentMap[evalId] = {
+        ...data,
+        history: finalHistory
+      };
+
       await setDoc(doc(db, 'settings', 'performaData'), { performaDataMap: currentMap, globalSettings: globalSet }, { merge: true });
       
       setSuccessMsg('Penilaian berhasil disimpan!');
@@ -321,7 +440,78 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                   Tutup Halaman Ini
                </button>
             </div>
-          ) : employee && (
+          ) : employee && !isAccessGranted ? (
+            <div className="max-w-md w-full bg-white rounded-3xl border border-slate-100 shadow-[0_15px_30px_-5px_rgba(0,0,0,0.05)] p-8 text-center flex flex-col items-center mx-auto mt-6">
+              {/* Lock Icon */}
+              <div className="w-20 h-20 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mb-6 shadow-sm">
+                <Icon name="lock" size={36} />
+              </div>
+              
+              <h3 className="text-xl font-black text-slate-800 tracking-tight leading-tight">
+                Akses Evaluasi Terkunci
+              </h3>
+              <p className="text-xs font-bold text-indigo-600 mt-1 uppercase tracking-widest bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-lg">
+                Sistem Keamanan Aktif
+              </p>
+              
+              <p className="text-slate-500 font-medium text-xs mt-4 mb-6 leading-relaxed">
+                Formulir penilaian untuk <span className="font-extrabold text-slate-700">{employee.name}</span> dilindungi privasi. Harap masukkan Kode PIN Atasan Langsung Anda untuk membuka form ini.
+              </p>
+
+              {passcodeError && (
+                <div className="mb-4 bg-rose-50 text-rose-700 border border-rose-200 text-xs font-bold p-3.5 rounded-xl flex items-start gap-2 text-left w-full">
+                  <Icon name="alert-triangle" size={16} className="shrink-0 mt-0.5" />
+                  <div>{passcodeError}</div>
+                </div>
+              )}
+
+              {!error && (
+                <form onSubmit={handleVerifyPin} className="w-full space-y-4">
+                  <div className="text-left">
+                    <label className="block text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1.5 text-center">
+                      MASUKKAN 6-DIGIT PIN ATASAN LANGSUNG
+                    </label>
+                    <input
+                      type="password"
+                      maxLength={6}
+                      value={codeAttempt}
+                      onChange={(e) => {
+                        setPasscodeError('');
+                        setCodeAttempt(e.target.value.replace(/\D/g, ''));
+                      }}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 font-extrabold text-2xl tracking-[0.5em] text-center rounded-2xl py-3.5 focus:bg-white focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all shadow-inner placeholder:text-slate-200 font-sans"
+                      placeholder="••••••"
+                    />
+                  </div>
+
+                  <div className="bg-slate-50/70 border border-slate-100 p-3 rounded-2xl text-[11px] text-slate-500 font-bold text-left space-y-1">
+                    <div className="flex gap-1.5">
+                      <span className="text-slate-400 font-medium">Atasan Berwenang:</span>
+                      <span className="text-slate-700 font-extrabold">{atasanName}</span>
+                    </div>
+                    <p className="text-slate-400 font-medium leading-relaxed">
+                      *Khusus Atasan Langsung dari {employee.name}. Penilaian lintas divisi dilarang demi kerahasiaan & privasi.
+                    </p>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black text-xs rounded-2xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                  >
+                    <Icon name="unlock" size={14} />
+                    Verifikasi Keamanan
+                  </button>
+                </form>
+              )}
+
+              <button
+                onClick={onGoToLogin}
+                className="text-slate-400 hover:text-slate-600 font-bold text-[11px] mt-6 transition-all"
+              >
+                Kembali ke Halaman Login
+              </button>
+            </div>
+          ) : employee && isAccessGranted && (
             <>
               {/* Header Info */}
               <div className="bg-white p-6 sm:p-8 rounded-3xl border border-slate-100 shadow-[0_2px_15px_-5px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -337,8 +527,8 @@ export const PublicEvaluasiView: React.FC<PublicEvaluasiViewProps> = ({ onGoToLo
                 {/* Meta Inputs (Period removed) */}
                 <div className="w-full sm:w-auto">
                     <div>
-                      <label className="block text-[11px] font-black text-slate-500 mb-1">Nama Penilai</label>
-                      <input type="text" placeholder="Masukkan nama..." value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-sm font-bold bg-slate-50 border border-slate-200 p-3 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none transition-all shadow-sm min-w-[250px]" />
+                      <label className="block text-[11px] font-black text-slate-500 mb-1">Nama Lengkap Penilai</label>
+                      <input type="text" placeholder="Masukkan nama lengkap..." value={data.namaPenilai} onChange={e => handleChange('namaPenilai', e.target.value)} className="w-full text-sm font-bold bg-slate-50 border border-slate-200 p-3 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 outline-none transition-all shadow-sm min-w-[250px]" />
                     </div>
                 </div>
               </div>

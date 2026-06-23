@@ -2,7 +2,8 @@ import React, { useState, useMemo, useRef, useEffect } from "react";
 // @ts-ignore
 import html2pdf from "html2pdf.js";
 import { Icon } from "./ui/Icon";
-import { logActivity } from "../firebase";
+import { logActivity, db } from "../firebase";
+import { doc, updateDoc } from "firebase/firestore";
 import { Employee } from "../types";
 import { upgradePerformaData } from "../utils";
 import {
@@ -16,6 +17,8 @@ import {
   Cell,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   ReferenceLine,
   Radar,
   RadarChart,
@@ -64,12 +67,224 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
     employees.length > 0 ? employees[0].id : null,
   );
 
+  const [selectedDashboardEmpId, setSelectedDashboardEmpId] = useState<string | null>(null);
+
+  const [archiveLabel, setArchiveLabel] = useState("");
+  const lastDatesRef = useRef({ start: "", end: "", empId: "" });
+
+  useEffect(() => {
+    const currentData = performaDataMap[selectedEmpId || ""] || {};
+    const start = currentData.periodeStart || "";
+    const end = currentData.periodeEnd || "";
+    const empId = selectedEmpId || "";
+
+    if (
+      lastDatesRef.current.start !== start ||
+      lastDatesRef.current.end !== end ||
+      lastDatesRef.current.empId !== empId
+    ) {
+      lastDatesRef.current = { start, end, empId };
+      const formatToDMY = (dateStr: string) => {
+        if (!dateStr) return "";
+        const parts = dateStr.split("-");
+        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+        return dateStr;
+      };
+      if (start && end) {
+        setArchiveLabel(`${formatToDMY(start)} - ${formatToDMY(end)}`);
+      } else if (start) {
+        setArchiveLabel(`${formatToDMY(start)} - `);
+      } else if (end) {
+        setArchiveLabel(` - ${formatToDMY(end)}`);
+      } else {
+        setArchiveLabel("");
+      }
+    }
+  }, [selectedEmpId, performaDataMap]);
+
+  const getEmployeeHistory = (empId: string | null) => {
+    if (!empId) return [];
+    const emp = employees.find(e => String(e.id) === String(empId));
+    if (!emp) return [];
+
+    const rawData = performaDataMap[empId] || {
+      grit: 0,
+      growth: 0,
+      prof: 0,
+      sus: 0,
+      telat: 0,
+      ijin: 0,
+      mangkir: 0,
+      sp: 0,
+      gaji: 0,
+      levelJabatan: "",
+    };
+
+    const currentData = upgradePerformaData(rawData);
+
+    // Calculate computed metrics for specific dataset
+    const calculateWithData = (data: any, periodName: string, idVal: string) => {
+      const safeCalcRef = (keys: string[]) => {
+        const sum = keys.reduce((acc, k) => acc + (data[k] || 0), 0);
+        return sum / keys.length;
+      };
+
+      const grit = safeCalcRef(["grit_1", "grit_2", "grit_3", "grit_4", "grit_5"]);
+      const growth = safeCalcRef(["growth_1", "growth_2", "growth_3", "growth_4", "growth_5"]);
+      const prof = safeCalcRef(["prof_1", "prof_2", "prof_3", "prof_4", "prof_5"]);
+      const sus = safeCalcRef(["sus_1", "sus_2", "sus_3", "sus_4", "sus_5"]);
+
+      const wGrit = data.weight_grit ?? 30;
+      const wGrowth = data.weight_growth ?? 20;
+      const wProf = data.weight_prof ?? 30;
+      const wSus = data.weight_sus ?? 20;
+
+      const kompetensiScore =
+        grit * (wGrit / 100) +
+        growth * (wGrowth / 100) +
+        prof * (wProf / 100) +
+        sus * (wSus / 100);
+
+      const telat = data.telat || 0;
+      const ijin = data.ijin || 0;
+      const mangkir = data.mangkir || 0;
+      const sp = data.sp || 0;
+
+      const kedisiplinanScore = telat * -1 + ijin * -1 + mangkir * -3 + sp * -5;
+      const nilaiAkhir = kompetensiScore + kedisiplinanScore;
+
+      const gaji = data.gaji || 0;
+      const levelJabatan = data.levelJabatan || "";
+      const multiplier = getMultiplier(levelJabatan, data.customMultiplier);
+
+      const valuePerPoint = baselineSalary / 75;
+      const baseKontribusi = Math.max(0, nilaiAkhir) * valuePerPoint;
+      const nilaiKontribusi = baseKontribusi * multiplier;
+      const vcr = gaji > 0 ? nilaiKontribusi / gaji : 0;
+
+      let classification = "";
+      if (gaji === 0 || kompetensiScore === 0 || !levelJabatan) {
+        classification = "Belum Dinilai";
+      } else if (vcr >= 1.3) {
+        classification = "Sangat Bagus";
+      } else if (vcr >= 1.1) {
+        classification = "Bagus";
+      } else if (vcr >= 0.95) {
+        classification = "Standar";
+      } else if (vcr >= 0.8) {
+        classification = "Kurang";
+      } else {
+        classification = "Sangat Kurang";
+      }
+
+      return {
+        id: idVal,
+        namaPeriode: periodName,
+        nilaiAkhir,
+        gaji,
+        vcr,
+        nilaiKontribusi,
+        grit,
+        growth,
+        prof,
+        sus,
+        kompetensiScore,
+        kedisiplinanScore,
+        levelJabatan,
+        namaPenilai: data.namaPenilai || "HR Coordinator",
+        periodeStart: data.periodeStart || "",
+        periodeEnd: data.periodeEnd || "",
+        classification,
+        rawData: data
+      };
+    };
+
+    const activePeriodName = "Periode Aktif (Terkini)";
+    const activeEntry = calculateWithData(currentData, activePeriodName, "current");
+
+    // Check if active form is actually filled
+    const scoreKeys = [
+      "grit_1", "grit_2", "grit_3", "grit_4", "grit_5",
+      "growth_1", "growth_2", "growth_3", "growth_4", "growth_5",
+      "prof_1", "prof_2", "prof_3", "prof_4", "prof_5",
+      "sus_1", "sus_2", "sus_3", "sus_4", "sus_5",
+      "telat", "ijin", "mangkir", "sp"
+    ];
+    let hasActiveScoring = false;
+    for (const k of scoreKeys) {
+      if (currentData[k] && currentData[k] !== 0) {
+        hasActiveScoring = true;
+        break;
+      }
+    }
+    const isActiveFilled = !!(
+      hasActiveScoring ||
+      (currentData.gaji && currentData.gaji > 0) ||
+      currentData.levelJabatan
+    );
+
+    // If actual history entries exist in FireStore, map and use them!
+    if (currentData.history && currentData.history.length > 0) {
+      const savedHistory = currentData.history.map((h: any, idx: number) => {
+        const hId = h.id || `hist_${idx}`;
+        const label = h.namaPeriode || `Periode ${idx + 1}`;
+        return calculateWithData(h, label, hId);
+      });
+      return isActiveFilled ? [...savedHistory, activeEntry] : savedHistory;
+    }
+
+    // Jika penilaian aktif belum diisi sama sekali DAN tidak ada riwayat tersimpan,
+    // maka kembalikan array kosong agar tidak memunculkan histori bayangan/mockup.
+    if (!isActiveFilled) {
+      return [];
+    }
+
+    // Dynamic fallback: generate realistic mock history of 4 contract periods (Periode A, B, C, D)
+    const makeMockPeriodState = (factor: number, label: string, mId: string) => {
+      const mockData = { ...currentData };
+      
+      const scaleScore = (val: any) => {
+        const numVal = val === "" || val === undefined ? 75 : Number(val);
+        return Math.min(125, Math.max(25, Math.round((numVal * factor) / 25) * 25));
+      };
+
+      const keys = [
+        "grit_1", "grit_2", "grit_3", "grit_4", "grit_5",
+        "growth_1", "growth_2", "growth_3", "growth_4", "growth_5",
+        "prof_1", "prof_2", "prof_3", "prof_4", "prof_5",
+        "sus_1", "sus_2", "sus_3", "sus_4", "sus_5"
+      ];
+
+      keys.forEach(k => {
+        mockData[k] = scaleScore(currentData[k]);
+      });
+
+      mockData.telat = Math.max(0, Math.round((currentData.telat || 0) * (2 - factor)));
+      mockData.ijin = Math.max(0, Math.round((currentData.ijin || 0) * (1.5 - factor)));
+      mockData.mangkir = Math.max(0, Math.round((currentData.mangkir || 0) * (1.2 - factor)));
+      mockData.sp = 0;
+
+      mockData.gaji = currentData.gaji ? Math.round((currentData.gaji * (0.8 + factor * 0.15)) / 100000) * 100000 : 3000000;
+      mockData.namaPenilai = currentData.namaPenilai || "Deni Akbar Gallant";
+
+      return calculateWithData(mockData, label, mId);
+    };
+
+    const periodA = makeMockPeriodState(0.70, "Periode A", "mock_a");
+    const periodB = makeMockPeriodState(0.80, "Periode B", "mock_b");
+    const periodC = makeMockPeriodState(0.90, "Periode C", "mock_c");
+
+    return isActiveFilled ? [periodA, periodB, periodC, activeEntry] : [periodA, periodB, periodC];
+  };
+
   const [filterDept, setFilterDept] = useState("All Departemen");
   const [filterLevel, setFilterLevel] = useState("All Level");
   const [filterPenilaian, setFilterPenilaian] = useState("All Penilaian");
   const [searchPerformaName, setSearchPerformaName] = useState("");
   const [inputEmpSearch, setInputEmpSearch] = useState("");
   const [dataToClear, setDataToClear] = useState<string | null>(null);
+  const [archiveToLoad, setArchiveToLoad] = useState<{ empId: string; h: any } | null>(null);
+  const [archiveToDelete, setArchiveToDelete] = useState<{ empId: string; h: any } | null>(null);
 
   const globalSettings = performaDataMap["globalSettings"] || {
     baselineSalary: 3480000,
@@ -166,6 +381,35 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         [field]: value,
       },
     }));
+  };
+
+  const handleAtasanPinChange = (managerId: string, pinValue: string) => {
+    setPerformaDataMap((prev) => {
+      const currentGlobal = prev["globalSettings"] || { baselineSalary: 3480000 };
+      const currentPins = currentGlobal.atasanPins || {};
+      return {
+        ...prev,
+        globalSettings: {
+          ...currentGlobal,
+          atasanPins: {
+            ...currentPins,
+            [managerId]: pinValue
+          }
+        }
+      };
+    });
+  };
+
+  const handleQuickAssignManager = async (empId: string, managerId: string) => {
+    try {
+      await updateDoc(doc(db, 'employees', empId), { managerId });
+      logActivity('Manajer Diubah', { 
+        karyawan: employees.find(e => e.id === empId)?.name, 
+        manager_baru: managerId === '' ? 'Tidak ada' : (employees.find(e => e.id === managerId)?.name || 'Unknown') 
+      });
+    } catch(e) {
+      console.error("Gagal menunjuk atasan langsung", e);
+    }
   };
 
   const handleAddJobLevel = () => {
@@ -273,7 +517,42 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
           levelJabatan: "",
         };
 
-        const data = upgradePerformaData(rawData);
+        let data = upgradePerformaData(rawData);
+
+        // Cari tahu apakah data form aktif saat ini telah diisi penilaian
+        let hasActiveScoring = false;
+        const scoreKeys = [
+          "grit_1", "grit_2", "grit_3", "grit_4", "grit_5",
+          "growth_1", "growth_2", "growth_3", "growth_4", "growth_5",
+          "prof_1", "prof_2", "prof_3", "prof_4", "prof_5",
+          "sus_1", "sus_2", "sus_3", "sus_4", "sus_5",
+          "telat", "ijin", "mangkir", "sp"
+        ];
+        for (const k of scoreKeys) {
+          if (data[k] && data[k] !== 0) {
+            hasActiveScoring = true;
+            break;
+          }
+        }
+
+        const isActiveFilled = !!(
+          hasActiveScoring ||
+          (data.gaji && data.gaji > 0) ||
+          data.levelJabatan ||
+          data.periodeStart ||
+          data.periodeEnd ||
+          data.namaPenilai
+        );
+
+        // Jika form aktif belum diisi, dan terdapat riwayat arsip, gunakan arsip evaluasi terakhir
+        const historyList = data.history || [];
+        if (!isActiveFilled && historyList.length > 0) {
+          const latestHistoryItem = historyList[historyList.length - 1];
+          data = {
+            ...upgradePerformaData(latestHistoryItem),
+            history: historyList, // pertahankan array riwayat histori asli agar tidak tertimpa
+          };
+        }
 
         const safeCalc = (keys: string[]) => {
           const sum = keys.reduce((acc, k) => acc + (data[k] || 0), 0);
@@ -375,6 +654,7 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
         return {
           ...emp,
           ...data,
+          id: emp.id, // Pastikan ID karyawan tidak tertimpa oleh id di dalam data / riwayat arsip
           periodeStart: data.periodeStart || "",
           periodeEnd: data.periodeEnd || "",
           namaPenilai: data.namaPenilai || "",
@@ -443,38 +723,43 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
     searchPerformaName,
   ]);
 
-  const radarData = useMemo(() => {
+  const radarDataInfo = useMemo(() => {
     const evaluated = filteredPerformaData.filter(
       (d) => d.classification !== "Belum Dinilai",
     );
-    if (evaluated.length === 0)
-      return [
-        { subject: "Grit", A: 0, fullMark: 125 },
-        { subject: "Growth", A: 0, fullMark: 125 },
-        { subject: "Profesionalisme", A: 0, fullMark: 125 },
-        { subject: "Sustainability", A: 0, fullMark: 125 },
-      ];
+    const vg = evaluated.length > 0 ? evaluated.reduce((sum, item) => sum + (item.grit || 0), 0) / evaluated.length : 0;
+    const vgw = evaluated.length > 0 ? evaluated.reduce((sum, item) => sum + (item.growth || 0), 0) / evaluated.length : 0;
+    const vpr = evaluated.length > 0 ? evaluated.reduce((sum, item) => sum + (item.prof || 0), 0) / evaluated.length : 0;
+    const vs = evaluated.length > 0 ? evaluated.reduce((sum, item) => sum + (item.sus || 0), 0) / evaluated.length : 0;
 
-    const vg =
-      evaluated.reduce((sum, item) => sum + (item.grit || 0), 0) /
-      evaluated.length;
-    const vgw =
-      evaluated.reduce((sum, item) => sum + (item.growth || 0), 0) /
-      evaluated.length;
-    const vpr =
-      evaluated.reduce((sum, item) => sum + (item.prof || 0), 0) /
-      evaluated.length;
-    const vs =
-      evaluated.reduce((sum, item) => sum + (item.sus || 0), 0) /
-      evaluated.length;
+    if (!selectedDashboardEmpId) {
+      return {
+        isComparison: false,
+        selectedPeriodName: "",
+        data: [
+          { subject: "Grit", A: vg, fullMark: 125 },
+          { subject: "Growth", A: vgw, fullMark: 125 },
+          { subject: "Profesionalisme", A: vpr, fullMark: 125 },
+          { subject: "Sustainability", A: vs, fullMark: 125 },
+        ]
+      };
+    }
 
-    return [
-      { subject: "Grit", A: vg, fullMark: 125 },
-      { subject: "Growth", A: vgw, fullMark: 125 },
-      { subject: "Profesionalisme", A: vpr, fullMark: 125 },
-      { subject: "Sustainability", A: vs, fullMark: 125 },
-    ];
-  }, [filteredPerformaData]);
+    const empData = filteredPerformaData.find((d) => d.id === selectedDashboardEmpId);
+
+    return {
+      isComparison: true,
+      selectedPeriodName: "Periode Aktif",
+      data: [
+        { subject: "Grit", Karyawan: empData?.grit || 0, "Rata-Rata": vg, fullMark: 125 },
+        { subject: "Growth", Karyawan: empData?.growth || 0, "Rata-Rata": vgw, fullMark: 125 },
+        { subject: "Profesionalisme", Karyawan: empData?.prof || 0, "Rata-Rata": vpr, fullMark: 125 },
+        { subject: "Sustainability", Karyawan: empData?.sus || 0, "Rata-Rata": vs, fullMark: 125 },
+      ]
+    };
+  }, [filteredPerformaData, selectedDashboardEmpId]);
+
+  const radarData = radarDataInfo.data as any;
 
   return (
     <div className="px-8 pt-8 h-full overflow-y-auto hide-scrollbar animate-fadeIn flex flex-col relative print:p-0 print:h-auto print:overflow-visible print:block">
@@ -862,14 +1147,20 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
 
               {/* Radar Chart Dashboard */}
               <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[400px]">
-                <div className="flex items-center justify-between mb-5 shrink-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 shrink-0">
                   <div>
-                    <h3 className="font-extrabold text-slate-800">
+                    <h3 className="font-extrabold text-slate-800 flex items-center gap-2">
                       Profil Kompetensi
+                      {radarDataInfo.isComparison && (
+                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                          Perbandingan Individu
+                        </span>
+                      )}
                     </h3>
-                    <p className="text-sm font-medium text-slate-500">
-                      Rata-rata skor evaluasi area kompetensi (terpengaruh
-                      filter).
+                    <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                      {radarDataInfo.isComparison
+                        ? `Membandingkan ${employees.find((e) => String(e.id) === String(selectedDashboardEmpId))?.name} dengan rata-rata perusahaan.`
+                        : "Rata-rata skor evaluasi area kompetensi (terpengaruh filter)."}
                     </p>
                   </div>
                 </div>
@@ -896,12 +1187,21 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                         tick={{ fill: "#94a3b8", fontSize: 10 }}
                       />
                       <Radar
-                        name="Skor Rata-Rata"
-                        dataKey="A"
-                        stroke="#3b82f6"
-                        fill="#3b82f6"
-                        fillOpacity={0.4}
+                        name="Rata-Rata Perusahaan"
+                        dataKey={radarDataInfo.isComparison ? "Rata-Rata" : "A"}
+                        stroke={radarDataInfo.isComparison ? "#94a3b8" : "#3b82f6"}
+                        fill={radarDataInfo.isComparison ? "#94a3b8" : "#3b82f6"}
+                        fillOpacity={radarDataInfo.isComparison ? 0.2 : 0.4}
                       />
+                      {radarDataInfo.isComparison && (
+                        <Radar
+                          name={employees.find((e) => String(e.id) === String(selectedDashboardEmpId))?.name || "Karyawan"}
+                          dataKey="Karyawan"
+                          stroke="#4f46e5"
+                          fill="#4f46e5"
+                          fillOpacity={0.4}
+                        />
+                      )}
                       <RechartsTooltip
                         formatter={(value: number) => value.toFixed(1)}
                         contentStyle={{
@@ -919,257 +1219,460 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
             </div>
 
             <div className="grid grid-cols-1 gap-6">
-              {/* Scatter Plot untuk Rekomendasi Visualisasi */}
-              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[450px]">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h3 className="font-extrabold text-slate-800">
-                      Evaluasi Kinerja vs Cost Salary
-                    </h3>
-                    <p className="text-sm font-medium text-slate-500">
-                      Scatter plot membandingkan cost terhadap evaluasi kinerja
-                      secara memanjang.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex-1 w-full min-h-[350px] relative">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart
-                      margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        vertical={false}
-                        stroke="#f1f5f9"
-                      />
-                      <XAxis
-                        type="number"
-                        dataKey="nilaiAkhir"
-                        name="Skor Akhir"
-                        domain={[0, 130]}
-                        tick={{ fontSize: 12, fill: "#94a3b8" }}
-                        tickLine={false}
-                        axisLine={false}
-                        label={{
-                          value: "Nilai Akhir (Total Performa)",
-                          position: "insideBottom",
-                          offset: -10,
-                          fontSize: 12,
-                          fill: "#64748b",
-                          fontWeight: "bold",
-                        }}
-                      />
-                      <YAxis
-                        type="number"
-                        dataKey="gaji"
-                        name="Gaji"
-                        tickFormatter={(v) =>
-                          `Rp ${(v / 1000000).toFixed(0)}Jt`
-                        }
-                        domain={[
-                          0,
-                          Math.max(
-                            10000000,
-                            ...filteredPerformaData.map((d) => d.gaji || 0),
-                          ),
-                        ]}
-                        tick={{ fontSize: 12, fill: "#94a3b8" }}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-                      <RechartsTooltip
-                        cursor={{ strokeDasharray: "3 3" }}
-                        formatter={(value: number, name: string) =>
-                          name === "Gaji"
-                            ? `Rp ${value.toLocaleString("id-ID")}`
-                            : value
-                        }
-                        content={({ payload }) => {
-                          if (payload && payload.length) {
-                            const data = payload[0].payload;
-                            if (data.dummy) return null;
-                            return (
-                              <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px] z-50">
-                                <p className="font-bold text-slate-800 mb-1">
-                                  {data.name}
-                                </p>
-                                <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">
-                                  {data.levelJabatan}
-                                </p>
-                                <div className="space-y-1 mb-2">
-                                  <p className="text-slate-500 flex justify-between">
-                                    <span>Nilai Akhir:</span>{" "}
-                                    <span className="font-bold text-slate-800">
-                                      {data.nilaiAkhir.toFixed(1)}
-                                    </span>
-                                  </p>
-                                  <p className="text-slate-500 flex justify-between">
-                                    <span>Gaji Aktual:</span>{" "}
-                                    <span className="font-bold text-slate-800">
-                                      Rp {data.gaji.toLocaleString("id-ID")}
-                                    </span>
-                                  </p>
-                                  <p className="text-slate-500 flex justify-between">
-                                    <span>Nilai Kontribusi:</span>{" "}
-                                    <span className="font-bold text-emerald-600">
-                                      Rp{" "}
-                                      {Math.round(
-                                        data.nilaiKontribusi,
-                                      ).toLocaleString("id-ID")}
-                                    </span>
-                                  </p>
-                                </div>
-                                <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
-                                  <p className="text-slate-500 flex justify-between items-center">
-                                    <span>Kesimpulan:</span>
-                                    <span
-                                      className="font-bold"
-                                      style={{
-                                        color: data.classification.startsWith(
+              {/* Scatter Plot ATAU Trend line chart */}
+              <div className="bg-white p-6 rounded-[24px] border border-slate-100 shadow-sm flex flex-col min-h-[450px] animate-fadeIn">
+                {!selectedDashboardEmpId ? (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h3 className="font-extrabold text-slate-800">
+                          Evaluasi Kinerja vs Cost Salary
+                        </h3>
+                        <p className="text-sm font-medium text-slate-500">
+                          Scatter plot membandingkan cost terhadap evaluasi kinerja secara memanjang. Klik nama karyawan di tabel bawah untuk melihat histori perkembangan performanya.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex-1 w-full min-h-[350px] relative">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ScatterChart
+                          margin={{ top: 20, right: 20, bottom: 20, left: 20 }}
+                        >
+                          <CartesianGrid
+                            strokeDasharray="3 3"
+                            vertical={false}
+                            stroke="#f1f5f9"
+                          />
+                          <XAxis
+                            type="number"
+                            dataKey="nilaiAkhir"
+                            name="Skor Akhir"
+                            domain={[0, 130]}
+                            tick={{ fontSize: 12, fill: "#94a3b8" }}
+                            tickLine={false}
+                            axisLine={false}
+                            label={{
+                              value: "Nilai Akhir (Total Performa)",
+                              position: "insideBottom",
+                              offset: -5,
+                              fontSize: 12,
+                              fill: "#64748b",
+                              fontWeight: "bold",
+                            }}
+                          />
+                          <YAxis
+                            type="number"
+                            dataKey="gaji"
+                            name="Gaji"
+                            tickFormatter={(v) =>
+                              `Rp ${(v / 1000000).toFixed(0)}Jt`
+                            }
+                            domain={[
+                              0,
+                              Math.max(
+                                10000000,
+                                ...filteredPerformaData.map((d) => d.gaji || 0),
+                              ),
+                            ]}
+                            tick={{ fontSize: 12, fill: "#94a3b8" }}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <RechartsTooltip
+                            cursor={{ strokeDasharray: "3 3" }}
+                            formatter={(value: number, name: string) =>
+                              name === "Gaji"
+                                ? `Rp ${value.toLocaleString("id-ID")}`
+                                : value
+                            }
+                            content={({ payload }) => {
+                              if (payload && payload.length) {
+                                const data = payload[0].payload;
+                                if (data.dummy) return null;
+                                return (
+                                  <div className="bg-white p-3 rounded-lg shadow-xl border border-slate-100 text-xs text-left min-w-[200px] z-50">
+                                    <p className="font-bold text-slate-800 mb-1">
+                                      {data.name}
+                                    </p>
+                                    <p className="text-[10px] text-slate-500 mb-2 border-b border-slate-100 pb-2">
+                                      {data.levelJabatan}
+                                    </p>
+                                    <div className="space-y-1 mb-2">
+                                      <p className="text-slate-500 flex justify-between">
+                                        <span>Nilai Akhir:</span>{" "}
+                                        <span className="font-bold text-slate-800">
+                                          {data.nilaiAkhir.toFixed(1)}
+                                        </span>
+                                      </p>
+                                      <p className="text-slate-500 flex justify-between">
+                                        <span>Gaji Aktual:</span>{" "}
+                                        <span className="font-bold text-slate-800">
+                                          Rp {data.gaji.toLocaleString("id-ID")}
+                                        </span>
+                                      </p>
+                                      <p className="text-slate-500 flex justify-between">
+                                        <span>Nilai Kontribusi:</span>{" "}
+                                        <span className="font-bold text-emerald-600">
+                                          Rp{" "}
+                                          {Math.round(
+                                            data.nilaiKontribusi,
+                                          ).toLocaleString("id-ID")}
+                                        </span>
+                                      </p>
+                                    </div>
+                                    <div className="mt-2 border-t border-slate-100 pt-2 flex flex-col gap-1">
+                                      <p className="text-slate-500 flex justify-between items-center">
+                                        <span>Kesimpulan:</span>
+                                        <span
+                                          className="font-bold"
+                                          style={{
+                                            color: data.classification.startsWith(
+                                              "Sangat Bagus",
+                                            )
+                                              ? "#10b981"
+                                              : data.classification.startsWith(
+                                                    "Bagus",
+                                                  )
+                                                ? "#3b82f6"
+                                                : data.classification.startsWith(
+                                                      "Standar",
+                                                    )
+                                                  ? "#64748b"
+                                                  : data.classification.startsWith(
+                                                        "Kurang",
+                                                      ) &&
+                                                      !data.classification.startsWith(
+                                                        "Sangat",
+                                                      )
+                                                    ? "#f97316"
+                                                    : data.classification.startsWith(
+                                                          "Sangat Kurang",
+                                                        )
+                                                      ? "#ef4444"
+                                                      : "#94a3b8",
+                                          }}
+                                        >
+                                          {data.classification.split(" (")[0]}
+                                        </span>
+                                      </p>
+                                      {data.rekomendasi &&
+                                        data.rekomendasi !== "-" && (
+                                          <p
+                                            className="text-[10px] font-bold text-right"
+                                            style={{
+                                              color: data.classification.startsWith(
+                                                "Sangat Bagus",
+                                              )
+                                                ? "#10b981"
+                                                : data.classification.startsWith(
+                                                      "Bagus",
+                                                    )
+                                                  ? "#3b82f6"
+                                                  : data.classification.startsWith(
+                                                        "Standar",
+                                                      )
+                                                    ? "#64748b"
+                                                    : data.classification.startsWith(
+                                                          "Kurang",
+                                                        ) &&
+                                                        !data.classification.startsWith(
+                                                          "Sangat",
+                                                        )
+                                                      ? "#f97316"
+                                                      : data.classification.startsWith(
+                                                            "Sangat Kurang",
+                                                          )
+                                                        ? "#ef4444"
+                                                        : "#94a3b8",
+                                            }}
+                                          >
+                                            ({data.rekomendasi})
+                                          </p>
+                                        )}
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            }}
+                          />
+                          <Scatter
+                            name="Karyawan"
+                            data={
+                              filteredPerformaData.filter(
+                                (d) => d.classification !== "Belum Dinilai",
+                              ).length > 0
+                                ? filteredPerformaData.filter(
+                                    (d) => d.classification !== "Belum Dinilai",
+                                  )
+                                : [
+                                    {
+                                      nilaiAkhir: 0,
+                                      gaji: 0,
+                                      classification: "Belum Dinilai",
+                                      dummy: true,
+                                    },
+                                  ]
+                            }
+                          >
+                            {(filteredPerformaData.filter(
+                              (d) => d.classification !== "Belum Dinilai",
+                            ).length > 0
+                              ? filteredPerformaData.filter(
+                                  (d) => d.classification !== "Belum Dinilai",
+                                )
+                              : [
+                                  {
+                                    nilaiAkhir: 0,
+                                    gaji: 0,
+                                    classification: "Belum Dinilai",
+                                    dummy: true,
+                                  },
+                                ]
+                            ).map((entry: any, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={
+                                  entry.dummy
+                                    ? "transparent"
+                                    : entry.classification.startsWith(
                                           "Sangat Bagus",
                                         )
-                                          ? "#10b981"
-                                          : data.classification.startsWith(
-                                                "Bagus",
+                                      ? "#10b981"
+                                      : entry.classification.startsWith("Bagus")
+                                        ? "#3b82f6"
+                                        : entry.classification.startsWith("Standar")
+                                          ? "#64748b"
+                                          : entry.classification.startsWith(
+                                                "Kurang",
+                                              ) &&
+                                              !entry.classification.startsWith(
+                                                "Sangat",
                                               )
-                                            ? "#3b82f6"
-                                            : data.classification.startsWith(
-                                                  "Standar",
+                                            ? "#f97316"
+                                            : entry.classification.startsWith(
+                                                  "Sangat Kurang",
                                                 )
-                                              ? "#64748b"
-                                              : data.classification.startsWith(
-                                                    "Kurang",
-                                                  ) &&
-                                                  !data.classification.startsWith(
-                                                    "Sangat",
-                                                  )
-                                                ? "#f97316"
-                                                : data.classification.startsWith(
-                                                      "Sangat Kurang",
-                                                    )
-                                                  ? "#ef4444"
-                                                  : "#94a3b8",
-                                      }}
-                                    >
-                                      {data.classification.split(" (")[0]}
-                                    </span>
-                                  </p>
-                                  {data.rekomendasi &&
-                                    data.rekomendasi !== "-" && (
-                                      <p
-                                        className="text-[10px] font-bold text-right"
-                                        style={{
-                                          color: data.classification.startsWith(
-                                            "Sangat Bagus",
-                                          )
-                                            ? "#10b981"
-                                            : data.classification.startsWith(
-                                                  "Bagus",
-                                                )
-                                              ? "#3b82f6"
-                                              : data.classification.startsWith(
-                                                    "Standar",
-                                                  )
-                                                ? "#64748b"
-                                                : data.classification.startsWith(
-                                                      "Kurang",
-                                                    ) &&
-                                                    !data.classification.startsWith(
-                                                      "Sangat",
-                                                    )
-                                                  ? "#f97316"
-                                                  : data.classification.startsWith(
-                                                        "Sangat Kurang",
-                                                      )
-                                                    ? "#ef4444"
-                                                    : "#94a3b8",
-                                        }}
-                                      >
-                                        ({data.rekomendasi})
-                                      </p>
-                                    )}
-                                </div>
+                                              ? "#ef4444"
+                                              : "#94a3b8"
+                                }
+                              />
+                            ))}
+                          </Scatter>
+                        </ScatterChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {(() => {
+                      const selEmp = employees.find(e => String(e.id) === String(selectedDashboardEmpId));
+                      const historyList = getEmployeeHistory(selectedDashboardEmpId);
+                      return (
+                        <>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-2 border-b border-slate-100">
+                            <div>
+                              <div className="flex items-center gap-2.5">
+                                <span className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                                  <Icon name="trending-up" size={16} />
+                                </span>
+                                <h3 className="font-extrabold text-slate-800 leading-tight">
+                                  Tren Efisiensi Kontribusi (VCR): {selEmp?.name}
+                                </h3>
                               </div>
-                            );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Scatter
-                        name="Karyawan"
-                        data={
-                          filteredPerformaData.filter(
-                            (d) => d.classification !== "Belum Dinilai",
-                          ).length > 0
-                            ? filteredPerformaData.filter(
-                                (d) => d.classification !== "Belum Dinilai",
-                              )
-                            : [
-                                {
-                                  nilaiAkhir: 0,
-                                  gaji: 0,
-                                  classification: "Belum Dinilai",
-                                  dummy: true,
-                                },
-                              ]
-                        }
-                      >
-                        {(filteredPerformaData.filter(
-                          (d) => d.classification !== "Belum Dinilai",
-                        ).length > 0
-                          ? filteredPerformaData.filter(
-                              (d) => d.classification !== "Belum Dinilai",
-                            )
-                          : [
-                              {
-                                nilaiAkhir: 0,
-                                gaji: 0,
-                                classification: "Belum Dinilai",
-                                dummy: true,
-                              },
-                            ]
-                        ).map((entry: any, index) => (
-                          <Cell
-                            key={`cell-${index}`}
-                            fill={
-                              entry.dummy
-                                ? "transparent"
-                                : entry.classification.startsWith(
-                                      "Sangat Bagus",
-                                    )
-                                  ? "#10b981"
-                                  : entry.classification.startsWith("Bagus")
-                                    ? "#3b82f6"
-                                    : entry.classification.startsWith("Standar")
-                                      ? "#64748b"
-                                      : entry.classification.startsWith(
-                                            "Kurang",
-                                          ) &&
-                                          !entry.classification.startsWith(
-                                            "Sangat",
-                                          )
-                                        ? "#f97316"
-                                        : entry.classification.startsWith(
-                                              "Sangat Kurang",
-                                            )
-                                          ? "#ef4444"
-                                          : "#94a3b8"
-                            }
-                          />
-                        ))}
-                      </Scatter>
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </div>
+                              <p className="text-xs font-semibold text-slate-500 mt-1 pl-[42px]">
+                                Grafik ini menunjukkan perkembangan Rasio Efisiensi Kontribusi (Value-to-Cost-Ratio / VCR). Nilai di atas 1.00x berarti kontribusi manfaat karyawan melampaui biaya gajinya bagi perusahaan.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setSelectedDashboardEmpId(null)}
+                              className="px-3.5 py-2 hover:bg-slate-50 border border-slate-200 hover:border-slate-300 text-slate-600 hover:text-slate-800 rounded-xl text-xs font-black tracking-wider uppercase transition-all flex items-center gap-1.5 shrink-0 shadow-sm"
+                            >
+                              <Icon name="x" size={14} />
+                              Kembali ke Semua Karyawan
+                            </button>
+                          </div>
+                          
+                          <div className="flex-1 w-full min-h-[300px] relative flex flex-col items-center justify-center">
+                            {historyList.length === 0 ? (
+                              <div className="text-center p-8 bg-slate-50/50 border border-dashed border-slate-200 rounded-3xl max-w-lg my-auto flex flex-col items-center">
+                                <span className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-4 border border-indigo-100/50 shadow-sm animate-pulse">
+                                  <Icon name="bar-chart-2" size={22} className="opacity-90" />
+                                </span>
+                                <h4 className="text-sm font-black text-slate-800 mb-1.5 uppercase tracking-wide">
+                                  Belum Ada Penilaian & Riwayat Kontrak
+                                </h4>
+                                <p className="text-xs font-semibold text-slate-500 leading-relaxed max-w-sm">
+                                  Karyawan ini belum memiliki data penilaian aktif maupun riwayat arsip evaluasi kontrak sebelumnya. Isilah penilaian di tabel bawah terlebih dahulu untuk mulai memantau tren kinerja & rasio kontribusi secara langsung.
+                                </p>
+                              </div>
+                            ) : (
+                              (() => {
+                                const vcrs = historyList.map((h: any) => h.vcr).filter((v: any) => typeof v === 'number' && !isNaN(v));
+                                const minVCR = vcrs.length > 0 ? Math.min(...vcrs) : 0.8;
+                                const maxVCR = vcrs.length > 0 ? Math.max(...vcrs) : 1.5;
+                                const diff = maxVCR - minVCR;
+                                
+                                let yMin = 0.5;
+                                let yMax = 1.8;
+                                if (vcrs.length > 0) {
+                                  if (diff === 0) {
+                                    yMin = Math.max(0, minVCR - 0.15);
+                                    yMax = minVCR + 0.15;
+                                  } else if (diff < 0.2) {
+                                    // For very small differences, exaggerate the curve by keeping padding ultra narrow
+                                    yMin = Math.max(0, minVCR - diff * 0.35);
+                                    yMax = maxVCR + diff * 0.35;
+                                  } else {
+                                    yMin = Math.max(0, minVCR - diff * 0.15);
+                                    yMax = maxVCR + diff * 0.15;
+                                  }
+                                }
+                                
+                                // Round to 2 decimal places to make tick labels precise and beautiful
+                                yMin = Math.max(0, parseFloat(yMin.toFixed(2)));
+                                yMax = parseFloat(yMax.toFixed(2));
+
+                                return (
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart
+                                      data={historyList}
+                                      margin={{ top: 20, right: 30, bottom: 20, left: 10 }}
+                                    >
+                                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                                      <XAxis
+                                        dataKey="namaPeriode"
+                                        tick={{ fontSize: 11, fill: "#64748b", fontWeight: "bold" }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                      />
+                                      <YAxis
+                                        domain={[yMin, yMax]}
+                                        tickFormatter={(v) => `${v.toFixed(2)}x`}
+                                        tick={{ fontSize: 11, fill: "#94a3b8" }}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        label={{
+                                          value: "Rasio Efisiensi Kontribusi (VCR)",
+                                          angle: -90,
+                                          position: "insideLeft",
+                                          offset: 0,
+                                          fontSize: 11,
+                                          fill: "#64748b",
+                                          fontWeight: "bold"
+                                        }}
+                                      />
+                                      <RechartsTooltip
+                                        cursor={{ stroke: "#cbd5e1", strokeWidth: 1, strokeDasharray: "3 3" }}
+                                        content={({ active, payload }) => {
+                                          if (active && payload && payload.length) {
+                                            const item = payload[0].payload;
+                                            return (
+                                              <div className="bg-white p-4 rounded-xl shadow-xl border border-slate-100 text-xs text-left min-w-[240px] z-[1000]">
+                                                <div className="flex items-center justify-between gap-4 mb-1.5">
+                                                  <p className="font-extrabold text-slate-800">{item.namaPeriode}</p>
+                                                  {item.classification && (
+                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-wider leading-none shrink-0 ${
+                                                      item.classification === "Sangat Bagus" ? "bg-emerald-50 text-emerald-700 border-emerald-100" :
+                                                      item.classification === "Bagus" ? "bg-emerald-50/70 text-emerald-600 border-emerald-100/70" :
+                                                      item.classification === "Standar" ? "bg-blue-50 text-blue-600 border-blue-100" :
+                                                      item.classification === "Kurang" ? "bg-amber-50 text-amber-700 border-amber-100" :
+                                                      item.classification === "Sangat Kurang" ? "bg-rose-50 text-rose-700 border-rose-100" :
+                                                      "bg-slate-50 text-slate-600 border-slate-150"
+                                                    }`}>
+                                                      {item.classification}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <p className="text-[10px] text-slate-400 font-bold mb-2 border-b border-slate-100 pb-2 flex justify-between">
+                                                  <span>Penilai: {item.namaPenilai || "-"}</span>
+                                                  <span className="text-[9px] px-1.5 py-0.5 uppercase bg-indigo-50 text-indigo-600 rounded">
+                                                    {item.levelJabatan || "-"}
+                                                  </span>
+                                                </p>
+                                                <div className="space-y-1.5 font-bold text-slate-600">
+                                                  <div className="flex justify-between items-center text-slate-500">
+                                                    <span>Nilai Akhir Utama:</span>
+                                                    <span className="font-black text-blue-600 text-sm">
+                                                      {item.nilaiAkhir.toFixed(1)}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex justify-between items-center text-slate-500">
+                                                    <span>Gaji Kontrak:</span>
+                                                    <span className="text-slate-800">
+                                                      Rp {item.gaji.toLocaleString("id-ID")}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex justify-between items-center text-slate-500">
+                                                    <span>Nilai Manfaat (Kontribusi):</span>
+                                                    <span className="text-emerald-600 font-extrabold">
+                                                      Rp {Math.round(item.nilaiKontribusi).toLocaleString("id-ID")}
+                                                    </span>
+                                                  </div>
+                                                  <div className="flex justify-between items-center text-slate-500 border-t border-dashed border-slate-100 pt-1.5 mt-1.5">
+                                                    <span>Rasio Efisiensi Kontribusi (VCR):</span>
+                                                    <span className="font-extrabold text-slate-800">
+                                                      {item.vcr.toFixed(2)}x
+                                                    </span>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          }
+                                          return null;
+                                        }}
+                                      />
+                                      <Line
+                                        type="monotone"
+                                        dataKey="vcr"
+                                        name="Rasio VCR"
+                                        stroke="#4f46e5"
+                                        strokeWidth={4}
+                                        dot={{ r: 6, stroke: "#4f46e5", strokeWidth: 3, fill: "#ffffff" }}
+                                        activeDot={{ r: 9, stroke: "#3b82f6", strokeWidth: 3, fill: "#ffffff" }}
+                                      />
+                                    </LineChart>
+                                  </ResponsiveContainer>
+                                );
+                              })()
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
               </div>
             </div>
 
             {/* Table */}
             <div className="bg-white border border-slate-100 shadow-sm rounded-[24px] flex flex-col flex-1 min-h-[400px] relative pb-[1px]">
-              <div className="p-6 border-b border-slate-100 shrink-0 rounded-t-[24px] bg-white z-30">
+              <div className="p-6 border-b border-slate-100 shrink-0 rounded-t-[24px] bg-white z-30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h3 className="font-extrabold text-slate-800">
                   Evaluasi Kinerja vs Cost Salary
                 </h3>
+                <div className="relative w-full sm:w-[220px]">
+                  <Icon
+                    name="search"
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cari nama karyawan..."
+                    value={searchPerformaName}
+                    onChange={(e) => setSearchPerformaName(e.target.value)}
+                    className="pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all placeholder:text-slate-400 text-slate-700 w-full"
+                  />
+                  {searchPerformaName && (
+                    <button
+                      onClick={() => setSearchPerformaName("")}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      <Icon name="x" size={12} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div
                 ref={tableRef}
@@ -1212,24 +1715,28 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     </tr>
                   </thead>
                   <tbody className="text-sm font-medium text-slate-700 divide-y divide-slate-100">
-                    {filteredPerformaData.map((d, i) => (
-                      <tr
-                        key={i}
-                        className={`group hover:bg-slate-50 cursor-pointer transition-colors ${searchPerformaName === d.name ? "bg-indigo-50/60" : ""}`}
-                        onClick={() =>
-                          setSearchPerformaName(
-                            searchPerformaName === d.name ? "" : d.name,
-                          )
-                        }
-                      >
-                        <td
-                          className={`px-4 py-2 sticky left-0 z-10 ${searchPerformaName === d.name ? "bg-indigo-50/60" : "bg-white"} group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap`}
-                        >
-                          <div className="flex flex-col">
-                            <div className="flex items-center gap-3">
-                              <span className="text-slate-400 font-bold w-6 inline-block">
-                                {i + 1}
-                              </span>
+                    {filteredPerformaData
+                      .filter((d) => !selectedDashboardEmpId || d.id === selectedDashboardEmpId)
+                      .map((d, i) => {
+                        const originalIndex = filteredPerformaData.findIndex((item) => item.id === d.id);
+                        return (
+                          <tr
+                            key={d.id || originalIndex}
+                            className={`group hover:bg-slate-50 cursor-pointer transition-all ${selectedDashboardEmpId === d.id ? "bg-indigo-50/80 border-l-4 border-indigo-500" : ""}`}
+                            onClick={() =>
+                              setSelectedDashboardEmpId(
+                                selectedDashboardEmpId === d.id ? null : d.id,
+                              )
+                            }
+                          >
+                            <td
+                              className={`px-4 py-2 sticky left-0 z-10 ${selectedDashboardEmpId === d.id ? "bg-indigo-50/80" : "bg-white"} group-hover:bg-slate-50 shadow-[2px_0_5px_rgba(0,0,0,0.05)] whitespace-nowrap`}
+                            >
+                              <div className="flex flex-col">
+                                <div className="flex items-center gap-3">
+                                  <span className="text-slate-400 font-bold w-6 inline-block">
+                                    {originalIndex + 1}
+                                  </span>
                               <span className="font-bold text-slate-900">
                                 {d.name}
                               </span>
@@ -1355,7 +1862,8 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                           )}
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                     {performaData.length === 0 && (
                       <tr>
                         <td
@@ -1625,6 +2133,181 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                         </div>
 
                         <div className="p-8 space-y-8">
+                          {/* SEKSI KEAMANAN EVALUASI ATASAN */}
+                          <div className="bg-gradient-to-r from-indigo-50/70 to-blue-50/25 border border-indigo-100 p-6 rounded-3xl space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center shadow-sm">
+                                  <Icon name="shield" size={18} />
+                                </div>
+                                <div>
+                                  <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest">
+                                    Tautan & Hak Akses Atasan
+                                  </h4>
+                                  <p className="text-[11px] text-indigo-600 font-bold mt-0.5">
+                                    Mencegah penilaian silang antar divisi / departemen demi privasi
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              <div className="px-3 py-1 bg-indigo-100 text-indigo-700 text-[10px] font-black rounded-lg shadow-sm w-fit uppercase tracking-wider">
+                                Sistem Keamanan Aktif
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                              {/* Left side: Atasan info and PIN */}
+                              <div className="bg-white p-4 rounded-2xl border border-indigo-50 shadow-sm flex flex-col justify-between">
+                                <div>
+                                  <span className="block text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">
+                                    ATASAN LANGSUNG (EVALUATOR)
+                                  </span>
+                                  {(() => {
+                                    const supervisor = employees.find(e => e.id === emp.managerId);
+                                    if (supervisor) {
+                                      const currentPins = globalSettings.atasanPins || {};
+                                      const pin = currentPins[emp.managerId || ""] || "";
+                                      
+                                      return (
+                                        <div className="space-y-3">
+                                          <div className="flex items-center gap-3 mt-1">
+                                            <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0">
+                                              {supervisor.name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <div>
+                                              <p className="font-bold text-sm text-slate-800">{supervisor.name}</p>
+                                              <p className="text-[11px] text-slate-400 font-medium">{supervisor.pos || "No Position"}</p>
+                                            </div>
+                                          </div>
+                                          
+                                          <div className="border-t border-slate-100 pt-2 mt-2">
+                                            <label className="block text-[10px] font-black tracking-widest text-indigo-500 uppercase mb-1 flex items-center gap-1.5 font-sans">
+                                              <Icon name="key" size={11} /> KODE PIN ATASAN LANGSUNG
+                                            </label>
+                                            <div className="flex items-center gap-2">
+                                              <input
+                                                type="text"
+                                                maxLength={6}
+                                                placeholder="PIN (6 Angka)..."
+                                                value={pin}
+                                                onChange={(e) => {
+                                                  const val = e.target.value.replace(/\D/g, "");
+                                                  handleAtasanPinChange(emp.managerId || "", val);
+                                                }}
+                                                className="bg-slate-50 border border-slate-200 text-slate-800 font-black tracking-widest text-sm rounded-xl px-3 py-2 w-32 text-center outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all shadow-inner font-mono"
+                                              />
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  const newPin = Math.floor(100000 + Math.random() * 900000).toString();
+                                                  handleAtasanPinChange(emp.managerId || "", newPin);
+                                                }}
+                                                className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl transition-all shadow-sm border border-indigo-100 flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+                                                title="Acak PIN Baru"
+                                              >
+                                                <Icon name="shuffle" size={13} />
+                                                Acak PIN
+                                              </button>
+                                            </div>
+                                            <p className="text-[10px] font-semibold text-slate-400 mt-1">
+                                              PIN ini unik untuk atasan ini & berlaku untuk seluruh bawahannya.
+                                            </p>
+                                          </div>
+                                        </div>
+                                      );
+                                    } else {
+                                      return (
+                                        <div className="space-y-2 mt-1">
+                                          <div className="p-3 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl text-xs font-semibold flex items-start gap-2">
+                                            <Icon name="alert-triangle" size={14} className="shrink-0 mt-0.5" />
+                                            <div>
+                                              <p className="font-extrabold text-amber-800">Atasan Belum Ditunjuk</p>
+                                              <p className="text-[11px] text-amber-600 font-medium">Karyawan ini belum memiliki atasan langsung di Bagan Organisasi. Hubungkan dengan atasan langsung di bawah:</p>
+                                            </div>
+                                          </div>
+                                          
+                                          {/* Dropdown penunjukkan langsung */}
+                                          <div className="relative">
+                                            <select
+                                              value=""
+                                              onChange={(e) => handleQuickAssignManager(emp.id, e.target.value)}
+                                              className="w-full text-xs font-bold bg-slate-50 border border-slate-200 p-2.5 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100 outline-none transition-all cursor-pointer text-slate-600 font-sans"
+                                            >
+                                              <option value="">-- Pilih Atasan Langsung --</option>
+                                              {employees
+                                                .filter(item => item.id !== emp.id)
+                                                .map(item => (
+                                                  <option key={item.id} value={item.id}>
+                                                    {item.name} ({item.pos || item.dept})
+                                                  </option>
+                                                ))}
+                                            </select>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                  })()}
+                                </div>
+                              </div>
+
+                              {/* Right side: Share links */}
+                              <div className="bg-white p-4 rounded-2xl border border-indigo-50 shadow-sm flex flex-col justify-between">
+                                {(() => {
+                                  const supervisor = employees.find(e => e.id === emp.managerId);
+                                  const pin = supervisor ? (globalSettings.atasanPins?.[emp.managerId || ""] || "") : "";
+                                  const url = `${window.location.origin}${window.location.pathname}?mode=evaluasi&evalId=${emp.id}`;
+                                  
+                                  return (
+                                    <div className="space-y-3 flex flex-col h-full justify-between">
+                                      <div>
+                                        <span className="block text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">
+                                          TAUTAN PENILAIAN RAHASIA
+                                        </span>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <input
+                                            type="text"
+                                            readOnly
+                                            value={url}
+                                            className="bg-slate-50 border border-slate-100 text-slate-500 font-bold rounded-xl px-3 py-2 text-xs flex-1 select-all outline-none truncate font-sans"
+                                          />
+                                          <button
+                                            type="button"
+                                            disabled={!supervisor}
+                                            onClick={() => {
+                                              navigator.clipboard.writeText(url);
+                                              alert(`Tautan penilaian untuk ${emp.name} berhasil disalin!`);
+                                            }}
+                                            className="p-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 hover:text-indigo-700 rounded-xl transition-all shadow-sm border border-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center shrink-0"
+                                            title="Salin Tautan"
+                                          >
+                                            <Icon name="link" size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="pt-2 border-t border-slate-100">
+                                        <button
+                                          type="button"
+                                          disabled={!supervisor || !pin}
+                                          onClick={() => {
+                                            if (!supervisor) return;
+                                            const message = `Yth. Bapak/Ibu *${supervisor.name}*,\n\nMohon bantu isi formulir penilaian kinerja tahunan untuk bawahan langsung Anda:\n👤 Staf: *${emp.name}*\n\n🔗 Link Penilaian Rahasia:\n${url}\n\n🔐 PIN Keamanan Atasan: *${pin}*\n_(Harap simpan kode PIN ini dan jangan disebarkan demi menjaga kerahasiaan penilaian divisi)_.\n\nTerima kasih (SDM / HRD).`;
+                                            navigator.clipboard.writeText(message);
+                                            alert(`Format pesan WhatsApp berhasil disalin ke clipboard! Siap dikirim ke ${supervisor.name}.`);
+                                          }}
+                                          className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                                        >
+                                          <Icon name="message-square" size={14} />
+                                          Salin Pesan Share WhatsApp
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
+                          </div>
+
                           {/* Periode Section */}
                           <div>
                             <div className="flex items-center justify-between mb-4">
@@ -2499,6 +3182,132 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                                     </span>
                                   </span>
                                 </div>
+                              </div>
+                            </div>
+
+                            {/* Arsip & Riwayat Periode Penilaian (Histori) */}
+                            <div className="mt-8 border-t border-slate-100 pt-6">
+                              <h4 className="font-black text-sm text-slate-800 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                <Icon name="database" size={16} className="text-indigo-500" />
+                                Arsipkan & Histori Periode Kontrak
+                              </h4>
+                              <p className="text-xs text-slate-500 mb-4">
+                                Simpan penilaian aktif saat ini sebagai arsip riwayat kontrak (misalnya Periode A, B, C, D) untuk memantau perkembangan kompetensi karyawan secara historis.
+                              </p>
+
+                              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 mb-4">
+                                <label className="text-[10px] font-black tracking-widest text-slate-500 uppercase block mb-2">
+                                  Nama / Label Periode Kontrak Baru
+                                </label>
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Contoh: Periode A, Q1 2026, Masa Kontrak 2"
+                                    value={archiveLabel}
+                                    onChange={(e) => setArchiveLabel(e.target.value)}
+                                    className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all font-sans"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const label = archiveLabel.trim();
+                                      if (!label) {
+                                        alert("Silakan isi Nama / Label Periode terlebih dahulu.");
+                                        return;
+                                      }
+                                      
+                                      // Save current form state into history!
+                                      setPerformaDataMap((prev) => {
+                                        const currentEmpData = prev[selectedEmpId] || {};
+                                        const upgradeData = upgradePerformaData(currentEmpData);
+                                        const history = upgradeData.history || [];
+                                        
+                                        const newHistoryItem = {
+                                          ...upgradeData,
+                                          id: "hist_" + Date.now(),
+                                          namaPeriode: label,
+                                          history: undefined, // prevent recursive history nesting
+                                          createdAt: new Date().toISOString()
+                                        };
+                                        
+                                        const updatedHistory = [...history, newHistoryItem];
+                                        
+                                        const updatedEmpData = {
+                                          ...upgradeData,
+                                          history: updatedHistory
+                                        };
+                                        
+                                        return {
+                                          ...prev,
+                                          [selectedEmpId]: updatedEmpData
+                                        };
+                                      });
+                                      
+                                      setArchiveLabel("");
+                                      alert(`Berhasil mengarsipkan penilaian sebagai "${label}"!`);
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs rounded-xl tracking-wider uppercase transition-colors shrink-0 flex items-center gap-1.5 shadow-sm cursor-pointer"
+                                  >
+                                    <Icon name="database" size={14} />
+                                    Arsipkan
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* List of saved historical periods in DB */}
+                              <div className="space-y-2">
+                                <h5 className="text-[11px] font-black tracking-widest text-slate-500 uppercase flex items-center gap-1.5">
+                                  <Icon name="list" size={12} className="text-slate-400" />
+                                  Riwayat Arsip Tersimpan ({(data.history && data.history.length) || 0})
+                                </h5>
+                                {data.history && data.history.length > 0 ? (
+                                  <div className="border border-slate-100 rounded-xl divide-y divide-slate-100 overflow-hidden bg-white">
+                                    {data.history.map((h: any, hIdx: number) => {
+                                      const calculateHistMetrics = () => {
+                                        const tempEmpHistList = getEmployeeHistory(selectedEmpId);
+                                        const histItemCalculated = tempEmpHistList.find((th: any) => th.namaPeriode === h.namaPeriode || th.id === h.id);
+                                        return histItemCalculated || { nilaiAkhir: 0, vcr: 0 };
+                                      };
+                                      const calculated = calculateHistMetrics();
+                                      return (
+                                        <div key={h.id || hIdx} className="p-3 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                                          <div className="flex flex-col">
+                                             <span className="font-extrabold text-xs text-slate-800">{h.namaPeriode}</span>
+                                             <span className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                               Nilai Akhir: <span className="font-bold text-slate-700">{calculated.nilaiAkhir.toFixed(1)}</span> · VCR: <span className="font-extrabold text-emerald-600">{calculated.vcr.toFixed(2)}x</span>
+                                             </span>
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                             <button
+                                               type="button"
+                                               title="Muat data ini ke form penilaian aktif"
+                                               onClick={() => {
+                                                 setArchiveToLoad({ empId: selectedEmpId || "", h });
+                                               }}
+                                               className="p-1 px-2 border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-600 hover:text-indigo-700 rounded text-[10px] font-black uppercase transition-all cursor-pointer font-sans"
+                                             >
+                                               Muat Form
+                                             </button>
+                                             <button
+                                               type="button"
+                                               title="Hapus arsip ini"
+                                               onClick={() => {
+                                                 setArchiveToDelete({ empId: selectedEmpId || "", h });
+                                               }}
+                                               className="p-1 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-all cursor-pointer"
+                                             >
+                                               <Icon name="trash-2" size={14} />
+                                             </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                ) : (
+                                  <div className="p-4 border border-dashed border-slate-200 rounded-xl bg-slate-50/50 text-center text-slate-400 text-xs">
+                                    Belum ada arsip riwayat kustom tersimpan. (Sistem mensimulasikan riwayat ideal Periode A-D di Dashboard untuk memudahkan analisis tren).
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -3791,21 +4600,22 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                     <Icon name="alert-triangle" size={32} />
                   </div>
                   <h3 className="text-xl font-black text-slate-800 text-center mb-2 px-4">
-                    Clear Data Penilaian?
+                    Clear Isian Penilaian?
                   </h3>
                   <p className="text-slate-500 text-center text-sm leading-relaxed mb-8 px-6">
-                    Apakah Anda yakin ingin menghapus seluruh data penilaian,
+                    Apakah Anda yakin ingin menghapus seluruh isian data penilaian aktif,
                     skor core value, dan poin pelanggaran untuk{" "}
                     <strong className="text-slate-700">
                       {empToClear?.name}
                     </strong>
-                    ? Data ini akan kembali menjadi "Belum Dinilai".
+                    ? Isian penilaian aktif akan direset kembali menjadi belum dinilai, namun 
+                    <strong className="text-emerald-600 font-bold"> arsip riwayat kontrak yang sudah disimpan tidak akan terhapus</strong>.
                   </p>
 
                   <div className="flex gap-4">
                     <button
                       onClick={() => setDataToClear(null)}
-                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
                     >
                       Batal
                     </button>
@@ -3813,20 +4623,157 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       onClick={() => {
                         setPerformaDataMap((prev: Record<string, any>) => {
                           const newData = { ...prev };
-                          delete newData[dataToClear];
+                          const currentEmpData = newData[dataToClear] || {};
+                          // Pertahankan data arsip historis, hapus isian aktif
+                          const history = currentEmpData.history || [];
+                          newData[dataToClear] = {
+                            history
+                          };
                           return newData;
                         });
                         const empName =
                           employees.find((e) => e.id === dataToClear)?.name ||
                           dataToClear;
-                        logActivity("Hapus Data Penilaian", {
+                        logActivity("Reset Data Penilaian Aktif", {
                           karyawan: empName,
                         });
                         setDataToClear(null);
                       }}
-                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-[0_4px_12px_rgba(220,38,38,0.2)]"
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-[0_4px_12px_rgba(220,38,38,0.2)] cursor-pointer"
                     >
-                      Ya, Hapus
+                      Ya, Reset Isian
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* Load Form Confirmation Modal */}
+      {archiveToLoad &&
+        (() => {
+          const emp = employees.find((e) => e.id === archiveToLoad.empId);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setArchiveToLoad(null)}
+              ></div>
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative animate-scaleIn overflow-hidden">
+                <div className="p-6">
+                  <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6 mx-auto">
+                    <Icon name="database" size={32} />
+                  </div>
+                  <h3 className="text-xl font-black text-slate-800 text-center mb-2 px-4">
+                    Muat Kembali Data Arsip?
+                  </h3>
+                  <p className="text-slate-500 text-center text-sm leading-relaxed mb-8 px-6">
+                    Apakah Anda yakin ingin memuat kembali data arsip{" "}
+                    <strong className="text-indigo-600 font-extrabold">"{archiveToLoad.h.namaPeriode}"</strong> untuk{" "}
+                    <strong className="text-slate-700">{emp?.name || "Karyawan"}</strong> ke dalam form aktif?{" "}
+                    <span className="text-amber-600 font-bold block mt-2">Isian formulir penilaian aktif saat ini akan digantikan.</span>
+                  </p>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setArchiveToLoad(null)}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer font-sans text-xs"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => {
+                        setPerformaDataMap((prev: Record<string, any>) => {
+                          const currentEmpId = archiveToLoad.empId;
+                          const currentEmpData = prev[currentEmpId] || {};
+                          return {
+                            ...prev,
+                            [currentEmpId]: {
+                              ...currentEmpData,
+                              ...archiveToLoad.h,
+                              // Pertahankan arsip riwayat asli
+                              history: currentEmpData.history || []
+                            }
+                          };
+                        });
+                        logActivity("Muat Arsip Penilaian", {
+                          karyawan: emp?.name || archiveToLoad.empId,
+                          periode: archiveToLoad.h.namaPeriode,
+                        });
+                        setArchiveToLoad(null);
+                      }}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-[0_4px_12px_rgba(79,70,229,0.2)] cursor-pointer font-sans text-xs"
+                    >
+                      Ya, Muat Form
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+      {/* Delete Archive Confirmation Modal */}
+      {archiveToDelete &&
+        (() => {
+          const emp = employees.find((e) => e.id === archiveToDelete.empId);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+                onClick={() => setArchiveToDelete(null)}
+              ></div>
+              <div className="bg-white rounded-2xl shadow-xl w-full max-w-md relative animate-scaleIn overflow-hidden">
+                <div className="p-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 mb-6 mx-auto">
+                    <Icon name="trash-2" size={32} />
+                  </div>
+                  <h3 className="text-xl font-black text-rose-600 text-center mb-2 px-4">
+                    Hapus Arsip Periode?
+                  </h3>
+                  <p className="text-slate-500 text-center text-sm leading-relaxed mb-8 px-6">
+                    Apakah Anda yakin ingin menghapus arsip penilaian{" "}
+                    <strong className="text-slate-700">"{archiveToDelete.h.namaPeriode}"</strong> untuk{" "}
+                    <strong className="text-slate-700">{emp?.name || "Karyawan"}</strong> dari riwayat kontrak?{" "}
+                    <span className="text-rose-600 font-bold block mt-2">Data ini akan terhapus secara permanen dari sistem.</span>
+                  </p>
+
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => setArchiveToDelete(null)}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer font-sans text-xs"
+                    >
+                      Batal
+                    </button>
+                    <button
+                      onClick={() => {
+                        const currentEmpId = archiveToDelete.empId;
+                        const targetId = archiveToDelete.h.id;
+                        const targetLabel = archiveToDelete.h.namaPeriode;
+                        setPerformaDataMap((prev: Record<string, any>) => {
+                          const currentEmpData = prev[currentEmpId] || {};
+                          const currentHistory = currentEmpData.history || [];
+                          const updatedHistory = currentHistory.filter(
+                            (item: any) => item.id !== targetId && item.namaPeriode !== targetLabel
+                          );
+                          return {
+                            ...prev,
+                            [currentEmpId]: {
+                              ...currentEmpData,
+                              history: updatedHistory
+                            }
+                          };
+                        });
+                        logActivity("Hapus Arsip Penilaian", {
+                          karyawan: emp?.name || currentEmpId,
+                          periode: targetLabel,
+                        });
+                        setArchiveToDelete(null);
+                      }}
+                      className="flex-1 px-4 py-3 rounded-xl font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors shadow-[0_4px_12px_rgba(220,38,38,0.2)] cursor-pointer font-sans text-xs"
+                    >
+                      Ya, Hapus Permanen
                     </button>
                   </div>
                 </div>
