@@ -240,45 +240,13 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
       return [];
     }
 
-    // Dynamic fallback: generate realistic mock history of 4 contract periods (Periode A, B, C, D)
-    const makeMockPeriodState = (factor: number, label: string, mId: string) => {
-      const mockData = { ...currentData };
-      
-      const scaleScore = (val: any) => {
-        const numVal = val === "" || val === undefined ? 75 : Number(val);
-        return Math.min(125, Math.max(25, Math.round((numVal * factor) / 25) * 25));
-      };
-
-      const keys = [
-        "grit_1", "grit_2", "grit_3", "grit_4", "grit_5",
-        "growth_1", "growth_2", "growth_3", "growth_4", "growth_5",
-        "prof_1", "prof_2", "prof_3", "prof_4", "prof_5",
-        "sus_1", "sus_2", "sus_3", "sus_4", "sus_5"
-      ];
-
-      keys.forEach(k => {
-        mockData[k] = scaleScore(currentData[k]);
-      });
-
-      mockData.telat = Math.max(0, Math.round((currentData.telat || 0) * (2 - factor)));
-      mockData.ijin = Math.max(0, Math.round((currentData.ijin || 0) * (1.5 - factor)));
-      mockData.mangkir = Math.max(0, Math.round((currentData.mangkir || 0) * (1.2 - factor)));
-      mockData.sp = 0;
-
-      mockData.gaji = currentData.gaji ? Math.round((currentData.gaji * (0.8 + factor * 0.15)) / 100000) * 100000 : 3000000;
-      mockData.namaPenilai = currentData.namaPenilai || "Deni Akbar Gallant";
-
-      return calculateWithData(mockData, label, mId);
-    };
-
-    const periodA = makeMockPeriodState(0.70, "Periode A", "mock_a");
-    const periodB = makeMockPeriodState(0.80, "Periode B", "mock_b");
-    const periodC = makeMockPeriodState(0.90, "Periode C", "mock_c");
-
-    return isActiveFilled ? [periodA, periodB, periodC, activeEntry] : [periodA, periodB, periodC];
+    // Karena bener-bener baru mulai, tidak ada histori buatan/mockup default.
+    // Kembalikan hanya activeEntry (terkini) sebagai satu titik data tunggal di grafik.
+    return [activeEntry];
   };
 
   const [filterDept, setFilterDept] = useState("All Departemen");
+  const [sidebarDept, setSidebarDept] = useState("All Departemen");
   const [filterLevel, setFilterLevel] = useState("All Level");
   const [filterPenilaian, setFilterPenilaian] = useState("All Penilaian");
   const [searchPerformaName, setSearchPerformaName] = useState("");
@@ -1949,10 +1917,28 @@ export const PerformaContent: React.FC<PerformaContentProps> = ({
                       className="pl-9 pr-3 py-2 w-full bg-white border border-slate-200 rounded-xl text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all placeholder:text-slate-400 text-slate-700"
                     />
                   </div>
+                  <div className="relative">
+                    <select
+                      className="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2 pr-8 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100/50 transition-all cursor-pointer w-full text-ellipsis overflow-hidden"
+                      value={sidebarDept}
+                      onChange={(e) => setSidebarDept(e.target.value)}
+                    >
+                      <option value="All Departemen">Semua Divisi / Dept</option>
+                      {uniqueDepts.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                      <Icon name="chevron-down" size={14} />
+                    </div>
+                  </div>
                 </div>
                 <div className="overflow-y-auto flex-1 p-2 space-y-1 hide-scrollbar">
                   {employees
                     .filter((emp) => emp.isActive !== false)
+                    .filter((emp) => sidebarDept === "All Departemen" || emp.dept === sidebarDept)
                     .filter((emp) =>
                       emp.name
                         .toLowerCase()
