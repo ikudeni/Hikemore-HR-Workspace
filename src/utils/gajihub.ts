@@ -108,9 +108,10 @@ export async function fetchGajihubEmployees(
   token: string
 ): Promise<{ employees: GajihubEmployee[]; error?: string; isCorsError?: boolean }> {
   const url = `${endpoint.replace(/\/$/, '')}/contacts?type_id=3&limit=100`; // type_id 3 is Employee/Karyawan in Kledo
+  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -170,9 +171,10 @@ export async function syncLogToGajihub(
 ): Promise<{ success: boolean; response: string; error?: string; isCorsError?: boolean }> {
   // Gajihub/Kledo endpoint for attendance. We can try posting to "/attendances" or "/attendance" or "/attendance_logs"
   const url = `${endpoint.replace(/\/$/, '')}/attendances`;
+  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -227,9 +229,10 @@ export async function fetchGajihubAttendances(
   date: string
 ): Promise<{ attendances: GajihubAttendance[]; error?: string; isCorsError?: boolean }> {
   const url = `${endpoint.replace(/\/$/, '')}/attendances?date=${date}&limit=100`;
+  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(proxyUrl, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
