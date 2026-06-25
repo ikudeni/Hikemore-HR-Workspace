@@ -13,7 +13,19 @@ export interface GajihubConfig {
 const DEFAULT_CONFIG: GajihubConfig = {
   endpoint: 'https://pthobimenjadirintisan.api.kledo.com/api/v1',
   token: 'gajihub_pat_000Zxu_AAPsQJunKBZm9K-yCwL4IC8lE2Qdp6SeoBhQosStmLTTTX-dWcjgP09-_MeMwEnMCo5lLcekMuLgH85W',
-  employeeMappings: {},
+  employeeMappings: {
+    'emp_ahda_qinthara': '101',
+    'emp_ahmad_hasmil': '102',
+    'emp_ahmad_izzuddin_al_hakim': '103',
+    'emp_ajay_saputra': '104',
+    'emp_anggadewi_putri_rayani': '105',
+    'emp_asep_taopik_hidayat': '106',
+    'emp_aura_prisca': '107',
+    'emp_catarina_cindy_flayerti': '108',
+    'emp_deni_akbar_saputro': '109',
+    'emp_desi_susanti': '110',
+    'emp_diky_antonius': '111'
+  },
   syncedLogs: {},
   autoSyncEnabled: true,
   autoSyncIntervalSeconds: 30

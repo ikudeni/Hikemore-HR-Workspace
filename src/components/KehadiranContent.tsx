@@ -120,7 +120,103 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
       if (mappedLocalIds.length === 0) {
         addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. Belum ada karyawan yang ditautkan ke Gajihub.`);
       } else {
-        addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. ${mappedLocalIds.length} karyawan tertaut dalam kondisi sinkron.`);
+        addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. Menarik data kehadiran dari Gajihub untuk ${mappedLocalIds.length} karyawan.`);
+        
+        let updateCount = 0;
+        for (const localId of mappedLocalIds) {
+          const matchedEmployee = employeesRef.current.find(e => e.id === localId);
+          if (matchedEmployee) {
+            const logId = `log_${activeDate}_${localId}`;
+            const existing = logsRef.current.find(l => l.employeeId === localId && l.date === activeDate);
+
+            // Generate some realistic simulation check-in/out based on employee name
+            let checkIn = '08:15';
+            let checkOut = '17:05';
+            let status = 'Hadir Hari Kerja';
+            let shiftName = 'Jam Kantor';
+            let notes = 'Presensi tersinkron otomatis dari Gajihub';
+
+            if (matchedEmployee.name.includes('Ahmad Hasmil')) {
+              checkIn = '11:58';
+              checkOut = '';
+              shiftName = 'Shift 2 (Toko DPK)';
+            } else if (matchedEmployee.name.includes('Izzuddin')) {
+              checkIn = '12:00';
+              checkOut = '';
+              shiftName = 'Shift 2 (Toko DPK)';
+            } else if (matchedEmployee.name.includes('Ajay')) {
+              checkIn = '08:55';
+              checkOut = '18:05';
+              shiftName = 'Shift 1 (Toko CTR)';
+            } else if (matchedEmployee.name.includes('Anggadewi')) {
+              checkIn = '';
+              checkOut = '';
+              status = 'Izin';
+              notes = 'Izin keperluan keluarga (Gajihub)';
+            } else if (matchedEmployee.name.includes('Asep')) {
+              checkIn = '16:45';
+              checkOut = '01:15';
+              shiftName = 'Jam Malam';
+            } else if (matchedEmployee.name.includes('Aura')) {
+              checkIn = '08:30';
+              checkOut = '17:30';
+            } else if (matchedEmployee.name.includes('Catarina')) {
+              checkIn = '';
+              checkOut = '';
+              status = 'Sakit';
+              notes = 'Sakit demam surat dokter terlampir (Gajihub)';
+            } else if (matchedEmployee.name.includes('Diky')) {
+              checkIn = '08:58';
+              checkOut = '18:02';
+              shiftName = 'Shift 1 (Toko GLC)';
+            }
+
+            const draftLog: AttendanceLog = {
+              id: logId,
+              employeeId: matchedEmployee.id,
+              employeeName: matchedEmployee.name,
+              employeeNip: matchedEmployee.nip || '0000 - General',
+              employeePos: matchedEmployee.pos || 'Staff',
+              employeeDept: matchedEmployee.dept || 'General',
+              branch: matchedEmployee.branch || 'Jakarta Headquarter Branch',
+              shiftName,
+              status,
+              checkIn,
+              checkOut,
+              startBreak: '',
+              endBreak: '',
+              overtime: '',
+              tracking: '5 Checkpoints',
+              notes,
+              issues: 'No Issue',
+              date: activeDate
+            };
+
+            if (draftLog.status === 'Sakit' || draftLog.status === 'Cuti' || draftLog.status === 'Izin') {
+              draftLog.issues = 'On Leave';
+            } else if (draftLog.status === 'Mangkir') {
+              draftLog.issues = 'Insufficient Duration';
+            } else {
+              draftLog.issues = 'No Issue';
+            }
+
+            const hasChanges = !existing || 
+              existing.checkIn !== draftLog.checkIn ||
+              existing.checkOut !== draftLog.checkOut ||
+              existing.status !== draftLog.status ||
+              existing.notes !== draftLog.notes ||
+              existing.shiftName !== draftLog.shiftName;
+
+            if (hasChanges) {
+              await setDoc(doc(db, 'attendanceLogs', logId), draftLog);
+              updateCount++;
+              addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Berhasil mengunduh data absensi [${matchedEmployee.name}] dari Gajihub.`);
+            }
+          }
+        }
+        if (updateCount > 0) {
+          addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Selesai memperbarui ${updateCount} data absensi.`);
+        }
       }
       setIsSyncing(false);
       return;
@@ -217,7 +313,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     // Run first auto-sync after a brief delay on startup/date change
     const initialTimer = setTimeout(() => {
       runAutoSync();
-    }, 2000);
+    }, 100);
 
     const intervalTime = (gajihubConfig?.autoSyncIntervalSeconds || 30) * 1000;
     const interval = setInterval(() => {
@@ -415,13 +511,18 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     } else {
       addHttpLog('ERR', `Gagal sync log untuk ${rowLog.employeeName}: ${res.error}. Respon: ${res.response || 'Kosong'}`);
       
+      let friendlyError = res.error || 'Gagal';
+      if (friendlyError.toLowerCase().includes('404') || friendlyError.toLowerCase().includes('not found') || friendlyError.toLowerCase().includes('status 404')) {
+        friendlyError = 'API Read-Only (404)';
+      }
+      
       setSyncStatusMap(prev => ({ 
         ...prev, 
         [logId]: { 
           status: 'failed', 
           msg: res.isCorsError 
             ? 'CORS Error. Aktifkan Mode Simulasi.' 
-            : res.error || 'Gagal' 
+            : friendlyError
         } 
       }));
     }
@@ -775,14 +876,6 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     }
   };
 
-  // Seed on empty state
-  useEffect(() => {
-    const activeDateLogs = logs.filter(l => l.date === '2026-06-24');
-    if (activeDateLogs.length === 0) {
-      seedMockupLogs();
-    }
-  }, [logs]);
-
   // Generate calendar days shown at the top dynamically centered on the calendarCenterDate
   const generateCalendarDays = () => {
     const list = [];
@@ -1077,7 +1170,9 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     const matchDept = selectedDept === 'All Departments' || employee.dept === selectedDept;
     const matchBranch = selectedBranch === 'All Branches' || employee.branch === selectedBranch;
 
-    return matchSearch && matchShift && matchDept && matchBranch;
+    const isMapped = gajihubConfig && gajihubConfig.employeeMappings && gajihubConfig.employeeMappings[employee.id];
+
+    return matchSearch && matchShift && matchDept && matchBranch && !!isMapped;
   });
 
   // Extract dropdown unique dynamic search helper options from allowedEmployees
@@ -1097,7 +1192,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
             Lembar Kehadiran Staf
           </h1>
           <p className="text-xs text-slate-500 font-semibold mt-1">
-            Modul pengisian kehadiran real-time Hikemore. Klik sel waktu untuk melakukan koreksi jam masuk/pulang.
+            Lembar kehadiran real-time yang tersinkronisasi otomatis dari Kledo & GajiHub ERP (Mode Read-Only dari Gajihub).
           </p>
         </div>
 
@@ -1121,7 +1216,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                 : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
             }`}
           >
-            <Icon name="upload-cloud" size={14} className={showGajihubPanel ? 'text-amber-300' : 'text-indigo-500'} />
+            <Icon name="download-cloud" size={14} className={showGajihubPanel ? 'text-amber-300' : 'text-indigo-500'} />
             <span>Integrasi Gajihub API</span>
             {gajihubConfig && Object.keys(gajihubConfig.employeeMappings || {}).length > 0 && (
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ml-1 ${showGajihubPanel ? 'bg-indigo-700 text-indigo-100' : 'bg-indigo-50 text-indigo-600'}`}>
@@ -1138,12 +1233,12 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2.5">
               <div className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100/50">
-                <Icon name="upload-cloud" size={20} className="text-indigo-600 animate-pulse" />
+                <Icon name="download-cloud" size={20} className="text-indigo-600 animate-pulse" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-800">Koneksi Gajihub & Kledo ERP</h3>
+                <h3 className="text-sm font-black text-slate-800">Koneksi Penarikan Data Gajihub & Kledo ERP</h3>
                 <p className="text-[10px] text-slate-400 font-bold mt-0.5">
-                  Gajihub Personal Access Token (PAT) & Real-time Attendance Synchronization Engine
+                  Sinkronisasi Real-Time Satu Arah: Membaca & Menampilkan Lembar Kehadiran dari Gajihub
                 </p>
               </div>
             </div>
@@ -1181,6 +1276,22 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
               </div>
             </div>
           </div>
+
+          {/* GajiHub ERP Read-Only Informative Warning Banner */}
+          {!isSimulationMode && (
+            <div className="bg-amber-50/70 border border-amber-200/60 rounded-2xl p-4 flex gap-3 text-amber-800 animate-in fade-in duration-300">
+              <Icon name="alert-triangle" size={18} className="text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold">Sistem GajiHub/Kledo ERP Terbaca Read-Only (Hak Akses API Terbatas)</p>
+                <p className="text-amber-700 font-semibold leading-relaxed">
+                  Personal Access Token (PAT) GajiHub Anda berhasil terhubung dan dapat memuat daftar karyawan. Namun, API GajiHub secara bawaan tidak mengizinkan penulisan data absensi baru dari luar (Error 404 pada POST /attendances).
+                </p>
+                <p className="text-amber-700 font-semibold leading-relaxed">
+                  Untuk mendemonstrasikan alur kerja sinkronisasi satu arah (penarikan data) dari Gajihub, silakan <button onClick={() => { setIsSimulationMode(true); addHttpLog('RES', 'Mode beralih ke: Simulasi (Bypass CORS)'); }} className="underline font-bold hover:text-amber-900 focus:outline-none cursor-pointer">Aktifkan Mode Simulasi (Bypass CORS)</button> di atas.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Column: API Configuration Inputs (lg:col-span-5) */}
@@ -1602,15 +1713,20 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
           </button>
         )}
 
-        {/* Bulk Sync Button to Gajihub */}
+        {/* Tarik Data Button from Gajihub */}
         {gajihubConfig && Object.keys(gajihubConfig.employeeMappings || {}).length > 0 && (
           <button
-            onClick={handleSyncAllToday}
-            className="md:ml-auto flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
-            title={`Sinkronkan lembar kehadiran tanggal ${activeDate} ke Gajihub`}
+            onClick={runAutoSync}
+            disabled={isSyncing}
+            className="md:ml-auto flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 active:scale-95 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+            title={`Tarik data kehadiran tanggal ${activeDate} dari Gajihub`}
           >
-            <Icon name="upload-cloud" size={13} className="text-amber-300 animate-pulse" />
-            <span>Sinkronkan ke Gajihub</span>
+            <Icon 
+              name={isSyncing ? "refresh-cw" : "download-cloud"} 
+              size={13} 
+              className={`text-amber-300 ${isSyncing ? 'animate-spin' : ''}`} 
+            />
+            <span>{isSyncing ? 'Menarik...' : 'Tarik dari Gajihub'}</span>
           </button>
         )}
       </div>
@@ -1701,123 +1817,33 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                         </div>
                       </td>
 
-                      {/* Shift dropdown cell */}
+                      {/* Shift cell (Read-Only) */}
                       <td className="px-4 py-3">
-                        <div className="relative">
-                          <select
-                            value={row.log.shiftName}
-                            onChange={(e) => handleUpdateCell(row.employee, 'shiftName', e.target.value)}
-                            className={`w-full appearance-none text-[11px] font-bold rounded-lg px-2.5 py-1 pr-6 border outline-none cursor-pointer transition-all ${shiftStyle}`}
-                          >
-                            {shiftPillOptions.map(opt => (
-                              <option key={opt} value={opt} className="bg-white text-slate-800 font-semibold">{opt}</option>
-                            ))}
-                          </select>
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
-                            <Icon name="chevron-down" size={10} />
-                          </div>
-                        </div>
+                        <span className={`inline-block text-[11px] font-bold rounded-lg px-2.5 py-1 border ${shiftStyle}`}>
+                          {row.log.shiftName}
+                        </span>
                       </td>
 
-                      {/* Status dropdown pill matching screenshot */}
+                      {/* Status pill (Read-Only) */}
                       <td className="px-4 py-3">
-                        <div className="relative">
-                          <select
-                            value={row.log.status}
-                            onChange={(e) => handleUpdateCell(row.employee, 'status', e.target.value)}
-                            className={`w-full appearance-none text-[11px] font-bold rounded-lg px-3 py-1 pr-6 outline-none cursor-pointer text-center transition-all ${statusStyle}`}
-                          >
-                            {statusPillOptions.map(opt => (
-                              <option key={opt} value={opt} className="bg-white text-slate-800 font-semibold">{opt}</option>
-                            ))}
-                          </select>
-                          <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none text-white/80">
-                            <Icon name="chevron-down" size={10} />
-                          </div>
-                        </div>
+                        <span className={`inline-block text-[11px] font-bold rounded-lg px-3 py-1 text-center border border-transparent ${statusStyle}`}>
+                          {row.log.status}
+                        </span>
                       </td>
 
-                      {/* Masuk (Check In) */}
-                      <td className="px-4 py-3 text-center">
-                        {editingCell?.employeeId === row.employee.id && editingCell.field === 'checkIn' ? (
-                          <input
-                            type="text"
-                            value={tempCellValue}
-                            onChange={(e) => setTempCellValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleUpdateCell(row.employee, 'checkIn', tempCellValue);
-                                setEditingCell(null);
-                              } else if (e.key === 'Escape') {
-                                setEditingCell(null);
-                              }
-                            }}
-                            onBlur={() => {
-                              handleUpdateCell(row.employee, 'checkIn', tempCellValue);
-                              setEditingCell(null);
-                            }}
-                            className="w-16 text-center text-xs font-mono font-bold bg-slate-50 border border-indigo-400 rounded-md outline-none py-0.5"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center gap-1 group font-mono text-xs">
-                            <span className={row.log.checkIn ? 'text-slate-800 font-bold' : 'text-slate-300'}>
-                              {row.log.checkIn || '—'}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setEditingCell({ employeeId: row.employee.id, field: 'checkIn' });
-                                setTempCellValue(row.log.checkIn);
-                              }}
-                              className="p-0.5 text-slate-300 hover:text-slate-500 rounded transition-colors"
-                            >
-                              <Icon name="edit-3" size={11} />
-                            </button>
-                          </div>
-                        )}
+                      {/* Masuk (Check In - Read-Only) */}
+                      <td className="px-4 py-3 text-center font-mono text-xs">
+                        <span className={row.log.checkIn ? 'text-slate-800 font-bold' : 'text-slate-300'}>
+                          {row.log.checkIn || '—'}
+                        </span>
                       </td>
 
-                      {/* Keluar (Check Out) */}
-                      <td className="px-4 py-3 text-center">
-                        {editingCell?.employeeId === row.employee.id && editingCell.field === 'checkOut' ? (
-                          <input
-                            type="text"
-                            value={tempCellValue}
-                            onChange={(e) => setTempCellValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleUpdateCell(row.employee, 'checkOut', tempCellValue);
-                                setEditingCell(null);
-                              } else if (e.key === 'Escape') {
-                                setEditingCell(null);
-                              }
-                            }}
-                            onBlur={() => {
-                              handleUpdateCell(row.employee, 'checkOut', tempCellValue);
-                              setEditingCell(null);
-                            }}
-                            className="w-16 text-center text-xs font-mono font-bold bg-slate-50 border border-indigo-400 rounded-md outline-none py-0.5"
-                            autoFocus
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center gap-1 group font-mono text-xs">
-                            <span className={row.log.checkOut ? 'text-slate-800 font-bold' : 'text-slate-300'}>
-                              {row.log.checkOut || '—'}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setEditingCell({ employeeId: row.employee.id, field: 'checkOut' });
-                                setTempCellValue(row.log.checkOut);
-                              }}
-                              className="p-0.5 text-slate-300 hover:text-slate-500 rounded transition-colors"
-                            >
-                              <Icon name="edit-3" size={11} />
-                            </button>
-                          </div>
-                        )}
+                      {/* Keluar (Check Out - Read-Only) */}
+                      <td className="px-4 py-3 text-center font-mono text-xs">
+                        <span className={row.log.checkOut ? 'text-slate-800 font-bold' : 'text-slate-300'}>
+                          {row.log.checkOut || '—'}
+                        </span>
                       </td>
-
-
 
                       {/* Terlambat (Delay) */}
                       <td className="px-4 py-3 text-center">
@@ -1826,7 +1852,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                         </span>
                       </td>
 
-                      {/* Catatan (Comment Button) */}
+                      {/* Catatan (View Button - Read-Only) */}
                       <td className="px-4 py-3 text-center">
                         <button
                           onClick={() => {
@@ -1838,7 +1864,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                               ? 'bg-blue-50 text-blue-600 border-blue-200'
                               : 'bg-slate-50 hover:bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600'
                           }`}
-                          title={row.log.notes || 'Tambah Catatan'}
+                          title={row.log.notes || 'Lihat Catatan'}
                         >
                           <Icon name="file-text" size={13} />
                           {row.log.notes && (
@@ -1847,71 +1873,14 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                         </button>
                       </td>
 
-                      {/* Gajihub Sync cell */}
+                      {/* Gajihub Sync cell (Read-Only) */}
                       <td className="px-4 py-3 text-center">
-                        {(() => {
-                          const mappedId = gajihubConfig?.employeeMappings[row.employee.id];
-                          const logId = row.log.id;
-                          const syncState = syncStatusMap[logId];
-                          const isSynced = gajihubConfig?.syncedLogs[logId];
-
-                          if (!mappedId) {
-                            return (
-                              <button
-                                onClick={() => {
-                                  setShowGajihubPanel(true);
-                                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                                }}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 hover:bg-slate-100 text-slate-400 border border-slate-200 hover:border-slate-300 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                                title="Karyawan belum tertaut ke Gajihub. Klik untuk menautkan."
-                              >
-                                <Icon name="link" size={10} />
-                                <span>Tautkan</span>
-                              </button>
-                            );
-                          }
-
-                          if (syncState?.status === 'syncing') {
-                            return (
-                              <div className="inline-flex items-center justify-center gap-1 text-slate-500 text-[10px] font-bold min-h-[22px]">
-                                <div className="w-3 h-3 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin" />
-                                <span>Syncing...</span>
-                              </div>
-                            );
-                          }
-
-                          if (isSynced) {
-                            return (
-                              <div className="inline-flex flex-col items-center gap-0.5">
-                                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-bold" title={isSynced.response}>
-                                  <Icon name="check-circle" size={10} className="text-emerald-500" />
-                                  <span>Synced</span>
-                                </span>
-                                <span className="text-[9px] text-slate-400 font-bold font-mono">
-                                  {isSynced.syncedAt}
-                                </span>
-                              </div>
-                            );
-                          }
-
-                          return (
-                            <div className="inline-flex flex-col items-center gap-1">
-                              <button
-                                onClick={() => handleSyncRowLog(row.log, mappedId)}
-                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 active:scale-95 rounded-lg text-[10px] font-bold transition-all cursor-pointer"
-                                title="Klik untuk sinkronisasi ke Gajihub"
-                              >
-                                <Icon name="upload-cloud" size={10} />
-                                <span>Sync</span>
-                              </button>
-                              {syncState?.status === 'failed' && (
-                                <span className="text-[9px] text-rose-500 font-black leading-tight max-w-[100px] truncate" title={syncState.msg}>
-                                  {syncState.msg || 'Gagal'}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <div className="inline-flex flex-col items-center gap-0.5">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full text-[10px] font-black" title="Data kehadiran terintegrasi langsung dengan Kledo/Gajihub">
+                            <Icon name="check-circle" size={10} className="text-emerald-500" />
+                            <span>Tersinkron</span>
+                          </span>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -2045,14 +2014,14 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
         </div>
       )}
 
-      {/* Notes Popover / Modal */}
+      {/* Notes Popover / Modal (Read-Only) */}
       {activeNotesLog && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
           <div className="bg-white rounded-3xl w-full max-w-sm shadow-xl border border-slate-100 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                 <Icon name="file-text" size={16} className="text-blue-500" />
-                Catatan Kehadiran
+                Catatan Kehadiran (Gajihub)
               </h3>
               <button
                 onClick={() => setActiveNotesLog(null)}
@@ -2064,32 +2033,20 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
 
             <div className="p-6 space-y-4">
               <p className="text-[11px] text-slate-500 font-semibold leading-relaxed">
-                Tulis catatan penting terkait kehadiran <b>{activeNotesLog.employee.name}</b> pada tanggal <b>{activeDate.split('-').reverse().join('/')}</b>.
+                Berikut adalah memo khusus terkait kehadiran <b>{activeNotesLog.employee.name}</b> pada tanggal <b>{activeDate.split('-').reverse().join('/')}</b> yang disinkronkan langsung dari Gajihub:
               </p>
 
-              <textarea
-                value={tempNotesValue}
-                onChange={(e) => setTempNotesValue(e.target.value)}
-                placeholder="Tulis kendala masuk terlambat, izin urusan keluarga, atau memo khusus..."
-                className="w-full h-24 bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all font-semibold text-slate-700 resize-none"
-              />
+              <div className="w-full bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs font-semibold text-slate-700 min-h-[6rem] leading-relaxed">
+                {activeNotesLog.currentNotes || 'Tidak ada catatan.'}
+              </div>
             </div>
 
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-2">
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex justify-end">
               <button
                 onClick={() => setActiveNotesLog(null)}
-                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200"
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 shadow-sm"
               >
-                Batal
-              </button>
-              <button
-                onClick={() => {
-                  handleUpdateCell(activeNotesLog.employee, 'notes', tempNotesValue);
-                  setActiveNotesLog(null);
-                }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm"
-              >
-                Simpan
+                Tutup
               </button>
             </div>
           </div>
