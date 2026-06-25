@@ -40,6 +40,7 @@ export interface Employee {
   isExternal?: boolean;
   isVirtualExternal?: boolean;
   avatar?: string;
+  branch?: string;
   // Computed fields
   formattedJoinDate?: string;
   formattedResignDate?: string;

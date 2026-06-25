@@ -14,10 +14,12 @@ import {
   File, UploadCloud, FileText, Layout, LayoutGrid, List, Filter, Star, DownloadCloud,
   Info, HelpCircle, FolderPlus, User, DollarSign, Wallet, Award, Paperclip, Download, Image, Box, QrCode, Barcode,
   Activity, TrendingUp, Minus, TrendingDown, AlertCircle, LogIn, BookOpen, Shield, Eye, EyeOff, ArrowLeft, RefreshCw, Key, Sigma, MinusCircle, Network, Link, CheckSquare, Database, PenTool, Menu,
-  Lock, Unlock, Shuffle
+  Lock, Unlock, Shuffle, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 
 const iconMap = {
+  'chevrons-left': ChevronsLeft,
+  'chevrons-right': ChevronsRight,
   'lock': Lock,
   'unlock': Unlock,
   'shuffle': Shuffle,

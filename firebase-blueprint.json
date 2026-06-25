@@ -56,6 +56,30 @@
             "notes": { "type": "string" }
         },
         "required": ["id", "employeeId", "employeeNameSnapshot", "dateAssigned"]
+    },
+    "AttendanceLog": {
+        "title": "AttendanceLog",
+        "description": "Daily employee attendance logs.",
+        "type": "object",
+        "properties": {
+            "id": { "type": "string" },
+            "employeeId": { "type": "string" },
+            "employeeName": { "type": "string" },
+            "employeeNip": { "type": "string" },
+            "employeePos": { "type": "string" },
+            "employeeDept": { "type": "string" },
+            "branch": { "type": "string" },
+            "shiftName": { "type": "string" },
+            "checkIn": { "type": "string" },
+            "checkOut": { "type": "string" },
+            "startBreak": { "type": "string" },
+            "endBreak": { "type": "string" },
+            "duration": { "type": "string" },
+            "description": { "type": "string" },
+            "issues": { "type": "string" },
+            "date": { "type": "string" }
+        },
+        "required": ["id", "employeeId", "employeeName", "employeeNip", "employeePos", "employeeDept", "branch", "shiftName", "checkIn", "checkOut", "startBreak", "endBreak", "duration", "description", "issues", "date"]
     }
   },
   "firestore": {
@@ -66,6 +90,10 @@
     "assets": {
       "schema": "#/entities/Asset",
       "description": "Information about company assets."
+    },
+    "attendanceLogs": {
+      "schema": "#/entities/AttendanceLog",
+      "description": "Daily employee attendance logs."
     }
   }
 }

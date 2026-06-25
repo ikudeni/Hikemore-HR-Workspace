@@ -178,6 +178,7 @@ export function SettingsContent() {
     'Dashboard',
     'Rekrutmen',
     'Karyawan',
+    'Kehadiran',
     'Performa',
     'Schedule',
     'File Sharing',
