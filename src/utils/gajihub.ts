@@ -100,77 +100,146 @@ export interface GajihubEmployee {
 }
 
 /**
+ * Internal helper to fetch with multi-stage fallback:
+ * Stage 1: Try local Express proxy (/api/gajihub-proxy?url=...)
+ * Stage 2: Try public client-side CORS proxy (corsproxy.io/?url=...)
+ * Stage 3: Try direct fetch (useful if user has CORS extension or on native origins)
+ */
+async function fetchWithFallback(
+  targetUrl: string,
+  method: string,
+  token: string,
+  body?: any
+): Promise<{ ok: boolean; status: number; text: string; error?: string; isCorsError?: boolean }> {
+  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(targetUrl)}`;
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  };
+
+  // Stage 1: Local Express Proxy
+  try {
+    console.log(`[Gajihub API] Trying Stage 1 (Local Express Proxy): ${proxyUrl}`);
+    const res = await fetch(proxyUrl, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    
+    const text = await res.text();
+    
+    // Check if CDN intercepted request and returned our app's index.html
+    const isHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html') || text.includes('<title>Hikemore HR');
+    
+    if (res.ok && !isHtml) {
+      return { ok: true, status: res.status, text };
+    }
+    
+    if (isHtml) {
+      console.warn('[Gajihub API] Stage 1 returned HTML. App might be deployed as a static SPA. Trying Stage 2...');
+    } else {
+      console.warn(`[Gajihub API] Stage 1 failed with status ${res.status}: ${text.substring(0, 150)}`);
+    }
+  } catch (err: any) {
+    console.error('[Gajihub API] Stage 1 request failed:', err);
+  }
+
+  // Stage 2: Public Client-Side CORS Proxy (corsproxy.io)
+  const publicProxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`;
+  try {
+    console.log(`[Gajihub API] Trying Stage 2 (Public CORS Proxy): ${publicProxyUrl}`);
+    const res = await fetch(publicProxyUrl, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    
+    const text = await res.text();
+    const isHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html');
+    const isProxyError = text.includes('Server-side requests are not allowed') || text.includes('corsproxy.io/pricing');
+
+    if (res.ok && !isHtml && !isProxyError) {
+      return { ok: true, status: res.status, text };
+    }
+    
+    console.warn(`[Gajihub API] Stage 2 failed with status ${res.status}`);
+  } catch (err: any) {
+    console.error('[Gajihub API] Stage 2 request failed:', err);
+  }
+
+  // Stage 3: Direct Fetch Connection (as final fallback)
+  try {
+    console.log(`[Gajihub API] Trying Stage 3 (Direct Connection): ${targetUrl}`);
+    const res = await fetch(targetUrl, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {})
+    });
+    
+    const text = await res.text();
+    if (res.ok) {
+      return { ok: true, status: res.status, text };
+    }
+    return { ok: false, status: res.status, text, error: `Direct API returned status ${res.status}` };
+  } catch (err: any) {
+    console.error('[Gajihub API] Stage 3 request failed:', err);
+    const isCors = err instanceof TypeError && (err.message.includes('Failed to fetch') || err.message.includes('NetworkError'));
+    return {
+      ok: false,
+      status: 0,
+      text: '',
+      error: `Semua jalur proxy dan langsung gagal terhubung ke Gajihub/Kledo API. Detail error: ${err.message || String(err)}`,
+      isCorsError: isCors
+    };
+  }
+}
+
+/**
  * Fetches contacts/employees from Gajihub/Kledo API.
- * Supports fallback mode if request is blocked by CORS.
  */
 export async function fetchGajihubEmployees(
   endpoint: string,
   token: string
 ): Promise<{ employees: GajihubEmployee[]; error?: string; isCorsError?: boolean }> {
   const url = `${endpoint.replace(/\/$/, '')}/contacts?type_id=3&limit=100`; // type_id 3 is Employee/Karyawan in Kledo
-  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
+  
+  const res = await fetchWithFallback(url, 'GET', token);
+  
+  if (!res.ok) {
+    return { employees: [], error: res.error, isCorsError: res.isCorsError };
+  }
 
+  let json: any;
   try {
-    const response = await fetch(proxyUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      return { employees: [], error: `Server returned status ${response.status}: ${responseText.substring(0, 200) || response.statusText}` };
-    }
-
-    let json: any;
-    try {
-      json = JSON.parse(responseText);
-    } catch (e: any) {
-      console.error("JSON parse error:", e, responseText);
-      const isHtml = responseText.trim().startsWith('<');
-      const snippet = responseText.substring(0, 250);
-      return {
-        employees: [],
-        error: `Gagal membaca response API. Format bukan JSON. ${isHtml ? `Terbaca dokumen HTML:\n"${snippet}"` : `Konten: "${snippet}"`}`
-      };
-    }
-
-    // Handle standard Kledo envelope: usually data is inside json.data or json.contacts or directly json
-    let rawContacts: any[] = [];
-    if (json && Array.isArray(json.data)) {
-      rawContacts = json.data;
-    } else if (json && json.data && Array.isArray(json.data.data)) {
-      rawContacts = json.data.data;
-    } else if (json && Array.isArray(json)) {
-      rawContacts = json;
-    } else {
-      console.log('Unrecognized API response structure, showing raw response:', json);
-    }
-
-    const employees: GajihubEmployee[] = rawContacts.map((c: any) => ({
-      id: String(c.id),
-      name: String(c.name),
-      email: c.email || undefined,
-      phone: c.phone || undefined,
-      code: c.code || undefined,
-      type: 'Employee'
-    }));
-
-    return { employees };
-  } catch (error: any) {
-    console.error('Fetch error:', error);
-    // Detect typical client-side fetch failure (usually CORS or Offline)
-    const isCors = error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
+    json = JSON.parse(res.text);
+  } catch (e: any) {
+    console.error("JSON parse error:", e, res.text);
     return {
       employees: [],
-      error: error.message || String(error),
-      isCorsError: isCors
+      error: `Gagal membaca response API. Format bukan JSON. Terbaca konten: "${res.text.substring(0, 250)}"`
     };
   }
+
+  let rawContacts: any[] = [];
+  if (json && Array.isArray(json.data)) {
+    rawContacts = json.data;
+  } else if (json && json.data && Array.isArray(json.data.data)) {
+    rawContacts = json.data.data;
+  } else if (json && Array.isArray(json)) {
+    rawContacts = json;
+  }
+
+  const employees: GajihubEmployee[] = rawContacts.map((c: any) => ({
+    id: String(c.id),
+    name: String(c.name),
+    email: c.email || undefined,
+    phone: c.phone || undefined,
+    code: c.code || undefined,
+    type: 'Employee'
+  }));
+
+  return { employees };
 }
 
 /**
@@ -181,45 +250,16 @@ export async function syncLogToGajihub(
   token: string,
   payload: any
 ): Promise<{ success: boolean; response: string; error?: string; isCorsError?: boolean }> {
-  // Gajihub/Kledo endpoint for attendance. We can try posting to "/attendances" or "/attendance" or "/attendance_logs"
   const url = `${endpoint.replace(/\/$/, '')}/attendances`;
-  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
-
-  try {
-    const response = await fetch(proxyUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      return {
-        success: false,
-        response: responseText,
-        error: `HTTP ${response.status}: ${response.statusText || 'Gagal'}`
-      };
-    }
-
-    return {
-      success: true,
-      response: responseText
-    };
-  } catch (error: any) {
-    console.error('Sync POST error:', error);
-    const isCors = error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
-    return {
-      success: false,
-      response: '',
-      error: error.message || String(error),
-      isCorsError: isCors
-    };
-  }
+  
+  const res = await fetchWithFallback(url, 'POST', token, payload);
+  
+  return {
+    success: res.ok,
+    response: res.text,
+    error: res.ok ? undefined : (res.error || `HTTP ${res.status}: ${res.text.substring(0, 200)}`),
+    isCorsError: res.isCorsError
+  };
 }
 
 export interface GajihubAttendance {
@@ -241,64 +281,42 @@ export async function fetchGajihubAttendances(
   date: string
 ): Promise<{ attendances: GajihubAttendance[]; error?: string; isCorsError?: boolean }> {
   const url = `${endpoint.replace(/\/$/, '')}/attendances?date=${date}&limit=100`;
-  const proxyUrl = `/api/gajihub-proxy?url=${encodeURIComponent(url)}`;
+  
+  const res = await fetchWithFallback(url, 'GET', token);
+  
+  if (!res.ok) {
+    return { attendances: [], error: res.error, isCorsError: res.isCorsError };
+  }
 
+  let json: any;
   try {
-    const response = await fetch(proxyUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      }
-    });
-
-    const responseText = await response.text();
-
-    if (!response.ok) {
-      return { attendances: [], error: `Server returned status ${response.status}: ${responseText.substring(0, 200) || response.statusText}` };
-    }
-
-    let json: any;
-    try {
-      json = JSON.parse(responseText);
-    } catch (e: any) {
-      console.error("JSON parse error:", e, responseText);
-      const isHtml = responseText.trim().startsWith('<');
-      const snippet = responseText.substring(0, 250);
-      return {
-        attendances: [],
-        error: `Gagal membaca response API. Format bukan JSON. ${isHtml ? `Terbaca dokumen HTML:\n"${snippet}"` : `Konten: "${snippet}"`}`
-      };
-    }
-
-    let rawAttendances: any[] = [];
-    if (json && Array.isArray(json.data)) {
-      rawAttendances = json.data;
-    } else if (json && json.data && Array.isArray(json.data.data)) {
-      rawAttendances = json.data.data;
-    } else if (json && Array.isArray(json)) {
-      rawAttendances = json;
-    }
-
-    const attendances: GajihubAttendance[] = rawAttendances.map((a: any) => ({
-      id: String(a.id),
-      employee_id: String(a.employee_id),
-      date: a.date || date,
-      check_in: a.check_in || null,
-      check_out: a.check_out || null,
-      status: a.status || undefined,
-      notes: a.notes || undefined
-    }));
-
-    return { attendances };
-  } catch (error: any) {
-    console.error('Fetch attendances error:', error);
-    const isCors = error instanceof TypeError && (error.message.includes('Failed to fetch') || error.message.includes('NetworkError'));
+    json = JSON.parse(res.text);
+  } catch (e: any) {
+    console.error("JSON parse error:", e, res.text);
     return {
       attendances: [],
-      error: error.message || String(error),
-      isCorsError: isCors
+      error: `Gagal membaca data kehadiran. Format bukan JSON. Terbaca konten: "${res.text.substring(0, 250)}"`
     };
   }
+
+  let rawAttendances: any[] = [];
+  if (json && Array.isArray(json.data)) {
+    rawAttendances = json.data;
+  } else if (json && json.data && Array.isArray(json.data.data)) {
+    rawAttendances = json.data.data;
+  } else if (json && Array.isArray(json)) {
+    rawAttendances = json;
+  }
+
+  const attendances: GajihubAttendance[] = rawAttendances.map((a: any) => ({
+    id: String(a.id),
+    employee_id: String(a.employee_id),
+    date: a.date || date,
+    check_in: a.check_in || null,
+    check_out: a.check_out || null,
+    status: a.status || undefined,
+    notes: a.notes || undefined
+  }));
+
+  return { attendances };
 }
