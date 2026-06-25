@@ -111,96 +111,16 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     setLastSyncTime(nowStr);
 
     if (isSimulationMode) {
-      // Simulation mode: Randomly generate/update an employee's check-in or checkout on Gajihub and sync it
+      // Simulation mode: Demonstrate real-time polling to GajiHub Cloud successfully without corrupting local data.
       const mappedLocalIds = Object.keys(gajihubConfig?.employeeMappings || {});
-      if (mappedLocalIds.length === 0) {
-        setIsSyncing(false);
-        return;
-      }
-
-      // Pick random employee that is mapped
-      const randomLocalId = mappedLocalIds[Math.floor(Math.random() * mappedLocalIds.length)];
-      const matchedEmployee = employeesRef.current.find(e => e.id === randomLocalId);
-      if (!matchedEmployee) {
-        setIsSyncing(false);
-        return;
-      }
-
-      // Find their current log
-      const currentLogs = logsRef.current;
-      const existing = currentLogs.find(l => l.employeeId === randomLocalId && l.date === activeDate);
-
-      let targetField = '';
-      let targetValue = '';
-      let eventType = '';
-
-      if (!existing || !existing.checkIn) {
-        targetField = 'checkIn';
-        // Random morning clock-in between 08:00 and 08:20
-        const min = Math.floor(Math.random() * 20);
-        const minStr = min < 10 ? `0${min}` : `${min}`;
-        targetValue = `08:${minStr}`;
-        eventType = 'Clock-In (Masuk)';
-      } else if (!existing.checkOut) {
-        targetField = 'checkOut';
-        // Random evening clock-out between 17:00 and 17:30
-        const min = Math.floor(Math.random() * 30);
-        const minStr = min < 10 ? `0${min}` : `${min}`;
-        targetValue = `17:${minStr}`;
-        eventType = 'Clock-Out (Pulang)';
-      } else if (!existing.notes) {
-        targetField = 'notes';
-        targetValue = 'Absensi masuk terintegrasi via Aplikasi Gajihub';
-        eventType = 'Update Catatan';
-      } else {
-        // Switch status
-        targetField = 'status';
-        targetValue = 'Hadir Hari Kerja';
-        eventType = 'Pembaruan Status Kehadiran';
-      }
-
-      const logId = `log_${activeDate}_${randomLocalId}`;
-      const draftLog: AttendanceLog = {
-        id: logId,
-        employeeId: matchedEmployee.id,
-        employeeName: matchedEmployee.name,
-        employeeNip: matchedEmployee.nip || '0000 - General',
-        employeePos: matchedEmployee.pos || 'Staff',
-        employeeDept: matchedEmployee.dept || 'General',
-        branch: matchedEmployee.branch || 'Jakarta Headquarter Branch',
-        shiftName: 'Jam Kantor',
-        status: 'Pilih status',
-        checkIn: '',
-        checkOut: '',
-        startBreak: '',
-        endBreak: '',
-        overtime: '',
-        tracking: '1 Checkpoint',
-        notes: '',
-        issues: 'No Issue',
-        date: activeDate
-      };
-
-      const merged = { ...draftLog, ...existing, [targetField]: targetValue };
       
-      if (targetField === 'status') {
-        if (targetValue === 'Sakit' || targetValue === 'Cuti' || targetValue === 'Izin') {
-          merged.issues = 'On Leave';
-        } else if (targetValue === 'Mangkir') {
-          merged.issues = 'Insufficient Duration';
-        } else {
-          merged.issues = 'No Issue';
-        }
-      }
-
       addHttpLog('REQ', `🔄 Auto-Sync (Simulasi): Menghubungkan ke Gajihub Cloud...`);
       await new Promise(resolve => setTimeout(resolve, 800));
 
-      try {
-        await setDoc(doc(db, 'attendanceLogs', logId), merged);
-        addHttpLog('RES', `🔄 Auto-Sync (Simulasi Gajihub App): Menerima aktivitas ${eventType} oleh ${matchedEmployee.name} via ponsel. Sinkronisasi sukses!`);
-      } catch (err) {
-        console.error('Error auto-syncing mock log:', err);
+      if (mappedLocalIds.length === 0) {
+        addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. Belum ada karyawan yang ditautkan ke Gajihub.`);
+      } else {
+        addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. ${mappedLocalIds.length} karyawan tertaut dalam kondisi sinkron.`);
       }
       setIsSyncing(false);
       return;
@@ -858,7 +778,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
   // Seed on empty state
   useEffect(() => {
     const activeDateLogs = logs.filter(l => l.date === '2026-06-24');
-    if (logs.length > 0 && activeDateLogs.length === 0) {
+    if (activeDateLogs.length === 0) {
       seedMockupLogs();
     }
   }, [logs]);
