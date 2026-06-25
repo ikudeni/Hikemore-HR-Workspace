@@ -120,13 +120,25 @@ export async function fetchGajihubEmployees(
       }
     });
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const text = await response.text();
-      return { employees: [], error: `Server returned status ${response.status}: ${text || response.statusText}` };
+      return { employees: [], error: `Server returned status ${response.status}: ${responseText.substring(0, 200) || response.statusText}` };
     }
 
-    const json = await response.json();
-    
+    let json: any;
+    try {
+      json = JSON.parse(responseText);
+    } catch (e: any) {
+      console.error("JSON parse error:", e, responseText);
+      const isHtml = responseText.trim().startsWith('<');
+      const snippet = responseText.substring(0, 250);
+      return {
+        employees: [],
+        error: `Gagal membaca response API. Format bukan JSON. ${isHtml ? `Terbaca dokumen HTML:\n"${snippet}"` : `Konten: "${snippet}"`}`
+      };
+    }
+
     // Handle standard Kledo envelope: usually data is inside json.data or json.contacts or directly json
     let rawContacts: any[] = [];
     if (json && Array.isArray(json.data)) {
@@ -241,12 +253,25 @@ export async function fetchGajihubAttendances(
       }
     });
 
+    const responseText = await response.text();
+
     if (!response.ok) {
-      const text = await response.text();
-      return { attendances: [], error: `Server returned status ${response.status}: ${text || response.statusText}` };
+      return { attendances: [], error: `Server returned status ${response.status}: ${responseText.substring(0, 200) || response.statusText}` };
     }
 
-    const json = await response.json();
+    let json: any;
+    try {
+      json = JSON.parse(responseText);
+    } catch (e: any) {
+      console.error("JSON parse error:", e, responseText);
+      const isHtml = responseText.trim().startsWith('<');
+      const snippet = responseText.substring(0, 250);
+      return {
+        attendances: [],
+        error: `Gagal membaca response API. Format bukan JSON. ${isHtml ? `Terbaca dokumen HTML:\n"${snippet}"` : `Konten: "${snippet}"`}`
+      };
+    }
+
     let rawAttendances: any[] = [];
     if (json && Array.isArray(json.data)) {
       rawAttendances = json.data;
