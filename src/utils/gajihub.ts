@@ -132,15 +132,23 @@ async function fetchWithFallback(
     // Check if CDN intercepted request and returned our app's index.html
     const isHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html') || text.includes('<title>Hikemore HR');
     
-    if (res.ok && !isHtml) {
-      return { ok: true, status: res.status, text };
+    if (!isHtml) {
+      let errorMsg = undefined;
+      if (!res.ok) {
+        errorMsg = `API returned status ${res.status}`;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.message) {
+            errorMsg = `${parsed.message} (Status ${res.status})`;
+          } else if (parsed && parsed.error) {
+            errorMsg = `${parsed.error} (Status ${res.status})`;
+          }
+        } catch (e) {}
+      }
+      return { ok: res.ok, status: res.status, text, error: errorMsg };
     }
     
-    if (isHtml) {
-      console.warn('[Gajihub API] Stage 1 returned HTML. App might be deployed as a static SPA. Trying Stage 2...');
-    } else {
-      console.warn(`[Gajihub API] Stage 1 failed with status ${res.status}: ${text.substring(0, 150)}`);
-    }
+    console.warn('[Gajihub API] Stage 1 returned HTML. App might be deployed as a static SPA. Trying Stage 2...');
   } catch (err: any) {
     console.error('[Gajihub API] Stage 1 request failed:', err);
   }
@@ -159,11 +167,21 @@ async function fetchWithFallback(
     const isHtml = text.trim().startsWith('<!doctype html') || text.trim().startsWith('<html');
     const isProxyError = text.includes('Server-side requests are not allowed') || text.includes('corsproxy.io/pricing');
 
-    if (res.ok && !isHtml && !isProxyError) {
-      return { ok: true, status: res.status, text };
+    if (!isHtml && !isProxyError) {
+      let errorMsg = undefined;
+      if (!res.ok) {
+        errorMsg = `CORS Proxy returned status ${res.status}`;
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.message) {
+            errorMsg = `${parsed.message} (Status ${res.status})`;
+          } else if (parsed && parsed.error) {
+            errorMsg = `${parsed.error} (Status ${res.status})`;
+          }
+        } catch (e) {}
+      }
+      return { ok: res.ok, status: res.status, text, error: errorMsg };
     }
-    
-    console.warn(`[Gajihub API] Stage 2 failed with status ${res.status}`);
   } catch (err: any) {
     console.error('[Gajihub API] Stage 2 request failed:', err);
   }
