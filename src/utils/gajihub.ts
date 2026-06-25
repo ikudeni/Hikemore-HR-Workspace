@@ -220,9 +220,19 @@ export async function fetchGajihubEmployees(
   endpoint: string,
   token: string
 ): Promise<{ employees: GajihubEmployee[]; error?: string; isCorsError?: boolean }> {
-  const url = `${endpoint.replace(/\/$/, '')}/contacts?type_id=3&limit=100`; // type_id 3 is Employee/Karyawan in Kledo
+  // Try /hr/schedules first as it is the direct, fully-authorized employee list endpoint for Gajihub PATs
+  const hrSchedulesUrl = `${endpoint.replace(/\/$/, '')}/hr/schedules`;
+  console.log(`[Gajihub API] Fetching employees via /hr/schedules: ${hrSchedulesUrl}`);
   
-  const res = await fetchWithFallback(url, 'GET', token);
+  let res = await fetchWithFallback(hrSchedulesUrl, 'GET', token);
+  let isUsingHrSchedules = res.ok;
+
+  // Fallback to contacts endpoint if /hr/schedules returns 404 or non-ok
+  if (!res.ok) {
+    const contactsUrl = `${endpoint.replace(/\/$/, '')}/contacts?type_id=3&limit=100`; // type_id 3 is Employee/Karyawan in Kledo
+    console.log(`[Gajihub API] /hr/schedules failed. Falling back to contacts: ${contactsUrl}`);
+    res = await fetchWithFallback(contactsUrl, 'GET', token);
+  }
   
   if (!res.ok) {
     return { employees: [], error: res.error, isCorsError: res.isCorsError };
@@ -248,14 +258,23 @@ export async function fetchGajihubEmployees(
     rawContacts = json;
   }
 
-  const employees: GajihubEmployee[] = rawContacts.map((c: any) => ({
-    id: String(c.id),
-    name: String(c.name),
-    email: c.email || undefined,
-    phone: c.phone || undefined,
-    code: c.code || undefined,
-    type: 'Employee'
-  }));
+  const employees: GajihubEmployee[] = rawContacts.map((c: any) => {
+    // Robust parsing that handles both /hr/schedules (with nested finance_contact) and /contacts schemas
+    const id = String(c.id);
+    const name = String(c.name || (c.finance_contact && c.finance_contact.name) || 'Karyawan');
+    const email = c.finance_contact?.email || c.email || undefined;
+    const phone = c.handphone || c.finance_contact?.phone || c.phone || undefined;
+    const code = c.code || undefined;
+
+    return {
+      id,
+      name,
+      email,
+      phone,
+      code,
+      type: 'Employee'
+    };
+  });
 
   return { employees };
 }
