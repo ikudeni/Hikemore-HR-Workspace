@@ -742,7 +742,6 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
   const [showToken, setShowToken] = useState(false);
   
   // Auto-Sync States
-  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -771,7 +770,6 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
       setGajihubConfig(config);
       setTempEndpoint(config.endpoint);
       setTempToken(config.token);
-      setAutoSyncEnabled(config.autoSyncEnabled !== undefined ? config.autoSyncEnabled : true);
       addHttpLog('RES', 'Sistem memuat konfigurasi Gajihub API dari Firestore.');
     };
     loadGajihubSettings();
@@ -1070,25 +1068,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
     }
   };
 
-  // Real-Time Auto-Sync polling timer
-  useEffect(() => {
-    if (!autoSyncEnabled) return;
 
-    // Run first auto-sync after a brief delay on startup/date change/config loaded
-    const initialTimer = setTimeout(() => {
-      runAutoSync();
-    }, 100);
-
-    const intervalTime = (gajihubConfigRef.current?.autoSyncIntervalSeconds || 30) * 1000;
-    const interval = setInterval(() => {
-      runAutoSync();
-    }, intervalTime);
-
-    return () => {
-      clearTimeout(initialTimer);
-      clearInterval(interval);
-    };
-  }, [autoSyncEnabled, activeDate, isSimulationMode]);
 
   const addHttpLog = (type: 'REQ' | 'RES' | 'ERR', text: string) => {
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -1965,13 +1945,10 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
-          {autoSyncEnabled && (
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-150 rounded-2xl text-[10px] font-black shadow-sm animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 relative flex">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              <span>Gajihub Live Sync Aktif</span>
+          {gajihubConfig && Object.keys(gajihubConfig.employeeMappings || {}).length > 0 && (
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-2xl text-[10px] font-black shadow-sm">
+              <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+              <span>Integrasi Gajihub Aktif</span>
             </div>
           )}
 
@@ -2149,51 +2126,33 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                 </div>
               )}
 
-              {/* Real-time Auto-Sync Section */}
+              {/* Real-time Manual-Sync Section */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/60 mt-2 flex flex-col gap-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Icon name="refresh-cw" size={14} className={`text-indigo-600 ${isSyncing ? 'animate-spin' : ''}`} />
-                    <span className="text-xs font-black text-slate-700">Auto-Sync Gajihub App</span>
+                    <span className="text-xs font-black text-slate-700">Sinkronisasi Gajihub Cloud</span>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoSyncEnabled}
-                      onChange={async (e) => {
-                        const val = e.target.checked;
-                        setAutoSyncEnabled(val);
-                        if (gajihubConfig) {
-                          const updated = { ...gajihubConfig, autoSyncEnabled: val };
-                          setGajihubConfig(updated);
-                          await saveGajihubConfig(updated);
-                        }
-                        addHttpLog('RES', `Auto-sync beralih ke: ${val ? 'AKTIF' : 'NONAKTIF'}`);
-                      }}
-                      className="sr-only peer"
-                    />
-                    <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                  </label>
+                  <span className="text-[9px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-black">Manual</span>
                 </div>
 
                 <p className="text-[10px] text-slate-500 font-bold leading-normal">
-                  Jika aktif, data absensi masuk/keluar dari Gajihub akan otomatis sinkron & memperbarui lembar ini secara real-time.
+                  Sinkronisasi sekarang bersifat sepenuhnya manual untuk menghemat penggunaan kuota database Firestore gratis Anda. Klik tombol di bawah ini untuk memuat data kapan saja.
                 </p>
 
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 font-mono">
-                  <span>Status: <span className={autoSyncEnabled ? 'text-emerald-600 font-black' : 'text-slate-500'}>{autoSyncEnabled ? 'Aktif Polling' : 'Nonaktif'}</span></span>
+                  <span>Status: <span className="text-indigo-600 font-black">Siap Tarik Data</span></span>
                   <span>Periksa: {lastSyncTime ? `${lastSyncTime}` : 'Belum'}</span>
                 </div>
 
-                {autoSyncEnabled && (
-                  <button
-                    onClick={runAutoSync}
-                    className="w-full py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[10px] font-black border border-indigo-200/50 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
-                  >
-                    <Icon name="refresh-cw" size={11} className={isSyncing ? 'animate-spin' : ''} />
-                    <span>{isSyncing ? 'Menghubungkan...' : 'Sinkronkan Sekarang'}</span>
-                  </button>
-                )}
+                <button
+                  onClick={runAutoSync}
+                  disabled={isSyncing}
+                  className="w-full py-1.5 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 text-indigo-700 rounded-lg text-[10px] font-black border border-indigo-200/50 flex items-center justify-center gap-1 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Icon name="refresh-cw" size={11} className={isSyncing ? 'animate-spin' : ''} />
+                  <span>{isSyncing ? 'Menghubungkan...' : 'Sinkronkan Data Hari Ini'}</span>
+                </button>
 
                 <div className="border-t border-slate-200/60 pt-2 flex flex-col gap-1">
                   <button
