@@ -24,7 +24,8 @@ const DEFAULT_CONFIG: GajihubConfig = {
     'emp_catarina_cindy_flayerti': '108',
     'emp_deni_akbar_saputro': '109',
     'emp_desi_susanti': '110',
-    'emp_diky_antonius': '111'
+    'emp_diky_antonius': '111',
+    'emp_arman_maulana': '112'
   },
   syncedLogs: {},
   autoSyncEnabled: true,

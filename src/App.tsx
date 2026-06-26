@@ -477,26 +477,18 @@ export default function App() {
 
   useEffect(() => {
     if (globalEmployees.length > 0) {
-      // Auto-repair missing or out-of-sync NIPs
+      // Auto-repair only missing NIPs to prevent potential infinite update loop cascades
       let updatesCount = 0;
       globalEmployees.forEach(emp => {
-        let existingRand = '';
-        if (emp.nip) {
-          const parts = emp.nip.split('-');
-          if (parts.length >= 4) {
-            existingRand = parts[parts.length - 1]; // Keep random sequence
-          }
-        }
-        
-        const expectedNip = generateNIP(emp.joinDate, emp.dept, emp.status, existingRand, globalEmployees);
-        
-        if (emp.nip !== expectedNip || !emp.nip) {
-           updateDoc(doc(db, 'employees', emp.id), { nip: expectedNip }).catch(console.error);
-           updatesCount++;
+        if (!emp.nip) {
+          let existingRand = '';
+          const expectedNip = generateNIP(emp.joinDate, emp.dept, emp.status, existingRand, globalEmployees);
+          updateDoc(doc(db, 'employees', emp.id), { nip: expectedNip }).catch(console.error);
+          updatesCount++;
         }
       });
       if (updatesCount > 0) {
-        console.log(`Auto-repaired ${updatesCount} out-of-sync NIPs`);
+        console.log(`Auto-repaired ${updatesCount} missing NIPs`);
       }
     }
   }, [globalEmployees]);
