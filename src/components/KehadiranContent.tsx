@@ -194,9 +194,17 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
   const [lastSyncTime, setLastSyncTime] = useState<string>('');
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const getTodayDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Date Management
-  const [activeDate, setActiveDate] = useState('2026-06-24'); // Default matches screenshot date
-  const [calendarCenterDate, setCalendarCenterDate] = useState('2026-06-24');
+  const [activeDate, setActiveDate] = useState(getTodayDateString());
+  const [calendarCenterDate, setCalendarCenterDate] = useState(getTodayDateString());
 
   // Keep calendarCenterDate stable, but shift it when activeDate is more than 10 days away
   useEffect(() => {
@@ -237,6 +245,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
   }, [employees]);
 
   const runAutoSync = async () => {
+    if (!gajihubConfig) return;
     if (isSyncing) return;
     setIsSyncing(true);
 
@@ -408,9 +417,9 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
 
   // Real-Time Auto-Sync polling timer
   useEffect(() => {
-    if (!autoSyncEnabled) return;
+    if (!autoSyncEnabled || !gajihubConfig) return;
 
-    // Run first auto-sync after a brief delay on startup/date change
+    // Run first auto-sync after a brief delay on startup/date change/config loaded
     const initialTimer = setTimeout(() => {
       runAutoSync();
     }, 100);
@@ -424,7 +433,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
       clearTimeout(initialTimer);
       clearInterval(interval);
     };
-  }, [autoSyncEnabled, activeDate, gajihubConfig?.autoSyncIntervalSeconds, isSimulationMode]);
+  }, [autoSyncEnabled, activeDate, gajihubConfig, isSimulationMode]);
 
   const addHttpLog = (type: 'REQ' | 'RES' | 'ERR', text: string) => {
     const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -979,7 +988,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
   // Generate calendar days shown at the top dynamically centered on the calendarCenterDate
   const generateCalendarDays = () => {
     const list = [];
-    let baseDate = new Date('2026-06-24'); // default fallback
+    let baseDate = new Date(getTodayDateString()); // default fallback
     
     if (calendarCenterDate) {
       const parsed = new Date(calendarCenterDate);
@@ -1686,9 +1695,9 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
         <div className="flex flex-wrap items-center justify-end border-t border-slate-50 pt-3 gap-4">
           <div className="flex flex-wrap items-center gap-3">
             {/* Conditional Reset Button next to navigation, only shows when shifted */}
-            {activeDate !== '2026-06-24' && (
+            {activeDate !== getTodayDateString() && (
               <button
-                onClick={() => setActiveDate('2026-06-24')}
+                onClick={() => setActiveDate(getTodayDateString())}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 active:scale-95 text-[#2563EB] rounded-xl text-xs font-bold transition-all border border-blue-200 cursor-pointer shadow-xs"
               >
                 <Icon name="rotate-ccw" size={12} className="text-[#2563EB]" />
