@@ -795,6 +795,25 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
 
   const [isSyncingHistory, setIsSyncingHistory] = useState(false);
 
+  // Helper helper to write documents in batches of 500 (Firestore limit)
+  const commitInBatches = async (docs: { id: string; data: any }[]) => {
+    let batch = writeBatch(db);
+    let count = 0;
+    for (let i = 0; i < docs.length; i++) {
+      const d = docs[i];
+      batch.set(doc(db, 'attendanceLogs', d.id), d.data);
+      count++;
+      if (count === 500) {
+        await batch.commit();
+        batch = writeBatch(db);
+        count = 0;
+      }
+    }
+    if (count > 0) {
+      await batch.commit();
+    }
+  };
+
   const syncLast30Days = async () => {
     const datesToSync: string[] = [];
     const today = new Date();
@@ -809,8 +828,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
 
     addHttpLog('REQ', `🔄 Memulai sinkronisasi massal 30 hari ke belakang (dan hari ini)...`);
 
-    const promises: Promise<any>[] = [];
-    let count = 0;
+    const docsToWrite: { id: string; data: any }[] = [];
 
     for (const dStr of datesToSync) {
       const mappedLocalIds = Object.keys(gajihubConfig?.employeeMappings || {});
@@ -819,15 +837,15 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
         if (matchedEmployee) {
           const logId = `log_${dStr}_${localId}`;
           const draftLog = generateRealisticLog(matchedEmployee, dStr);
-          
-          promises.push(setDoc(doc(db, 'attendanceLogs', logId), draftLog));
-          count++;
+          docsToWrite.push({ id: logId, data: draftLog });
         }
       }
     }
 
-    await Promise.all(promises);
-    addHttpLog('RES', `🔄 Sinkronisasi Selesai: Berhasil menarik & menyinkronkan ${count} data kehadiran (30 hari terakhir s/d hari ini) secara otomatis.`);
+    if (docsToWrite.length > 0) {
+      await commitInBatches(docsToWrite);
+    }
+    addHttpLog('RES', `🔄 Sinkronisasi Selesai: Berhasil menarik & menyinkronkan ${docsToWrite.length} data kehadiran (30 hari terakhir s/d hari ini) secara instan.`);
   };
 
   const syncLast30DaysReal = async () => {
@@ -846,7 +864,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
 
     const fetchPromises = datesToSync.map(async (dStr) => {
       const res = await fetchGajihubAttendances(tempEndpoint, tempToken, dStr);
-      const writePromises: Promise<any>[] = [];
+      const dayLogs: { id: string; data: any }[] = [];
       
       if (res.attendances && res.attendances.length > 0) {
         for (const att of res.attendances) {
@@ -886,7 +904,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
                 draftLog.issues = 'No Issue';
               }
 
-              writePromises.push(setDoc(doc(db, 'attendanceLogs', logId), draftLog));
+              dayLogs.push({ id: logId, data: draftLog });
             }
           }
         }
@@ -897,16 +915,20 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
           if (matchedEmployee) {
             const logId = `log_${dStr}_${localId}`;
             const draftLog = generateRealisticLog(matchedEmployee, dStr);
-            writePromises.push(setDoc(doc(db, 'attendanceLogs', logId), draftLog));
+            dayLogs.push({ id: logId, data: draftLog });
           }
         }
       }
-      
-      await Promise.all(writePromises);
+      return dayLogs;
     });
 
-    await Promise.all(fetchPromises);
-    addHttpLog('RES', `🔄 Real API Sinkronisasi Selesai: Berhasil menyinkronkan data 30 hari ke belakang dari Gajihub API.`);
+    const allDaysLogsNested = await Promise.all(fetchPromises);
+    const docsToWrite = allDaysLogsNested.flat();
+
+    if (docsToWrite.length > 0) {
+      await commitInBatches(docsToWrite);
+    }
+    addHttpLog('RES', `🔄 Real API Sinkronisasi Selesai: Berhasil menyinkronkan ${docsToWrite.length} data 30 hari ke belakang dari Gajihub API secara instan.`);
   };
 
   const runAutoSync = async () => {
@@ -923,7 +945,7 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
       const mappedLocalIds = Object.keys(config.employeeMappings || {});
       
       addHttpLog('REQ', `🔄 Auto-Sync (Simulasi): Menghubungkan ke Gajihub Cloud...`);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 300)); // Lower delay for snappy UX
 
       if (mappedLocalIds.length === 0) {
         addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. Belum ada karyawan yang ditautkan ke Gajihub.`);
@@ -931,18 +953,19 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
         addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Polling selesai. Menarik data kehadiran dari Gajihub untuk ${mappedLocalIds.length} karyawan.`);
         
         let updateCount = 0;
+        const batch = writeBatch(db);
         for (const localId of mappedLocalIds) {
           const matchedEmployee = employeesRef.current.find(e => e.id === localId);
           if (matchedEmployee) {
             const logId = `log_${activeDate}_${localId}`;
             const draftLog = generateRealisticLog(matchedEmployee, activeDate);
-            await setDoc(doc(db, 'attendanceLogs', logId), draftLog);
+            batch.set(doc(db, 'attendanceLogs', logId), draftLog);
             updateCount++;
-            addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Berhasil mengunduh data absensi [${matchedEmployee.name}] dari Gajihub.`);
           }
         }
         if (updateCount > 0) {
-          addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Selesai memperbarui data absensi tanggal ${activeDate}.`);
+          await batch.commit();
+          addHttpLog('RES', `🔄 Auto-Sync (Simulasi): Selesai memperbarui data absensi tanggal ${activeDate} secara instan.`);
         }
       }
       setIsSyncing(false);
@@ -969,22 +992,25 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
       // we gracefully fall back to generating realistic mock data from "GajiHub" so the UI is always beautiful and populated!
       const mappedLocalIds = Object.keys(config.employeeMappings || {});
       let updateCount = 0;
+      const batch = writeBatch(db);
 
       for (const localId of mappedLocalIds) {
         const matchedEmployee = employeesRef.current.find(e => e.id === localId);
         if (matchedEmployee) {
           const logId = `log_${activeDate}_${localId}`;
           const draftLog = generateRealisticLog(matchedEmployee, activeDate);
-          await setDoc(doc(db, 'attendanceLogs', logId), draftLog);
+          batch.set(doc(db, 'attendanceLogs', logId), draftLog);
           updateCount++;
         }
       }
 
       if (updateCount > 0) {
-        addHttpLog('RES', `🔄 Auto-Sync Fallback: Selesai memuat ${updateCount} data absensi offline.`);
+        await batch.commit();
+        addHttpLog('RES', `🔄 Auto-Sync Fallback: Selesai memuat ${updateCount} data absensi offline secara instan.`);
       }
     } else {
       let updateCount = 0;
+      const batch = writeBatch(db);
       for (const att of res.attendances) {
         const mappedLocalId = Object.keys(config.employeeMappings).find(
           localId => config.employeeMappings[localId] === att.employee_id
@@ -1035,11 +1061,15 @@ export function KehadiranContent({ employees }: KehadiranContentProps) {
               merged.issues = 'No Issue';
             }
 
-            await setDoc(doc(db, 'attendanceLogs', logId), merged);
+            batch.set(doc(db, 'attendanceLogs', logId), merged);
             updateCount++;
-            addHttpLog('RES', `🔄 Auto-Sync: Berhasil mengsinkronkan data absensi [${matchedEmployee.name}] dari Gajihub App.`);
           }
         }
+      }
+
+      if (updateCount > 0) {
+        await batch.commit();
+        addHttpLog('RES', `🔄 Auto-Sync: Berhasil mengsinkronkan ${updateCount} data absensi secara instan.`);
       }
 
       if (updateCount === 0) {
