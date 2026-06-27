@@ -13,7 +13,6 @@ import { FileSharingContent } from './components/FileSharingContent';
 import { PerformaContent } from './components/PerformaContent';
 import { OrganizationContent } from './components/OrganizationContent';
 import { InventoryContent } from './components/InventoryContent';
-import { KehadiranContent } from './components/KehadiranContent';
 import { LoginView } from './components/LoginView';
 import { SettingsContent } from './components/SettingsContent';
 import { ActivityLogDropdown } from './components/ActivityLogDropdown';
@@ -563,7 +562,6 @@ export default function App() {
     { name: 'Dashboard', icon: 'home' as const },
     { name: 'Rekrutmen', icon: 'briefcase' as const },
     { name: 'Karyawan', icon: 'users' as const },
-    { name: 'Kehadiran', icon: 'calendar-check' as const },
     { name: 'Performa', icon: 'target' as const },
     { name: 'Schedule', icon: 'calendar' as const },
     { name: 'File Sharing', icon: 'folder' as const },
@@ -589,7 +587,6 @@ export default function App() {
     switch (activeMenu) {
       case 'Dashboard': return <DashboardContent layout={dashboardLayout} setLayout={setDashboardLayout} employees={regularEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} jobStagesMap={jobStagesMap} candidates={candidates} schedules={schedules} setSchedules={setSchedules} />;
       case 'Karyawan': return <KaryawanContent employees={regularEmployees} onAddEmployee={handleAddEmployee} onEditEmployee={handleEditEmployee} onResignEmployee={handleResignEmployee} onCancelResign={handleCancelResign} onRejoinEmployee={handleRejoinEmployee} onDeleteEmployee={handleDeleteEmployee} />;
-      case 'Kehadiran': return <KehadiranContent employees={regularEmployees} />;
       case 'Organization': return <OrganizationContent employees={globalEmployees} />;
       case 'Performa': return <PerformaContent employees={regularEmployees} performaDataMap={performaDataMap} setPerformaDataMap={setPerformaDataMap} />;
       case 'Rekrutmen': return <RekrutmenContent employees={regularEmployees} jobListings={jobListings} setJobListings={setJobListings} kanbanStages={kanbanStages} setKanbanStages={setKanbanStages} jobStagesMap={jobStagesMap} setJobStagesMap={setJobStagesMap} candidates={candidates} setCandidates={setCandidates} schedules={schedules} setSchedules={setSchedules} />;
