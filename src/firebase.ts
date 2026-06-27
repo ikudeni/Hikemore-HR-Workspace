@@ -1,10 +1,12 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, getDocFromServer, collection, addDoc, query, where, getDocs, deleteDoc, setDoc } from 'firebase/firestore';
+import { initializeFirestore, doc, getDocFromServer, collection, addDoc, query, where, getDocs, deleteDoc, setDoc } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+}, firebaseConfig.firestoreDatabaseId);
 export const storage = getStorage(app);
 
 export function getLocalUser() {

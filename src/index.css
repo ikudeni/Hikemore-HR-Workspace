@@ -72,6 +72,18 @@
   body {
     @apply bg-background text-slate-800 antialiased overflow-hidden font-sans;
   }
+
+  /* Remove Recharts Focus Outline/Border */
+  .recharts-wrapper, 
+  .recharts-wrapper *, 
+  .recharts-surface, 
+  .recharts-surface *,
+  svg,
+  svg:focus,
+  svg *:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
 }
 
 @layer utilities {

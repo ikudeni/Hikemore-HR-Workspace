@@ -29,7 +29,10 @@ import {
   ResponsiveContainer as ReResponsiveContainer,
   PieChart as RePieChart, 
   Pie as RePie, 
-  Cell as ReCell
+  Cell as ReCell,
+  AreaChart as ReAreaChart,
+  Area as ReArea,
+  ReferenceLine as ReReferenceLine
 } from 'recharts';
 
 interface BudgetAllocation {
@@ -44,6 +47,7 @@ interface BudgetExpense {
   category: string;
   amount: number;
   description: string;
+  paymentMethod?: string;
 }
 
 const STATUS_COLORS_MAP: Record<string, string> = {
@@ -63,6 +67,18 @@ const calculateTimeDuration = (start: string, end: string) => {
   const endTotalMinutes = h2 * 60 + m2;
   const diff = endTotalMinutes - startTotalMinutes;
   return diff > 0 ? diff / 60 : 0;
+};
+
+const getMonthLabel = (dateStr: string) => {
+  const parts = dateStr.split('-');
+  if (parts.length < 2) return '';
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const monthsMapping: Record<number, string> = {
+    0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'Mei', 5: 'Jun',
+    6: 'Jul', 7: 'Agu', 8: 'Sep', 9: 'Okt', 10: 'Nov', 11: 'Des'
+  };
+  return `${monthsMapping[m]} ${y}`;
 };
 
 interface DashboardContentProps {
@@ -606,17 +622,16 @@ export const DashboardContent = ({
       }
     }
     return [
-      { dept: 'Marketing', allocated: 250000000 },
-      { dept: 'HR & GA', allocated: 150000000 },
-      { dept: 'Finance & Accounting', allocated: 120000000 },
-      { dept: 'Operational', allocated: 350000000 },
-      { dept: 'IT', allocated: 400000000 },
-      { dept: 'Production', allocated: 500000000 }
+      { dept: 'HR & GA', allocated: 10000000 },
+      { dept: 'Marketing', allocated: 8000000 },
+      { dept: 'IT', allocated: 5000000 },
+      { dept: 'Operational', allocated: 4004740 },
+      { dept: 'Finance & Accounting', allocated: 3000000 }
     ];
   });
 
   const [budgetExpenses, setBudgetExpenses] = useState<BudgetExpense[]>(() => {
-    const saved = localStorage.getItem('hikemore_budget_expenses');
+    const saved = localStorage.getItem('hikemore_budget_expenses_v4');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -624,42 +639,531 @@ export const DashboardContent = ({
         // ignore
       }
     }
-    return [
-      { id: 'exp-1', date: '2026-05-10', dept: 'Marketing', category: 'Rekrutmen & Onboarding', amount: 35000000, description: 'Sponsor lowongan Glints & jobstreet' },
-      { id: 'exp-2', date: '2026-05-18', dept: 'IT', category: 'Gaji & Tunjangan', amount: 155000000, description: 'Payroll bulanan tim Developer' },
-      { id: 'exp-3', date: '2026-05-25', dept: 'HR & GA', category: 'Pelatihan & Sertifikasi', amount: 12000000, description: 'Sertifikasi HR Professional BNSP' },
-      { id: 'exp-4', date: '2026-06-01', dept: 'Operational', category: 'Kesejahteraan & Welfare', amount: 45000000, description: 'Outing kuartal I seluruh tim operasional' },
-      { id: 'exp-5', date: '2026-06-05', dept: 'Finance & Accounting', category: 'Operasional HR', amount: 8000000, description: 'Pembelian lisensi Software Pajak & Accurate' },
-      { id: 'exp-6', date: '2026-06-08', dept: 'Production', category: 'Operasional HR', amount: 120000000, description: 'Pengadaan sewa laptop high-spec tim Kreatif' }
-    ];
+    const rawData = [
+  {
+    "id": "exp-sheet-1",
+    "date": "2025-01-08",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 944610,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Sales Marketing - B2B at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-2",
+    "date": "2025-01-28",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 50500,
+    "description": "Pembelian Kuota No HRD 0881010514952",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-3",
+    "date": "2025-02-28",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 944610,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Sales Marketing - B2B at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-4",
+    "date": "2025-03-01",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 50000,
+    "description": "Cetak ID card an. Aza dan intern",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-5",
+    "date": "2025-03-03",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1154400,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Digital Marketing Coordinator at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-6",
+    "date": "2025-03-20",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 322160,
+    "description": "Pemesanan ID card Karyawan Toko, HR, Marketing, Accounting dan gudang pusat 29 orang",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-7",
+    "date": "2025-04-13",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 19800,
+    "description": "Pulsa 0881010514952 Nomor HRD",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-8",
+    "date": "2025-04-13",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 67500,
+    "description": "Kuota 0881010514952 Nomor HRD",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-9",
+    "date": "2025-04-20",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 24000,
+    "description": "Tambahan cetak 2 ID card untuk produksi",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-10",
+    "date": "2025-05-02",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 233100,
+    "description": "Perpanjang langganan Glints HRD",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-11",
+    "date": "2025-06-12",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 30000,
+    "description": "Reimburse pembelian kabel USB HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-12",
+    "date": "2025-06-24",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1221000,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Merchandiser at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-13",
+    "date": "2025-07-03",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 350000,
+    "description": "Biaya Service laptop untuk merchandiser",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-14",
+    "date": "2025-07-13",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 41000,
+    "description": "Pembelian lem aibon dan lakban hitam HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-15",
+    "date": "2025-07-25",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1221000,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Head of Digital Marketing at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-16",
+    "date": "2025-08-06",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 166500,
+    "description": "Update Glints VIP HRD untuk posting loker (PIC Deni)",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-17",
+    "date": "2025-08-06",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1243200,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Sales B2B at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-18",
+    "date": "2025-08-17",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 15000,
+    "description": "Pembelian plastick bussiness file 1 pack untuk HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-19",
+    "date": "2025-09-05",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 125000,
+    "description": "Pembayaran posting loker at IG: anakmagangid for internship batch 3",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-20",
+    "date": "2025-09-08",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 166500,
+    "description": "Update Glints VIP HRD untuk posting loker (PIC Deni)",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-21",
+    "date": "2025-09-19",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1221000,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Merchandiser at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-22",
+    "date": "2025-09-29",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 70000,
+    "description": "Biaya Cetak ID Card 2 pcs (Pak Guntur dan Dicky) PIC Pak Deni HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-23",
+    "date": "2025-10-01",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 3179010,
+    "description": "Perpanjang akun Gajihub",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-24",
+    "date": "2025-10-15",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1398600,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Ads Specialist at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-25",
+    "date": "2025-10-20",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 14000,
+    "description": "ongkir sertifikat fisik anak magang an MUHAMMAD SALIM DAN BINTANG",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-26",
+    "date": "2025-10-28",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 233100,
+    "description": "Update Glints VIP HRD untuk posting loker",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-27",
+    "date": "2025-11-05",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 50000,
+    "description": "Biaya Cetak ID card 2 pcs",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-28",
+    "date": "2025-11-13",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 23000,
+    "description": "Pembelian colokan Letter T untuk di HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-29",
+    "date": "2025-11-25",
+    "dept": "HR & GA",
+    "category": "Biaya Lain-Lain",
+    "amount": 40000,
+    "description": "Beli air minum botol uk. 330ml 1 dus untuk di Gedung HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-30",
+    "date": "2025-12-06",
+    "dept": "HR & GA",
+    "category": "Biaya Lain-Lain",
+    "amount": 88000,
+    "description": "Reimburse biaya makan HRD dan tamu surabaya (Pak Dedy)",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-31",
+    "date": "2025-12-08",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 166500,
+    "description": "Reimburse biaya Glints VIP HR",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-32",
+    "date": "2025-12-11",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1487400,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Business Development at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-33",
+    "date": "2025-12-12",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 80000,
+    "description": "Posting Loker Hikemore Surabaya di IG @surabayalowker",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-34",
+    "date": "2025-12-18",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 398000,
+    "description": "Add-on Lokasi Kantor GajiHub",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-35",
+    "date": "2025-12-23",
+    "dept": "HR & GA",
+    "category": "Biaya Lain-Lain",
+    "amount": 150000,
+    "description": "Biaya perbaikan kunci pintu HRD",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-36",
+    "date": "2025-12-29",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 1221000,
+    "description": "Top Up saldo Shopee Pay untuk posting loker Accounting & Tax at Jobstreet",
+    "paymentMethod": "Qris"
+  },
+  {
+    "id": "exp-sheet-37",
+    "date": "2026-01-07",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 85000,
+    "description": "Service Printer Epson L3110 (Tinta Hitam Rusak)",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-38",
+    "date": "2026-01-07",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 25000,
+    "description": "Beli Kabel Printer",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-39",
+    "date": "2026-01-07",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 20000,
+    "description": "Beli Kertas Concorde 1 Bundle",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-40",
+    "date": "2026-01-15",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 166500,
+    "description": "Top Up 150 Glints Credits (Glints VIP (1 bulan))",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-41",
+    "date": "2026-01-17",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 100000,
+    "description": "Cetak ID Card 4 Karyawan (Reza, Iqbal, Ajay, Riski)",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-42",
+    "date": "2026-01-20",
+    "dept": "HR & GA",
+    "category": "Biaya Lain-Lain",
+    "amount": 180000,
+    "description": "Sewa lapangan badminton (2 lapangan & 2 jam = 180.000)",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-43",
+    "date": "2026-01-20",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 125000,
+    "description": "Posting loker magang di @anakmagang.id",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-44",
+    "date": "2026-01-24",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 14400,
+    "description": "Print Sertifikat Magang (Prabu & Fiqri)",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-45",
+    "date": "2026-01-29",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 100000,
+    "description": "Cetak ID Card 4 Karyawan (Narissa, Cindy, Santika, Evan)",
+    "paymentMethod": "Tunai"
+  },
+  {
+    "id": "exp-sheet-46",
+    "date": "2026-02-10",
+    "dept": "HR & GA",
+    "category": "Operasional HR",
+    "amount": 385494,
+    "description": "Add on tambah 10 karyawan digajihub",
+    "paymentMethod": "Transfer bank"
+  },
+  {
+    "id": "exp-sheet-47",
+    "date": "2026-03-30",
+    "dept": "HR & GA",
+    "category": "Rekrutmen",
+    "amount": 233100,
+    "description": "Glints VIP (1 bulan)",
+    "paymentMethod": "Transfer bank"
+  }];
+    
+    // Shift all initial sheet dates dynamically so the latest entry ('2026-03-30') falls exactly on 'today'
+    const today = new Date();
+    const maxSheetDate = new Date('2026-03-30');
+    const diffTime = today.getTime() - maxSheetDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return rawData.map(item => {
+      const itemDate = new Date(item.date);
+      itemDate.setDate(itemDate.getDate() + diffDays);
+      const year = itemDate.getFullYear();
+      const month = String(itemDate.getMonth() + 1).padStart(2, '0');
+      const day = String(itemDate.getDate()).padStart(2, '0');
+      return {
+        ...item,
+        date: `${year}-${month}-${day}`
+      };
+    });
   });
 
   const [isBudgetExpenseModalOpen, setIsBudgetExpenseModalOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<BudgetExpense | null>(null);
   const [isBudgetAllocationModalOpen, setIsBudgetAllocationModalOpen] = useState(false);
 
   const [expenseFormData, setExpenseFormData] = useState({
     date: new Date().toISOString().split('T')[0],
-    dept: 'Marketing',
-    category: 'Gaji & Tunjangan',
+    dept: 'HR & GA',
+    category: 'Operasional HR',
     amount: '',
-    description: ''
+    description: '',
+    paymentMethod: 'Tunai'
   });
 
   const [allocationFormData, setAllocationFormData] = useState({
-    dept: 'Marketing',
+    dept: 'HR & GA',
     allocated: '' as string | number
   });
 
-  const [budgetFilterDept, setBudgetFilterDept] = useState('All Departemen');
+  const initialBudgetDates = useMemo(() => {
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(today.getFullYear() - 1);
+    
+    const formatDate = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    return {
+      start: formatDate(oneYearAgo),
+      end: formatDate(today)
+    };
+  }, []);
+
+  const [budgetFilterDept, setBudgetFilterDept] = useState('HR & GA');
   const [budgetFilterCategory, setBudgetFilterCategory] = useState('All Kategori');
   const [searchBudgetExpense, setSearchBudgetExpense] = useState('');
+  const [budgetStartDate, setBudgetStartDate] = useState<string | null>(initialBudgetDates.start);
+  const [budgetEndDate, setBudgetEndDate] = useState<string | null>(initialBudgetDates.end);
+  const [budgetPage, setBudgetPage] = useState(1);
+
+  // Cross-filtering states
+  const [crossMonth, setCrossMonth] = useState<string | null>(null);
+  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
+  const [crossPayment, setCrossPayment] = useState<string | null>(null);
+  const [crossCategory, setCrossCategory] = useState<string | null>(null);
+  const [crossExpenseId, setCrossExpenseId] = useState<string | null>(null);
+
+  const selectedExpense = useMemo(() => {
+    if (!crossExpenseId) return null;
+    return budgetExpenses.find(e => e.id === crossExpenseId) || null;
+  }, [crossExpenseId, budgetExpenses]);
+
+  const activeCrossMonth = useMemo(() => {
+    if (selectedExpense) {
+      return getMonthLabel(selectedExpense.date);
+    }
+    return crossMonth;
+  }, [selectedExpense, crossMonth]);
+
+  const activeCrossPayment = useMemo(() => {
+    if (selectedExpense) {
+      return selectedExpense.paymentMethod || 'Tunai';
+    }
+    return crossPayment;
+  }, [selectedExpense, crossPayment]);
+
+  const activeCrossCategory = useMemo(() => {
+    if (selectedExpense) {
+      return selectedExpense.category;
+    }
+    return crossCategory;
+  }, [selectedExpense, crossCategory]);
 
   useEffect(() => {
     localStorage.setItem('hikemore_budget_allocations', JSON.stringify(budgetAllocations));
   }, [budgetAllocations]);
 
   useEffect(() => {
-    localStorage.setItem('hikemore_budget_expenses', JSON.stringify(budgetExpenses));
+    localStorage.setItem('hikemore_budget_expenses_v4', JSON.stringify(budgetExpenses));
   }, [budgetExpenses]);
 
   const activeDeptsList = useMemo(() => {
@@ -685,24 +1189,103 @@ export const DashboardContent = ({
     });
   }, [activeDeptsList, budgetAllocations, budgetExpenses]);
 
+  const filteredBudgetExpensesByGlobal = useMemo(() => {
+    return budgetExpenses.filter(exp => {
+      const matchDept = budgetFilterDept === 'All Departemen' || exp.dept === budgetFilterDept;
+      const matchCategory = budgetFilterCategory === 'All Kategori' || exp.category === budgetFilterCategory;
+      
+      let matchDate = true;
+      if (budgetStartDate) {
+        matchDate = matchDate && exp.date >= budgetStartDate;
+      }
+      if (budgetEndDate) {
+        matchDate = matchDate && exp.date <= budgetEndDate;
+      }
+      
+      return matchDept && matchCategory && matchDate;
+    });
+  }, [budgetExpenses, budgetFilterDept, budgetFilterCategory, budgetStartDate, budgetEndDate]);
+
+  // FULLY FILTERED BUDGET EXPENSES (Table & metrics use this)
+  const filteredBudgetExpenses = useMemo(() => {
+    return filteredBudgetExpensesByGlobal.filter(exp => {
+      // 1. Match Search Input
+      const matchSearch = !searchBudgetExpense || 
+                          exp.description.toLowerCase().includes(searchBudgetExpense.toLowerCase()) ||
+                          exp.dept.toLowerCase().includes(searchBudgetExpense.toLowerCase());
+      if (!matchSearch) return false;
+
+      // 2. Cross filter Month
+      if (crossMonth) {
+        const parts = exp.date.split('-');
+        if (parts.length >= 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const monthsMapping: Record<number, string> = {
+            0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'Mei', 5: 'Jun',
+            6: 'Jul', 7: 'Agu', 8: 'Sep', 9: 'Okt', 10: 'Nov', 11: 'Des'
+          };
+          const label = `${monthsMapping[m]} ${y}`;
+          if (label !== crossMonth) return false;
+        }
+      }
+
+      // 3. Cross filter Payment Method
+      if (crossPayment) {
+        const method = exp.paymentMethod || 'Tunai';
+        if (method !== crossPayment) return false;
+      }
+
+      // 4. Cross filter Category
+      if (crossCategory) {
+        if (exp.category !== crossCategory) return false;
+      }
+
+      // 5. Cross filter by clicked row ID
+      if (crossExpenseId) {
+        if (exp.id !== crossExpenseId) return false;
+      }
+
+      return true;
+    }).sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredBudgetExpensesByGlobal, searchBudgetExpense, crossMonth, crossPayment, crossCategory, crossExpenseId]);
+
   const totalAllocated = useMemo(() => {
+    if (budgetFilterDept !== 'All Departemen') {
+      const alloc = budgetAllocations.find(a => a.dept === budgetFilterDept)?.allocated || 0;
+      return Number(alloc);
+    }
     return departmentBudgetSummary.reduce((sum, item) => sum + item.allocated, 0);
-  }, [departmentBudgetSummary]);
+  }, [departmentBudgetSummary, budgetFilterDept, budgetAllocations]);
 
   const totalSpent = useMemo(() => {
-    return budgetExpenses.reduce((sum, exp) => sum + exp.amount, 0);
-  }, [budgetExpenses]);
+    return filteredBudgetExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+  }, [filteredBudgetExpenses]);
+
+  const averageTransaction = useMemo(() => {
+    return filteredBudgetExpenses.length > 0 
+      ? Math.round(totalSpent / filteredBudgetExpenses.length) 
+      : 0;
+  }, [filteredBudgetExpenses, totalSpent]);
+
+  const totalTransactionsCount = useMemo(() => {
+    return filteredBudgetExpenses.length;
+  }, [filteredBudgetExpenses]);
+
+  const highestExpenseAmount = useMemo(() => {
+    if (filteredBudgetExpenses.length === 0) return 0;
+    return Math.max(...filteredBudgetExpenses.map(exp => exp.amount));
+  }, [filteredBudgetExpenses]);
 
   const totalRemaining = totalAllocated - totalSpent;
   const spendRate = totalAllocated ? Math.round((totalSpent / totalAllocated) * 100) : 0;
 
   const categoryBudgetDistribution = useMemo(() => {
     const categories = [
-      'Gaji & Tunjangan',
-      'Rekrutmen & Onboarding',
-      'Pelatihan & Sertifikasi',
-      'Kesejahteraan & Welfare',
-      'Operasional HR'
+      'Rekrutmen',
+      'Operasional HR',
+      'Pelatihan & Pengembangan',
+      'Biaya Lain-Lain'
     ];
     return categories.map(cat => {
       const amount = budgetExpenses
@@ -723,23 +1306,148 @@ export const DashboardContent = ({
     }));
   }, [departmentBudgetSummary]);
 
-  const filteredBudgetExpenses = useMemo(() => {
-    return budgetExpenses.filter(exp => {
-      const matchDept = budgetFilterDept === 'All Departemen' || exp.dept === budgetFilterDept;
-      const matchCategory = budgetFilterCategory === 'All Kategori' || exp.category === budgetFilterCategory;
-      const matchSearch = exp.description.toLowerCase().includes(searchBudgetExpense.toLowerCase()) ||
-                          exp.dept.toLowerCase().includes(searchBudgetExpense.toLowerCase());
-      return matchDept && matchCategory && matchSearch;
-    }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [budgetExpenses, budgetFilterDept, budgetFilterCategory, searchBudgetExpense]);
-
   const BUDGET_CATEGORY_COLORS: Record<string, string> = useMemo(() => ({
-    'Gaji & Tunjangan': '#3B82F6',
-    'Rekrutmen & Onboarding': '#10B981',
-    'Pelatihan & Sertifikasi': '#8B5CF6',
-    'Kesejahteraan & Welfare': '#EC4899',
-    'Operasional HR': '#F59E0B'
+    'Rekrutmen': '#8B5CF6',
+    'Operasional HR': '#10B981',
+    'Pelatihan & Pengembangan': '#F59E0B',
+    'Biaya Lain-Lain': '#F43F5E'
   }), []);
+
+  // 1. Payment Method Distribution (filtered by activeCrossMonth & activeCrossCategory, but not activeCrossPayment)
+  const paymentMethodDistribution = useMemo(() => {
+    const methods = ['Qris', 'Transfer bank', 'Tunai'];
+    
+    const list = filteredBudgetExpensesByGlobal.filter(exp => {
+      if (activeCrossMonth) {
+        const parts = exp.date.split('-');
+        if (parts.length >= 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const monthsMapping: Record<number, string> = {
+            0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'Mei', 5: 'Jun',
+            6: 'Jul', 7: 'Agu', 8: 'Sep', 9: 'Okt', 10: 'Nov', 11: 'Des'
+          };
+          const label = `${monthsMapping[m]} ${y}`;
+          if (label !== activeCrossMonth) return false;
+        }
+      }
+      if (activeCrossCategory && exp.category !== activeCrossCategory) return false;
+      return true;
+    });
+
+    const total = list.reduce((sum, exp) => sum + exp.amount, 0);
+    
+    return methods.map(method => {
+      const amount = list
+        .filter(exp => (exp.paymentMethod || 'Tunai') === method)
+        .reduce((sum, exp) => sum + exp.amount, 0);
+      const percentage = total ? ((amount / total) * 100).toFixed(1) : '0.0';
+      return {
+        name: method,
+        value: amount,
+        percentage: parseFloat(percentage)
+      };
+    });
+  }, [filteredBudgetExpensesByGlobal, activeCrossMonth, activeCrossCategory]);
+
+  // 2. Category Progress Data (filtered by activeCrossMonth & activeCrossPayment, but not activeCrossCategory)
+  const categoryProgressData = useMemo(() => {
+    const categories = [
+      { name: 'Rekrutmen', icon: 'search' as const, color: '#8B5CF6', bgColor: 'bg-violet-50 text-violet-600 border-violet-100', selectClass: 'bg-violet-50/40 border-violet-100 shadow-sm' },
+      { name: 'Operasional HR', icon: 'briefcase' as const, color: '#10B981', bgColor: 'bg-emerald-50 text-emerald-600 border-emerald-100', selectClass: 'bg-emerald-50/40 border-emerald-100 shadow-sm' },
+      { name: 'Pelatihan & Pengembangan', icon: 'graduation-cap' as const, color: '#F59E0B', bgColor: 'bg-amber-50 text-amber-600 border-amber-100', selectClass: 'bg-amber-50/40 border-amber-100 shadow-sm' },
+      { name: 'Biaya Lain-Lain', icon: 'message-square' as const, color: '#F43F5E', bgColor: 'bg-rose-50 text-rose-600 border-rose-100', selectClass: 'bg-rose-50/40 border-rose-100 shadow-sm' }
+    ];
+
+    const list = filteredBudgetExpensesByGlobal.filter(exp => {
+      if (activeCrossMonth) {
+        const parts = exp.date.split('-');
+        if (parts.length >= 2) {
+          const y = parseInt(parts[0], 10);
+          const m = parseInt(parts[1], 10) - 1;
+          const monthsMapping: Record<number, string> = {
+            0: 'Jan', 1: 'Feb', 2: 'Mar', 3: 'Apr', 4: 'Mei', 5: 'Jun',
+            6: 'Jul', 7: 'Agu', 8: 'Sep', 9: 'Okt', 10: 'Nov', 11: 'Des'
+          };
+          const label = `${monthsMapping[m]} ${y}`;
+          if (label !== activeCrossMonth) return false;
+        }
+      }
+      if (activeCrossPayment && (exp.paymentMethod || 'Tunai') !== activeCrossPayment) return false;
+      return true;
+    });
+
+    const total = list.reduce((sum, exp) => sum + exp.amount, 0);
+
+    return categories.map(cat => {
+      const spent = list
+        .filter(exp => exp.category === cat.name)
+        .reduce((sum, exp) => sum + exp.amount, 0);
+      const percentage = total ? Math.round((spent / total) * 100) : 0;
+      return {
+        ...cat,
+        spent,
+        percentage
+      };
+    });
+  }, [filteredBudgetExpensesByGlobal, activeCrossMonth, activeCrossPayment]);
+
+  // 3. Line Chart Trend (filtered by activeCrossPayment & activeCrossCategory, but not activeCrossMonth)
+  const monthlyChartData = useMemo(() => {
+    const months = [
+      { label: 'Jun 2025', year: 2025, month: 5 },
+      { label: 'Jul 2025', year: 2025, month: 6 },
+      { label: 'Agu 2025', year: 2025, month: 7 },
+      { label: 'Sep 2025', year: 2025, month: 8 },
+      { label: 'Okt 2025', year: 2025, month: 9 },
+      { label: 'Nov 2025', year: 2025, month: 10 },
+      { label: 'Des 2025', year: 2025, month: 11 },
+      { label: 'Jan 2026', year: 2026, month: 0 },
+      { label: 'Feb 2026', year: 2026, month: 1 },
+      { label: 'Mar 2026', year: 2026, month: 2 },
+      { label: 'Apr 2026', year: 2026, month: 3 },
+      { label: 'Mei 2026', year: 2026, month: 4 },
+      { label: 'Jun 2026', year: 2026, month: 5 }
+    ];
+
+    const list = filteredBudgetExpensesByGlobal.filter(exp => {
+      if (crossExpenseId) {
+        return exp.id === crossExpenseId;
+      }
+      if (activeCrossPayment && (exp.paymentMethod || 'Tunai') !== activeCrossPayment) return false;
+      if (activeCrossCategory && exp.category !== activeCrossCategory) return false;
+      return true;
+    });
+
+    return months.map(m => {
+      const total = list
+        .filter(exp => {
+          const parts = exp.date.split('-');
+          if (parts.length < 2) return false;
+          const y = parseInt(parts[0], 10);
+          const monthIdx = parseInt(parts[1], 10) - 1;
+          return y === m.year && monthIdx === m.month;
+        })
+        .reduce((sum, exp) => sum + exp.amount, 0);
+
+      return {
+        name: m.label,
+        'Pengeluaran': total
+      };
+    });
+  }, [filteredBudgetExpensesByGlobal, activeCrossPayment, activeCrossCategory, crossExpenseId]);
+
+  const selectedMonthValue = useMemo(() => {
+    if (!activeCrossMonth) return 0;
+    const found = monthlyChartData.find(d => d.name === activeCrossMonth);
+    return found ? found['Pengeluaran'] : 0;
+  }, [activeCrossMonth, monthlyChartData]);
+
+  const hoveredMonthValue = useMemo(() => {
+    if (!hoveredMonth) return 0;
+    const found = monthlyChartData.find(d => d.name === hoveredMonth);
+    return found ? found['Pengeluaran'] : 0;
+  }, [hoveredMonth, monthlyChartData]);
 
   const formatRupiah = (num: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -2532,352 +3240,603 @@ export const DashboardContent = ({
             {/* Header & Filters */}
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
               <div className="flex flex-col animate-slideDown">
-                <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight flex items-center gap-2">
-                  <span className="w-2 h-6 bg-blue-600 rounded-full inline-block"></span>
-                  Analitik & Perencanaan Anggaran HR
-                </h2>
-                <p className="text-sm font-medium text-slate-400 mt-1 pl-4">Pantau alokasi anggaran serta pencatatan realisasi pengeluaran bulanan.</p>
+                <h2 className="text-[18px] font-extrabold text-slate-800 tracking-tight">Analitik & Realisasi Pengeluaran HR</h2>
+                <p className="text-sm font-medium text-slate-400 mt-1">Pantau serta lakukan pencatatan realisasi pengeluaran operasional divisi HR.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <button 
                   onClick={() => setIsBudgetExpenseModalOpen(true)} 
-                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition shadow-sm hover:shadow-md active:scale-95 flex items-center gap-1.5"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-full text-xs font-bold hover:bg-blue-700 transition shadow-md hover:shadow-lg active:scale-95 flex items-center gap-1.5 mr-2"
                 >
                   <Icon name="plus" size={14} /> Catat Pengeluaran
                 </button>
-                <button 
-                  onClick={() => {
-                    const currentAllocated = budgetAllocations.find(a => a.dept === (activeDeptsList[0] || 'Marketing'))?.allocated || '';
-                    setAllocationFormData({
-                      dept: activeDeptsList[0] || 'Marketing',
-                      allocated: currentAllocated
-                    });
-                    setIsBudgetAllocationModalOpen(true);
+
+                {(() => {
+                  const isDateFiltered = budgetStartDate !== initialBudgetDates.start || budgetEndDate !== initialBudgetDates.end;
+                  if (budgetFilterCategory !== 'All Kategori' || isDateFiltered) {
+                    return (
+                      <button 
+                        onClick={() => { 
+                          setBudgetFilterDept('HR & GA'); 
+                          setBudgetFilterCategory('All Kategori'); 
+                          setBudgetStartDate(initialBudgetDates.start);
+                          setBudgetEndDate(initialBudgetDates.end);
+                          setBudgetPage(1); 
+                        }} 
+                        className="bg-rose-50 text-rose-600 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-rose-100 transition shadow-sm flex items-center gap-1.5 mr-1 animate-fadeIn"
+                      >
+                        <Icon name="x" size={12} /> Hapus Filter
+                      </button>
+                    );
+                  }
+                  return null;
+                })()}
+
+                <div className="relative">
+                  <select 
+                    className="appearance-none bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 pr-10 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all cursor-pointer shadow-sm min-w-[160px]" 
+                    value={budgetFilterCategory} 
+                    onChange={e => { setBudgetFilterCategory(e.target.value); setBudgetPage(1); }}
+                  >
+                    <option value="All Kategori">Semua Kategori</option>
+                    <option value="Rekrutmen">Rekrutmen</option>
+                    <option value="Operasional HR">Operasional HR</option>
+                    <option value="Pelatihan & Pengembangan">Pelatihan & Pengembangan</option>
+                    <option value="Biaya Lain-Lain">Biaya Lain-Lain</option>
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400"><Icon name="chevron-down" size={16} /></div>
+                </div>
+
+                <DateRangePicker 
+                  startDate={budgetStartDate} 
+                  endDate={budgetEndDate} 
+                  onRangeSelect={(start, end) => {
+                    setBudgetStartDate(start);
+                    setBudgetEndDate(end);
+                    setBudgetPage(1);
                   }} 
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition shadow-sm hover:shadow-md active:scale-95 flex items-center gap-1.5"
-                >
-                  <Icon name="tool" size={14} /> Atur Alokasi
-                </button>
+                />
               </div>
             </div>
 
             {/* Summary Cards Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-              {/* Card 1 - Blue (Allocated) */}
-              <div className="relative bg-blue-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-blue-100 hover:shadow-md group cursor-default">
+              {/* Card 1 - Blue (Total Pengeluaran HR) */}
+              <div className="relative bg-blue-50 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-blue-100/50 group cursor-default animate-slideDown" style={{ animationDelay: '50ms' }}>
                 <div className="relative z-10 flex justify-between items-center w-full">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest block font-sans">Total Anggaran HR</span>
-                    <span className="text-[20px] lg:text-[22px] font-black text-blue-950 mt-1.5 tracking-tight font-sans">
-                      {formatRupiah(totalAllocated)}
-                    </span>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[10px] font-extrabold text-blue-500 mb-2 uppercase tracking-[0.1em]">TOTAL PENGELUARAN HR</p>
+                    <p className="text-[22px] lg:text-[24px] font-black text-blue-950 tracking-tight leading-[0.9]">{formatRupiah(totalSpent)}</p>
                   </div>
-                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-blue-500 shadow-sm border border-blue-50 transition-transform group-hover:rotate-6 group-hover:scale-105">
-                    <Icon name="dollar-sign" size={20} />
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-blue-500 shadow-sm border border-blue-50 shrink-0">
+                    <Icon name="wallet" size={20} strokeWidth={2.5} />
                   </div>
                 </div>
+                <div className="absolute bottom-0 right-0 w-12 h-12 bg-blue-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
               </div>
 
-              {/* Card 2 - Emerald (Spent) */}
-              <div className="relative bg-emerald-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-emerald-100 hover:shadow-md group cursor-default">
+              {/* Card 2 - Purple (Total Transaksi) */}
+              <div className="relative bg-purple-50 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-purple-100/50 group cursor-default animate-slideDown" style={{ animationDelay: '100ms' }}>
                 <div className="relative z-10 flex justify-between items-center w-full">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block font-sans">Total Penyerapan</span>
-                    <span className="text-[20px] lg:text-[22px] font-black text-emerald-950 mt-1.5 tracking-tight font-sans">
-                      {formatRupiah(totalSpent)}
-                    </span>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[10px] font-extrabold text-purple-500 mb-2 uppercase tracking-[0.1em]">TOTAL TRANSAKSI</p>
+                    <p className="text-[22px] lg:text-[24px] font-black text-purple-950 tracking-tight leading-[0.9]">{totalTransactionsCount} Transaksi</p>
                   </div>
-                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-emerald-500 shadow-sm border border-emerald-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
-                    <Icon name="dollar-sign" size={20} />
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-purple-500 shadow-sm border border-purple-50 shrink-0">
+                    <Icon name="file-text" size={20} strokeWidth={2.5} />
                   </div>
                 </div>
+                <div className="absolute bottom-0 right-0 w-12 h-12 bg-purple-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
               </div>
 
-              {/* Card 3 - Violet (Remaining) */}
-              <div className="relative bg-violet-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-violet-100 hover:shadow-md group cursor-default">
+              {/* Card 3 - Emerald (Pengeluaran Tertinggi) */}
+              <div className="relative bg-emerald-50 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-emerald-100/50 group cursor-default animate-slideDown" style={{ animationDelay: '150ms' }}>
                 <div className="relative z-10 flex justify-between items-center w-full">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-violet-500 uppercase tracking-widest block font-sans">Sisa Anggaran HR</span>
-                    <span className={`text-[20px] lg:text-[22px] font-black mt-1.5 tracking-tight font-sans ${totalRemaining < 0 ? 'text-rose-800' : 'text-violet-950'}`}>
-                      {formatRupiah(totalRemaining)}
-                    </span>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[10px] font-extrabold text-emerald-500 mb-2 uppercase tracking-[0.1em]">PENGELUARAN TERTINGGI</p>
+                    <p className="text-[22px] lg:text-[24px] font-black text-emerald-950 tracking-tight leading-[0.9]">{formatRupiah(highestExpenseAmount)}</p>
                   </div>
-                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-violet-500 shadow-sm border border-violet-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
-                    <Icon name="check-square" size={20} />
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-emerald-500 shadow-sm border border-emerald-50 shrink-0">
+                    <Icon name="trending-up" size={20} strokeWidth={2.5} />
                   </div>
                 </div>
+                <div className="absolute bottom-0 right-0 w-12 h-12 bg-emerald-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
               </div>
 
-              {/* Card 4 - Amber (Rasio) */}
-              <div className="relative bg-amber-50/70 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] border border-amber-100 hover:shadow-md group cursor-default">
+              {/* Card 4 - Rose (Rata-rata Transaksi) */}
+              <div className="relative bg-rose-50 rounded-[20px] p-5 overflow-hidden transition-all flex flex-col justify-center min-h-[100px] shadow-sm hover:shadow-md border border-rose-100/50 group cursor-default animate-slideDown" style={{ animationDelay: '200ms' }}>
                 <div className="relative z-10 flex justify-between items-center w-full">
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest block font-sans">Tingkat Penyerapan</span>
-                    <span className="text-[20px] lg:text-[22px] font-black text-amber-950 mt-1.5 tracking-tight font-sans">
-                      {spendRate}%
-                    </span>
+                  <div className="flex flex-col justify-center">
+                    <p className="text-[10px] font-extrabold text-rose-500 mb-2 uppercase tracking-[0.1em]">RATA-RATA TRANSAKSI</p>
+                    <p className="text-[22px] lg:text-[24px] font-black text-rose-950 tracking-tight leading-[0.9]">{formatRupiah(averageTransaction)}</p>
                   </div>
-                  <div className="w-11 h-11 bg-white rounded-xl flex items-center justify-center text-amber-500 shadow-sm border border-amber-100 transition-transform group-hover:rotate-6 group-hover:scale-105">
-                    <Icon name="activity" size={20} />
+                  <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-rose-500 shadow-sm border border-rose-50 shrink-0">
+                    <Icon name="activity" size={20} strokeWidth={2.5} />
                   </div>
                 </div>
+                <div className="absolute bottom-0 right-0 w-12 h-12 bg-rose-500" style={{ clipPath: 'polygon(100% 0, 0 100%, 100% 100%)' }}></div>
               </div>
             </div>
           </Card>
 
-          {/* Charts Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 z-20 relative">
-            {/* Bar Chart Allocation vs Realization */}
-            <Card className="p-6 lg:col-span-8 flex flex-col h-[400px]">
-              <div>
-                <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Perbandingan Anggaran & Pengeluaran Aktual</h3>
-                <p className="text-xs font-semibold text-slate-400 mt-1">Memonitor alokasi ceiling vs pengeluaran aktual per departemen.</p>
-              </div>
-              <div className="flex-1 w-full min-h-0 mt-6 text-slate-600">
-                <ReResponsiveContainer width="100%" height="100%">
-                  <ReBarChart data={deptChartData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                    <ReCartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
-                    <ReXAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} />
-                    <ReYAxis tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} tickFormatter={(val) => `Rp ${(val / 1000000)}jt`} />
-                    <ReTooltip 
-                      formatter={(val: number) => [formatRupiah(val), 'Jumlah']}
-                      contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} 
-                    />
-                    <ReLegend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold', paddingTop: '10px' }} />
-                    <ReBar dataKey="Alokasi Anggaran" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                    <ReBar dataKey="Realisasi Anggaran" fill="#10B981" radius={[4, 4, 0, 0]} />
-                  </ReBarChart>
-                </ReResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Pie Chart Expense by Category */}
-            <Card className="p-6 lg:col-span-4 flex flex-col h-[400px]">
-              <div>
-                <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Distribusi Pengeluaran HR</h3>
-                <p className="text-xs font-semibold text-slate-400 mt-1">Komposisi pengeluaran HR berdasarkan klaster kebutuhan.</p>
-              </div>
-              <div className="flex-1 w-full min-h-0 flex items-center justify-center relative mt-4">
-                {categoryBudgetDistribution.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
-                    <Icon name="box" size={40} className="stroke-[1.5] mb-2 text-slate-300" />
-                    Belum ada pengeluaran dicatat
-                  </div>
-                ) : (
-                  <ReResponsiveContainer width="100%" height="100%">
-                    <RePieChart>
-                      <RePie
-                        data={categoryBudgetDistribution}
-                        cx="50%"
-                        cy="45%"
-                        innerRadius={60}
-                        outerRadius={95}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {categoryBudgetDistribution.map((entry, index) => (
-                          <ReCell key={`cell-${index}`} fill={BUDGET_CATEGORY_COLORS[entry.name] || '#64748B'} />
-                        ))}
-                      </RePie>
-                      <ReTooltip formatter={(val: number) => [formatRupiah(val), 'Total']} contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} />
-                      <ReLegend layout="horizontal" verticalAlign="bottom" align="center" wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', bottom: -5 }} />
-                    </RePieChart>
-                  </ReResponsiveContainer>
-                )}
-              </div>
-            </Card>
-          </div>
-
-          {/* Tables Row: Left (Department Budgets), Right (Expenses Log) */}
-          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 z-10 relative">
+          {/* Main Layout Area */}
+          <div className="flex flex-col gap-6 z-20 relative">
             
-            {/* Left Column: Department Budget Allocations */}
-            <Card className="xl:col-span-5 p-6 flex flex-col h-full min-h-[500px]">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Anggaran per Departemen</h3>
-                  <p className="text-xs font-semibold text-slate-400 mt-1">Daftar alokasi dan status sisa budget per departemen.</p>
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-x-auto">
-                <table className="w-full text-left">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
-                      <th className="pb-3 text-left font-sans">Departemen</th>
-                      <th className="pb-3 text-right font-sans">Alokasi</th>
-                      <th className="pb-3 text-right font-sans">Sisa</th>
-                      <th className="pb-3 text-center w-[80px] font-sans">Penyerapan</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {departmentBudgetSummary.map(item => {
-                      const isHighRealisasi = item.progress > 90;
-                      const isMedRealisasi = item.progress > 70 && item.progress <= 90;
-                      const progressColorClass = isHighRealisasi 
-                        ? 'bg-rose-500' 
-                        : isMedRealisasi 
-                          ? 'bg-amber-500' 
-                          : 'bg-emerald-500';
-
-                      return (
-                        <tr key={item.dept} className="border-b border-slate-50/50 hover:bg-slate-50/30 text-xs font-semibold text-slate-700">
-                          <td className="py-3.5 pl-0 max-w-[125px] truncate">
-                            <span className="font-extrabold text-slate-800 block text-[13px]">{item.dept}</span>
-                            <span className="text-[10px] text-slate-400 mt-0.5 block font-bold font-sans">Terpakai: {formatRupiah(item.spent)}</span>
-                          </td>
-                          <td className="py-3.5 text-right font-extrabold text-slate-800 text-[12px] font-sans">
-                            {formatRupiah(item.allocated)}
-                          </td>
-                          <td className={`py-3.5 text-right font-extrabold text-[12px] font-sans ${item.remaining < 0 ? 'text-rose-600' : 'text-slate-600'}`}>
-                            {formatRupiah(item.remaining)}
-                          </td>
-                          <td className="py-3.5 text-center">
-                            <div className="flex flex-col items-center justify-center gap-1.5">
-                              <span className="text-[11px] font-bold text-slate-700 font-sans">{item.progress}%</span>
-                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                <div className={`h-full ${progressColorClass}`} style={{ width: `${item.progress}%` }}></div>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
-
-            {/* Right Column: Expenditures Log */}
-            <Card className="xl:col-span-7 p-6 flex flex-col h-full min-h-[500px]">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <div>
-                  <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Log Pengeluaran HR</h3>
-                  <p className="text-xs font-semibold text-slate-400 mt-1">Daftar transaksi pengeluaran anggaran HR yang tercatat.</p>
-                </div>
-                
-                {/* Search & Mini Filters */}
-                <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                  <div className="relative flex-1 md:flex-initial">
-                    <input 
-                      type="text" 
-                      placeholder="Cari keterangan..." 
-                      value={searchBudgetExpense} 
-                      onChange={e => setSearchBudgetExpense(e.target.value)} 
-                      className="w-full md:w-[130px] placeholder:text-slate-400 pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
-                    />
-                    <Icon name="search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            {/* Card 1: Total Pengeluaran Tahun Berjalan */}
+            <Card className="p-6 flex flex-col">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                  <div>
+                    <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Total Pengeluaran Tahun Berjalan</h3>
+                    <div className="flex items-center gap-2 mt-2">
+                      <div className="px-4 py-2 bg-blue-50/80 border border-blue-100 rounded-2xl flex items-center gap-2">
+                        <Icon name="wallet" size={20} className="text-blue-600" />
+                        <span className="text-[22px] font-black text-blue-600 tracking-tight font-sans">{formatRupiah(totalSpent)}</span>
+                      </div>
+                    </div>
                   </div>
-
-                  <div className="relative">
-                    <select 
-                      value={budgetFilterDept} 
-                      onChange={e => setBudgetFilterDept(e.target.value)}
-                      className="appearance-none pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold text-slate-700 cursor-pointer hover:border-slate-300 transition-colors"
-                    >
-                      <option value="All Departemen">Semua Dept</option>
-                      {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
-                    </select>
-                    <Icon name="chevron-down" size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
-
-                  <div className="relative">
-                    <select 
-                      value={budgetFilterCategory} 
-                      onChange={e => setBudgetFilterCategory(e.target.value)}
-                      className="appearance-none pr-8 pl-3 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold text-slate-700 cursor-pointer hover:border-slate-300 transition-colors"
-                    >
-                      <option value="All Kategori">Semua Kategori</option>
-                      <option value="Gaji & Tunjangan">Gaji & Tunjangan</option>
-                      <option value="Rekrutmen & Onboarding">Rekrutmen & Onboarding</option>
-                      <option value="Pelatihan & Sertifikasi">Pelatihan & Sertifikasi</option>
-                      <option value="Kesejahteraan & Welfare">Kesejahteraan & Welfare</option>
-                      <option value="Operasional HR">Operasional HR</option>
-                    </select>
-                    <Icon name="chevron-down" size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                  </div>
-
-                  {(searchBudgetExpense !== '' || budgetFilterDept !== 'All Departemen' || budgetFilterCategory !== 'All Kategori') && (
+                  {activeCrossMonth && (
                     <button 
-                      onClick={() => { setSearchBudgetExpense(''); setBudgetFilterDept('All Departemen'); setBudgetFilterCategory('All Kategori'); }} 
-                      className="p-2 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-100 transition-colors"
-                      title="Hapus Filter"
+                      onClick={() => {
+                        setCrossMonth(null);
+                        setCrossExpenseId(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 rounded-xl transition-all shadow-sm shrink-0 self-end sm:self-center"
                     >
-                      <Icon name="x" size={14} />
+                      <Icon name="rotate-ccw" size={12} />
+                      Reset Filter
                     </button>
                   )}
                 </div>
-              </div>
 
-              <div className="flex-1 overflow-x-auto min-h-[300px]">
-                <table className="w-full text-left font-sans">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
-                      <th className="pb-3 text-left">Tanggal & Keterangan</th>
-                      <th className="pb-3 text-left font-sans">Departemen</th>
-                      <th className="pb-3 text-left font-sans">Kategori</th>
-                      <th className="pb-3 text-right font-sans">Jumlah</th>
-                      <th className="pb-3 text-center w-[60px] font-sans">Aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredBudgetExpenses.map(exp => (
-                      <tr key={exp.id} className="border-b border-slate-50/50 hover:bg-slate-50/30 text-xs font-semibold text-slate-700">
-                        <td className="py-3">
-                          <span className="font-extrabold text-slate-800 block text-[12.5px] max-w-[180px] truncate" title={exp.description}>
-                            {exp.description}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-bold block mt-0.5 font-sans">{exp.date}</span>
-                        </td>
-                        <td className="py-3">
-                          <span className="bg-slate-100/80 text-slate-700 px-2 py-1 rounded-lg text-[10px] font-bold">
-                            {exp.dept}
-                          </span>
-                        </td>
-                        <td className="py-3 text-left font-sans">
-                          <div className="flex items-center gap-1.5">
-                            <span 
-                              className="w-2.5 h-2.5 rounded-full shrink-0" 
-                              style={{ backgroundColor: BUDGET_CATEGORY_COLORS[exp.category] || '#64748B' }}
-                            ></span>
-                            <span className="text-[11px] font-bold text-slate-600 select-none">
-                              {exp.category}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 text-right font-extrabold text-slate-800 text-[12.5px] font-sans">
-                          {formatRupiah(exp.amount)}
-                        </td>
-                        <td className="py-3 text-center">
-                          <button 
+                 {/* Area Chart expenditure trend */}
+                <div className="h-[280px] w-full mt-2 cursor-pointer select-none">
+                  <ReResponsiveContainer width="100%" height="100%">
+                    <ReAreaChart 
+                      data={monthlyChartData} 
+                      margin={{ top: 15, right: 10, left: 0, bottom: 0 }}
+                      onMouseMove={(state) => {
+                        if (state && state.activeLabel) {
+                          setHoveredMonth(String(state.activeLabel));
+                        } else {
+                          setHoveredMonth(null);
+                        }
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredMonth(null);
+                      }}
+                      onClick={(state) => {
+                        if (state && state.activeLabel) {
+                          const labelStr = String(state.activeLabel);
+                          setCrossMonth(prev => prev === labelStr ? null : labelStr);
+                          setCrossExpenseId(null); // clear row filter if clicking month
+                        }
+                      }}
+                    >
+                      <defs>
+                        <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.2}/>
+                          <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.0}/>
+                        </linearGradient>
+                      </defs>
+                      <ReCartesianGrid strokeDasharray="4 4" stroke="#F1F5F9" vertical={false} />
+                      <ReXAxis 
+                        dataKey="name" 
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} 
+                      />
+                      <ReYAxis 
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fontSize: 10, fontWeight: 700, fill: '#64748B' }} 
+                        tickFormatter={(val) => val === 0 ? '0' : `Rp ${(val / 1000000).toFixed(0)} jt`} 
+                      />
+                      <ReTooltip 
+                        cursor={false}
+                        formatter={(val: number) => [formatRupiah(val), 'Total Pengeluaran']}
+                        contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} 
+                      />
+                      {hoveredMonth && hoveredMonth !== activeCrossMonth && (
+                        <ReReferenceLine 
+                          segment={[
+                            { x: hoveredMonth, y: 0 },
+                            { x: hoveredMonth, y: hoveredMonthValue }
+                          ]}
+                          stroke="#94A3B8" 
+                          strokeWidth={1.5}
+                        />
+                      )}
+                      {activeCrossMonth && (
+                        <ReReferenceLine 
+                          segment={[
+                            { x: activeCrossMonth, y: 0 },
+                            { x: activeCrossMonth, y: selectedMonthValue }
+                          ]}
+                          stroke="#2563EB" 
+                          strokeWidth={2}
+                          strokeDasharray="4 4" 
+                        />
+                      )}
+                      <ReArea 
+                        type="monotone" 
+                        dataKey="Pengeluaran" 
+                        stroke="#2563EB" 
+                        strokeWidth={3} 
+                        fillOpacity={1} 
+                        fill="url(#colorUv)" 
+                        activeDot={false}
+                        dot={(props: any) => {
+                          const { cx, cy, payload } = props;
+                          if (payload && payload.name === activeCrossMonth) {
+                            return (
+                              <circle 
+                                key={`dot-selected-${payload.name}`} 
+                                cx={cx} 
+                                cy={cy} 
+                                r={6} 
+                                fill="#2563EB" 
+                                stroke="#ffffff" 
+                                strokeWidth={2.5} 
+                              />
+                            );
+                          }
+                          return <g key={`dot-hidden-${props.index}`} />;
+                        }}
+                      />
+                    </ReAreaChart>
+                  </ReResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Bottom Grid: Transaction Table (Left, 8 cols) & Payment/Category Charts (Right, 4 cols) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left Column (Data Transaksi Pengeluaran HR) */}
+                <div className="lg:col-span-8">
+                  {/* Card 2: Data Transaksi Pengeluaran HR */}
+                  <Card className="p-6 flex flex-col h-full">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                  <div className="flex items-center gap-3">
+                    <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Data Transaksi Pengeluaran HR</h3>
+                    {(crossMonth || crossPayment || crossCategory || crossExpenseId) && (
+                      <button 
+                        onClick={() => {
+                          setCrossMonth(null);
+                          setCrossPayment(null);
+                          setCrossCategory(null);
+                          setCrossExpenseId(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-extrabold text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 rounded-lg transition-all shadow-sm"
+                        title="Reset semua filter silang"
+                      >
+                        <Icon name="rotate-ccw" size={10} />
+                        Reset Filter
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Table Controls */}
+                  <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <div className="relative flex-1 md:flex-initial">
+                      <input 
+                        type="text" 
+                        placeholder="Cari keterangan..." 
+                        value={searchBudgetExpense} 
+                        onChange={e => { setSearchBudgetExpense(e.target.value); setBudgetPage(1); }} 
+                        className="w-full md:w-[220px] placeholder:text-slate-400 pl-8 pr-4 py-2 bg-slate-50 border border-slate-200 outline-none rounded-xl text-xs font-bold focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
+                      />
+                      <Icon name="search" size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Main Transaction List Table */}
+                <div className="overflow-x-auto max-h-[660px] overflow-y-auto pr-1 select-none scrollbar-thin scrollbar-thumb-slate-200">
+                  <table className="w-full text-left font-sans text-xs border-collapse">
+                    <thead className="sticky top-0 bg-white z-10 shadow-[0_1px_0_0_rgba(241,245,249,1)]">
+                      <tr className="text-[10px] font-black text-slate-400 tracking-wider uppercase bg-white">
+                        <th className="pb-3 text-center w-[35px] pt-1">No.</th>
+                        <th className="pb-3 pl-2 w-[85px] pt-1 whitespace-nowrap">Tanggal</th>
+                        <th className="pb-3 pl-2 pr-3 pt-1 whitespace-nowrap">Penggunaan Budget</th>
+                        <th className="pb-3 pl-2 w-[110px] pt-1 whitespace-nowrap">Jenis pembayaran</th>
+                        <th className="pb-3 pl-2 w-[120px] pt-1 whitespace-nowrap">Kategori pengeluaran</th>
+                        <th className="pb-3 text-right pr-4 w-[95px] pt-1 whitespace-nowrap">Jumlah</th>
+                        <th className="pb-3 text-center w-[40px] pt-1">Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBudgetExpenses.map((exp, index) => {
+                        const rowNum = index + 1;
+                        
+                        // Convert dates like 2025-07-03 to 3 Jul 2025
+                        const formatDateDisplay = (dateStr: string) => {
+                           const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+                           const parts = dateStr.split('-');
+                           if (parts.length !== 3) return dateStr;
+                           const year = parts[0];
+                           const month = months[parseInt(parts[1], 10) - 1] || parts[1];
+                           const day = parseInt(parts[2], 10);
+                           return `${day} ${month} ${year}`;
+                        };
+
+                        const isSelected = crossExpenseId === exp.id;
+
+                        return (
+                          <tr 
+                            key={exp.id} 
                             onClick={() => {
-                              if (confirm("Apakah Anda yakin ingin menghapus catatan pengeluaran ini?")) {
-                                setBudgetExpenses(prev => prev.filter(e => e.id !== exp.id));
-                                logActivity('Hapus Pengeluaran Budget', { deskripsi: exp.description, jumlah: formatRupiah(exp.amount) });
+                              if (isSelected) {
+                                setCrossExpenseId(null);
+                              } else {
+                                setCrossExpenseId(exp.id);
                               }
                             }}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Hapus"
+                            className={`border-b border-slate-100/50 cursor-pointer select-none transition-all duration-150 text-xs text-slate-700 font-semibold ${
+                              isSelected 
+                                ? 'bg-blue-50/90 hover:bg-blue-100/60 border-l-4 border-l-blue-500 pl-1' 
+                                : 'hover:bg-slate-50/50 active:bg-slate-100/50'
+                            }`}
                           >
-                            <Icon name="trash-2" size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <td className="py-2.5 text-center font-bold text-slate-400 w-[35px]">{rowNum}.</td>
+                            <td className="py-2.5 pl-2 whitespace-nowrap font-medium text-slate-500 w-[85px]">{formatDateDisplay(exp.date)}</td>
+                            <td className="py-2.5 pl-2 pr-3 max-w-[120px] sm:max-w-[160px] md:max-w-[180px] lg:max-w-[150px] xl:max-w-[200px] truncate font-semibold text-slate-800" title={exp.description}>
+                              {exp.description}
+                            </td>
+                            <td className="py-2.5 pl-2 w-[110px]">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap inline-block ${
+                                exp.paymentMethod === 'Qris' 
+                                  ? 'bg-violet-50 text-violet-700 border border-violet-100' 
+                                  : exp.paymentMethod === 'Transfer bank' 
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              }`}>
+                                {exp.paymentMethod || 'Tunai'}
+                              </span>
+                            </td>
+                            <td className="py-2.5 pl-2 w-[120px]">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap inline-block ${
+                                exp.category === 'Rekrutmen' 
+                                  ? 'bg-violet-50 text-violet-700 border border-violet-100' 
+                                  : exp.category === 'Operasional HR' 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' 
+                                    : exp.category === 'Pelatihan & Pengembangan'
+                                      ? 'bg-amber-50 text-amber-700 border border-amber-100'
+                                      : 'bg-rose-50 text-rose-700 border border-rose-100'
+                              }`}>
+                                {exp.category}
+                              </span>
+                            </td>
+                            <td className="py-2.5 text-right pr-4 font-black text-slate-900 font-sans w-[95px] whitespace-nowrap">
+                              {formatRupiah(exp.amount)}
+                            </td>
+                            <td className="py-2.5 text-center w-[40px]">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setExpenseToDelete(exp);
+                                }}
+                                className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                                title="Hapus"
+                              >
+                                <Icon name="trash-2" size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
 
-                    {filteredBudgetExpenses.length === 0 && (
-                      <tr>
-                        <td colSpan={5} className="py-12 text-center text-slate-400 text-xs font-semibold select-none bg-slate-50/30">
-                          <Icon name="file-text" size={32} className="mx-auto text-slate-300 stroke-[1.5] mb-2" />
-                          Tidak ada data transaksi budget yang cocok
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+                      {filteredBudgetExpenses.length === 0 && (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-slate-400 text-xs font-semibold select-none bg-slate-50/30">
+                            <Icon name="file-text" size={32} className="mx-auto text-slate-300 stroke-[1.5] mb-2" />
+                            Tidak ada data transaksi budget yang cocok
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Column (Donut Chart & Category Progress Cards) */}
+            <div className="lg:col-span-4 flex flex-col gap-6">
+              
+              {/* Card 3: Jenis Pembayaran (Donut Pie) */}
+              <Card className="p-6 flex flex-col">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Jenis Pembayaran</h3>
+                    <p className="text-xs font-semibold text-slate-400 mt-1">Persentase penyerapan berdasarkan jalur bayar.</p>
+                  </div>
+                  {activeCrossPayment && (
+                    <button 
+                      onClick={() => {
+                        setCrossPayment(null);
+                        setCrossExpenseId(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 rounded-xl transition-all shadow-sm shrink-0"
+                    >
+                      <Icon name="rotate-ccw" size={12} />
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+                
+                <div className="h-[230px] w-full flex items-center justify-center relative mt-2 select-none">
+                  {filteredBudgetExpenses.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-slate-400 text-xs font-semibold">
+                      <Icon name="box" size={40} className="stroke-[1.5] mb-2 text-slate-300" />
+                      Belum ada pengeluaran
+                    </div>
+                  ) : (
+                    <ReResponsiveContainer width="100%" height="100%">
+                      <RePieChart>
+                        <RePie
+                           data={paymentMethodDistribution}
+                           cx="50%"
+                           cy="50%"
+                           innerRadius={55}
+                           outerRadius={85}
+                           paddingAngle={3}
+                           dataKey="value"
+                           label={(props: any) => props.percentage > 0 ? `${props.percentage}%` : ''}
+                           labelLine={false}
+                           onClick={(data) => {
+                             if (data && data.name) {
+                               setCrossPayment(prev => prev === data.name ? null : data.name);
+                               setCrossExpenseId(null); // clear row filter
+                             }
+                           }}
+                        >
+                          {paymentMethodDistribution.map((entry, index) => {
+                            const colorsMap: Record<string, string> = {
+                              'Qris': '#8B5CF6',
+                              'Transfer bank': '#3B82F6',
+                              'Tunai': '#10B981'
+                            };
+                            const isSelected = !activeCrossPayment || activeCrossPayment === entry.name;
+                            return (
+                              <ReCell 
+                                key={`cell-${index}`} 
+                                fill={colorsMap[entry.name] || '#64748B'} 
+                                opacity={isSelected ? 1 : 0.25}
+                                className="cursor-pointer transition-opacity duration-300"
+                              />
+                            );
+                          })}
+                        </RePie>
+                        <ReTooltip formatter={(val: number) => [formatRupiah(val), 'Jumlah']} contentStyle={{ backgroundColor: '#0F172A', borderRadius: '12px', border: 'none', color: '#fff', fontSize: '11px', fontWeight: 'bold' }} />
+                      </RePieChart>
+                    </ReResponsiveContainer>
+                  )}
+                </div>
+
+                {/* Donut Legend */}
+                {filteredBudgetExpenses.length > 0 && (
+                  <div className="flex justify-center items-center gap-2 flex-wrap mt-2 pt-2 border-t border-slate-50">
+                    <button 
+                      onClick={() => {
+                        setCrossPayment(prev => prev === 'Tunai' ? null : 'Tunai');
+                        setCrossExpenseId(null);
+                      }}
+                      className={`flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ${
+                        activeCrossPayment === 'Tunai' 
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-700' 
+                          : activeCrossPayment 
+                            ? 'bg-white border-transparent text-slate-300 opacity-60' 
+                            : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#10B981] inline-block shrink-0"></span>
+                      Tunai
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setCrossPayment(prev => prev === 'Qris' ? null : 'Qris');
+                        setCrossExpenseId(null);
+                      }}
+                      className={`flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ${
+                        activeCrossPayment === 'Qris' 
+                          ? 'bg-violet-50 border-violet-200 text-violet-700' 
+                          : activeCrossPayment 
+                            ? 'bg-white border-transparent text-slate-300 opacity-60' 
+                            : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#8B5CF6] inline-block shrink-0"></span>
+                      Qris
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setCrossPayment(prev => prev === 'Transfer bank' ? null : 'Transfer bank');
+                        setCrossExpenseId(null);
+                      }}
+                      className={`flex items-center gap-1.5 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border transition-all ${
+                        activeCrossPayment === 'Transfer bank' 
+                          ? 'bg-blue-50 border-blue-200 text-blue-700' 
+                          : activeCrossPayment 
+                            ? 'bg-white border-transparent text-slate-300 opacity-60' 
+                            : 'bg-slate-50 border-slate-100 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-[#3B82F6] inline-block shrink-0"></span>
+                      Transfer bank
+                    </button>
+                  </div>
+                )}
+              </Card>
+
+              {/* Card 4: Kategori Pengeluaran */}
+              <Card className="p-6 flex flex-col gap-4">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <h3 className="font-extrabold text-[15px] text-slate-800 tracking-tight">Kategori Pengeluaran</h3>
+                    <p className="text-xs font-semibold text-slate-400 mt-1">Alokasi sebaran total anggaran belanja HR.</p>
+                  </div>
+                  {activeCrossCategory && (
+                    <button 
+                      onClick={() => {
+                        setCrossCategory(null);
+                        setCrossExpenseId(null);
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-rose-500 hover:text-rose-600 bg-rose-50 hover:bg-rose-100/80 border border-rose-100 rounded-xl transition-all shadow-sm shrink-0"
+                    >
+                      <Icon name="rotate-ccw" size={12} />
+                      Reset Filter
+                    </button>
+                  )}
+                </div>
+
+                {/* Category Progress Item Rows */}
+                <div className="flex flex-col gap-3">
+                  {categoryProgressData.map((cat, idx) => {
+                    const isSelected = !activeCrossCategory || activeCrossCategory === cat.name;
+                    return (
+                      <div 
+                        key={idx} 
+                        onClick={() => {
+                          setCrossCategory(prev => prev === cat.name ? null : cat.name);
+                          setCrossExpenseId(null); // clear row filter
+                        }}
+                        className={`flex flex-col gap-1.5 cursor-pointer p-2.5 rounded-xl border transition-all ${
+                          activeCrossCategory === cat.name
+                            ? cat.selectClass
+                            : activeCrossCategory
+                              ? 'opacity-40 border-transparent hover:opacity-75'
+                              : 'border-transparent hover:bg-slate-50/60'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cat.bgColor} border border-slate-100/50 shadow-sm`}>
+                              <Icon name={cat.icon} size={16} />
+                            </div>
+                            <span className="text-[12.5px] font-black text-slate-700">{cat.name}</span>
+                          </div>
+                          <div className="text-right flex flex-col">
+                            <span className="text-[13px] font-black text-slate-800 font-sans">{formatRupiah(cat.spent)}</span>
+                          </div>
+                        </div>
+                        
+                        {/* Custom styled category progress bar */}
+                        <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden mt-1 relative">
+                          <div 
+                            className="h-full rounded-full transition-all duration-500 bg-blue-600" 
+                            style={{ 
+                              width: `${cat.percentage}%`,
+                              backgroundColor: cat.color
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            </div>
           </div>
+        </div>
 
           {/* Budget Expense Modal (Portaled) */}
           {isBudgetExpenseModalOpen && createPortal(
@@ -2908,20 +3867,22 @@ export const DashboardContent = ({
                   const newExpense: BudgetExpense = {
                     id: `exp-${Date.now()}`,
                     date: expenseFormData.date,
-                    dept: expenseFormData.dept || activeDeptsList[0] || 'Marketing',
-                    category: expenseFormData.category || 'Gaji & Tunjangan',
+                    dept: 'HR & GA',
+                    category: expenseFormData.category || 'Operasional HR',
                     amount: Number(expenseFormData.amount),
-                    description: expenseFormData.description
+                    description: expenseFormData.description,
+                    paymentMethod: expenseFormData.paymentMethod || 'Tunai'
                   };
                   setBudgetExpenses(prev => [newExpense, ...prev]);
                   logActivity('Tambah Pengeluaran Budget', { deskripsi: newExpense.description, jumlah: formatRupiah(newExpense.amount) });
                   setIsBudgetExpenseModalOpen(false);
                   setExpenseFormData({
                     date: new Date().toISOString().split('T')[0],
-                    dept: activeDeptsList[0] || 'Marketing',
-                    category: 'Gaji & Tunjangan',
+                    dept: 'HR & GA',
+                    category: 'Operasional HR',
                     amount: '',
-                    description: ''
+                    description: '',
+                    paymentMethod: 'Tunai'
                   });
                 }} className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4 text-left font-sans">
                   <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
@@ -2936,21 +3897,6 @@ export const DashboardContent = ({
                   </div>
 
                   <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
-                    <label className="text-[13px] font-black">Departemen</label>
-                    <div className="relative">
-                      <select 
-                        value={expenseFormData.dept} 
-                        onChange={e => setExpenseFormData({...expenseFormData, dept: e.target.value})}
-                        required 
-                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
-                      >
-                        {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
                     <label className="text-[13px] font-black">Kategori Pengeluaran</label>
                     <div className="relative">
                       <select 
@@ -2959,11 +3905,27 @@ export const DashboardContent = ({
                         required 
                         className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
                       >
-                        <option value="Gaji & Tunjangan">Gaji & Tunjangan</option>
-                        <option value="Rekrutmen & Onboarding">Rekrutmen & Onboarding</option>
-                        <option value="Pelatihan & Sertifikasi font-sans">Pelatihan & Sertifikasi</option>
-                        <option value="Kesejahteraan & Welfare font-sans">Kesejahteraan & Welfare</option>
-                        <option value="Operasional HR font-sans">Operasional HR</option>
+                        <option value="Rekrutmen">Rekrutmen</option>
+                        <option value="Operasional HR">Operasional HR</option>
+                        <option value="Pelatihan & Pengembangan">Pelatihan & Pengembangan</option>
+                        <option value="Biaya Lain-Lain">Biaya Lain-Lain</option>
+                      </select>
+                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700 font-sans">
+                    <label className="text-[13px] font-black">Jenis Pembayaran</label>
+                    <div className="relative">
+                      <select 
+                        value={expenseFormData.paymentMethod} 
+                        onChange={e => setExpenseFormData({...expenseFormData, paymentMethod: e.target.value})}
+                        required 
+                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 transition-all text-slate-800"
+                      >
+                        <option value="Tunai">Tunai</option>
+                        <option value="Qris">Qris</option>
+                        <option value="Transfer bank">Transfer bank</option>
                       </select>
                       <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                     </div>
@@ -3002,91 +3964,6 @@ export const DashboardContent = ({
                       className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-blue-600 text-white hover:bg-blue-700 transition-all active:scale-95 flex items-center gap-1.5 shadow-sm font-sans"
                     >
                       <Icon name="check" size={14} /> Simpan Pengeluaran
-                    </button>
-                  </div>
-                </form>
-              </Card>
-            </div>,
-            document.body
-          )}
-
-          {/* Budget Allocation Modal (Portaled) */}
-          {isBudgetAllocationModalOpen && createPortal(
-            <div className="fixed inset-0 z-[9999] p-4 flex items-center justify-center animate-fadeIn font-sans">
-              <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setIsBudgetAllocationModalOpen(false)}></div>
-              <Card className="relative w-full max-w-md bg-white rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-full font-sans">
-                <div className="flex items-center justify-between p-6 border-b border-slate-100 shrink-0">
-                  <div className="flex items-center gap-3 font-sans">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-                      <Icon name="tool" size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-extrabold text-slate-800">Atur Anggaran Alokasi</h3>
-                      <p className="text-[13px] text-slate-500 font-semibold mt-0.5">Ubah batas anggaran di departemen terpilih.</p>
-                    </div>
-                  </div>
-                  <button onClick={() => setIsBudgetAllocationModalOpen(false)} className="text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-2 rounded-full transition-colors">
-                    <Icon name="x" size={20} />
-                  </button>
-                </div>
-                
-                <form onSubmit={e => {
-                  e.preventDefault();
-                  if (!allocationFormData.dept || !allocationFormData.allocated) {
-                    alert("Mohon tentukan departemen dan nominal anggaran alokasi.");
-                    return;
-                  }
-                  
-                  setBudgetAllocations(prev => {
-                    const filtered = prev.filter(a => a.dept !== allocationFormData.dept);
-                    return [...filtered, {
-                      dept: allocationFormData.dept,
-                      allocated: Number(allocationFormData.allocated)
-                    }];
-                  });
-                  
-                  logActivity('Update Alokasi Budget', { departemen: allocationFormData.dept, alokasi: formatRupiah(Number(allocationFormData.allocated)) });
-                  setIsBudgetAllocationModalOpen(false);
-                }} className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4 text-left font-sans">
-                  <div className="flex flex-col gap-1.5 focus-within:text-emerald-600 text-slate-700 font-sans">
-                    <label className="text-[13px] font-black">Pilih Departemen</label>
-                    <div className="relative font-sans">
-                      <select 
-                        value={allocationFormData.dept} 
-                        onChange={e => {
-                          const currentAlloc = budgetAllocations.find(a => a.dept === e.target.value)?.allocated || '';
-                          setAllocationFormData({...allocationFormData, dept: e.target.value, allocated: currentAlloc});
-                        }}
-                        required 
-                        className="w-full appearance-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100/50 transition-all text-slate-800"
-                      >
-                        {activeDeptsList.map(d => <option key={d} value={d}>{d}</option>)}
-                      </select>
-                      <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 focus-within:text-emerald-600 text-slate-700 font-sans">
-                    <label className="text-[13px] font-black">Plafon Anggaran Baru (Rupiah)</label>
-                    <input 
-                      type="number" 
-                      placeholder="Contoh: 300000000"
-                      value={allocationFormData.allocated} 
-                      onChange={e => setAllocationFormData({...allocationFormData, allocated: e.target.value})}
-                      required 
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold outline-none focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-100/50 transition-all text-slate-800" 
-                    />
-                  </div>
-
-                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-3 mt-4 rounded-b-2xl -mx-6 -mb-6 font-sans">
-                    <button type="button" onClick={() => setIsBudgetAllocationModalOpen(false)} className="px-5 py-2.5 rounded-xl font-bold text-[13px] text-slate-600 hover:bg-slate-200 transition-colors">
-                      Batal
-                    </button>
-                    <button 
-                      type="submit"
-                      className="px-5 py-2.5 rounded-xl font-bold text-[13px] bg-emerald-600 text-white hover:bg-emerald-700 transition-all active:scale-95 flex items-center gap-1.5 shadow-sm font-sans"
-                    >
-                      <Icon name="check" size={14} /> Terapkan Alokasi
                     </button>
                   </div>
                 </form>
@@ -3404,6 +4281,37 @@ export const DashboardContent = ({
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all active:scale-95"
               >
                 Simpan Data
+              </button>
+            </div>
+          </Card>
+        </div>,
+        document.body
+      )}
+
+      {expenseToDelete && createPortal(
+        <div className="fixed inset-0 z-[10000] p-4 flex items-center justify-center animate-fadeIn">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setExpenseToDelete(null)}></div>
+          <Card className="relative w-full max-w-sm bg-white rounded-2xl overflow-hidden shadow-2xl p-6 text-center flex flex-col items-center gap-4 animate-scaleUp">
+            <div className="w-16 h-16 rounded-full bg-rose-100 flex items-center justify-center text-rose-500 mb-2">
+              <Icon name="alert-triangle" size={32} />
+            </div>
+            <div>
+              <h3 className="text-xl font-extrabold text-slate-800 mb-2">Hapus Catatan Pengeluaran?</h3>
+              <p className="text-sm text-slate-500 font-medium">Apakah Anda yakin ingin menghapus pengeluaran <span className="font-bold text-slate-700">"{expenseToDelete.description}"</span> senilai <span className="font-bold text-slate-700">{formatRupiah(expenseToDelete.amount)}</span> secara permanen?</p>
+            </div>
+            <div className="flex gap-3 w-full mt-2">
+              <button onClick={() => setExpenseToDelete(null)} className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                Batal
+              </button>
+              <button 
+                onClick={() => {
+                  setBudgetExpenses(prev => prev.filter(e => e.id !== expenseToDelete.id));
+                  logActivity('Hapus Pengeluaran Budget', { deskripsi: expenseToDelete.description, jumlah: formatRupiah(expenseToDelete.amount) });
+                  setExpenseToDelete(null);
+                }} 
+                className="flex-1 px-4 py-2.5 rounded-xl font-bold text-sm bg-rose-500 text-white hover:bg-rose-600 transition-colors shadow-sm shadow-rose-500/20 active:scale-95"
+              >
+                Hapus
               </button>
             </div>
           </Card>

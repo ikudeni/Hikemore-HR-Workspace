@@ -240,7 +240,7 @@ export const DateRangePicker = ({ startDate, endDate, onRangeSelect }: DateRange
     <div className="relative" ref={containerRef}>
       <div 
         onClick={toggleDropdown}
-        className="flex items-center justify-between gap-2 bg-white border border-slate-200 text-slate-600 text-[11px] font-bold rounded-lg px-3 py-2 hover:border-slate-300 w-full sm:w-auto min-w-[200px] cursor-pointer shadow-sm transition-all"
+        className="flex items-center justify-between gap-2 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-4 py-2.5 hover:border-slate-300 w-full sm:w-auto min-w-[200px] cursor-pointer shadow-sm transition-all"
       >
         <span>
           {startDate || endDate ? `${formatDateLabel(startDate)}${endDate && endDate !== startDate ? ` - ${formatDateLabel(endDate)}` : ''}` : 'Semua Tanggal'}
