@@ -31,6 +31,21 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
     }
   ]);
   const [now, setNow] = useState(new Date());
+  const [collapsedDates, setCollapsedDates] = useState<Record<string, boolean>>({});
+
+  const todayStr = useMemo(() => format(now, 'yyyy-MM-dd'), [now]);
+
+  const toggleDateCollapse = useCallback((dateStr: string) => {
+    setCollapsedDates(prev => {
+      const isCurrentlyCollapsed = prev[dateStr] !== undefined 
+        ? prev[dateStr] 
+        : (dateStr !== todayStr);
+      return {
+        ...prev,
+        [dateStr]: !isCurrentlyCollapsed
+      };
+    });
+  }, [todayStr]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -339,6 +354,23 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
 
     return groups;
   }, [filteredSchedules]);
+
+  const handleToggleAll = useCallback(() => {
+    const dates = Object.keys(groupedSchedules);
+    const someExpanded = dates.some(dateStr => {
+      const isCollapsed = collapsedDates[dateStr] !== undefined 
+        ? collapsedDates[dateStr] 
+        : (dateStr !== todayStr);
+      return !isCollapsed;
+    });
+
+    const nextCollapsedState = someExpanded; 
+    const next: Record<string, boolean> = {};
+    dates.forEach(d => {
+      next[d] = nextCollapsedState;
+    });
+    setCollapsedDates(next);
+  }, [groupedSchedules, collapsedDates, todayStr]);
 
   const openAddModal = () => {
     setEditingScheduleId(null);
@@ -743,71 +775,116 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
           </button>
         )}
         {viewMode !== 'calendar' && (
-          <div className="relative" ref={datePickerRef}>
-            <div 
-              className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 cursor-pointer transition-all"
-              onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleAll}
+              className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 hover:border-slate-300 px-3.5 py-2.5 rounded-xl text-xs font-black text-slate-600 hover:text-slate-800 transition-all active:scale-95 shadow-sm cursor-pointer"
+              title="Tampilkan atau sembunyikan semua tanggal"
             >
-              <Icon name="calendar" size={16} className="text-slate-400" />
-              <span className="text-sm font-bold text-slate-700">
-                {format(dateRange[0].startDate, 'd MMM yyyy', { locale: idLocale })} - {format(dateRange[0].endDate, 'd MMM yyyy', { locale: idLocale })}
-              </span>
-              <Icon name="chevron-down" size={16} className="text-slate-400 ml-1" />
-            </div>
+              <Icon name={Object.keys(groupedSchedules).some(dateStr => !(collapsedDates[dateStr] !== undefined ? collapsedDates[dateStr] : (dateStr !== todayStr))) ? "eye-off" : "eye"} size={13} />
+              {Object.keys(groupedSchedules).some(dateStr => !(collapsedDates[dateStr] !== undefined ? collapsedDates[dateStr] : (dateStr !== todayStr))) ? "Sembunyikan Semua" : "Tampilkan Semua"}
+            </button>
 
-            {isDatePickerOpen && (
-              <div className="absolute right-0 sm:right-auto sm:left-auto xl:right-0 top-full mt-2 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-200 overflow-hidden z-50 animate-fadeIn" style={{ width: 'max-content' }}>
-                <DateRange
-                  ranges={dateRange}
-                  onChange={item => setDateRange([item.selection as any])}
-                  months={window.innerWidth > 640 ? 2 : 1}
-                  direction="horizontal"
-                  locale={idLocale}
-                  rangeColors={['#3b82f6']}
-                  showDateDisplay={false}
-                />
-                <div className="flex justify-end p-3 border-t border-slate-100 bg-slate-50 gap-2">
-                  <button 
-                    onClick={() => setIsDatePickerOpen(false)}
-                    className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm shadow-blue-600/20"
-                  >
-                    Terapkan
-                  </button>
-                </div>
+            <div className="relative" ref={datePickerRef}>
+              <div 
+                className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl border border-slate-200 shadow-sm hover:border-blue-500 hover:ring-1 hover:ring-blue-500 cursor-pointer transition-all"
+                onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
+              >
+                <Icon name="calendar" size={16} className="text-slate-400" />
+                <span className="text-sm font-bold text-slate-700">
+                  {format(dateRange[0].startDate, 'd MMM yyyy', { locale: idLocale })} - {format(dateRange[0].endDate, 'd MMM yyyy', { locale: idLocale })}
+                </span>
+                <Icon name="chevron-down" size={16} className="text-slate-400 ml-1" />
               </div>
-            )}
+
+              {isDatePickerOpen && (
+                <div className="absolute right-0 sm:right-auto sm:left-auto xl:right-0 top-full mt-2 bg-white rounded-2xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] border border-slate-200 overflow-hidden z-50 animate-fadeIn" style={{ width: 'max-content' }}>
+                  <DateRange
+                    ranges={dateRange}
+                    onChange={item => setDateRange([item.selection as any])}
+                    months={window.innerWidth > 640 ? 2 : 1}
+                    direction="horizontal"
+                    locale={idLocale}
+                    rangeColors={['#3b82f6']}
+                    showDateDisplay={false}
+                  />
+                  <div className="flex justify-end p-3 border-t border-slate-100 bg-slate-50 gap-2">
+                    <button 
+                      onClick={() => setIsDatePickerOpen(false)}
+                      className="px-4 py-2 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm shadow-blue-600/20"
+                    >
+                      Terapkan
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
       {/* Timeline List / Calendar View */}
       {viewMode === 'list' ? (
-        <div className="flex flex-col max-h-[600px] overflow-y-auto hover-scrollbar pr-4 pb-12 animate-fadeIn">
+        <div className="flex flex-col max-h-[600px] overflow-y-auto custom-thin-scrollbar pr-4 pb-12 animate-fadeIn">
           {Object.keys(groupedSchedules).sort().map((dateStr, index) => {
             const dateObj = new Date(dateStr);
             const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
             const dayDate = dateObj.getDate();
             const items = groupedSchedules[dateStr];
+            const isCollapsed = collapsedDates[dateStr] !== undefined 
+              ? collapsedDates[dateStr] 
+              : (dateStr !== todayStr);
 
             return (
               <div key={dateStr} className="flex gap-6 relative group z-0">
                 {/* Date left block */}
-                <div className="w-[60px] shrink-0 flex flex-col items-center pt-2 relative z-10">
-                  <div className="bg-slate-200/50 backdrop-blur-sm shadow-[inset_0_1px_rgba(255,255,255,0.8)] border border-slate-300 w-full aspect-square rounded-2xl flex flex-col justify-center items-center">
-                    <span className="text-[11px] font-black uppercase text-slate-600 mb-[-2px]">{dayName}</span>
-                    <span className="text-xl font-black text-slate-900 leading-none">{dayDate}</span>
+                <div 
+                  onClick={() => toggleDateCollapse(dateStr)}
+                  className="w-[60px] shrink-0 flex flex-col items-center pt-2 relative z-10 cursor-pointer group/date"
+                  title={isCollapsed ? "Tampilkan Jadwal" : "Sembunyikan Jadwal"}
+                >
+                  <div className={`bg-slate-200/50 backdrop-blur-sm shadow-[inset_0_1px_rgba(255,255,255,0.8)] border border-slate-300 w-full aspect-square rounded-2xl flex flex-col justify-center items-center transition-all duration-200 hover:scale-105 active:scale-95 hover:border-slate-400 hover:bg-slate-200/80 ${
+                    dateStr === todayStr ? 'ring-2 ring-indigo-500/50 bg-indigo-50/30 border-indigo-300' : ''
+                  }`}>
+                    <span className={`text-[11px] font-black uppercase mb-[-2px] ${dateStr === todayStr ? 'text-indigo-600 font-black' : 'text-slate-600 font-bold'}`}>{dayName}</span>
+                    <span className={`text-xl font-black leading-none ${dateStr === todayStr ? 'text-indigo-900' : 'text-slate-900'}`}>{dayDate}</span>
                   </div>
                   {/* Connecting thin line between dates */}
                   {index !== Object.keys(groupedSchedules).length - 1 && (
-                    <div className="w-px bg-slate-200 flex-1 my-2 min-h-[50px] group-last:hidden"></div>
+                    <div className={`w-px bg-slate-200 flex-1 my-2 ${isCollapsed ? 'h-4 min-h-[16px]' : 'min-h-[50px]'} group-last:hidden transition-all duration-200`}></div>
                   )}
                 </div>
 
                 {/* Cards block for that day */}
-                <div 
-                  className={`flex-1 space-y-3 pb-8 rounded-2xl transition-all duration-200 ${
-                    dropTargetDate === dateStr && !dropTargetScheduleId ? 'bg-indigo-50/10' : ''
-                  }`}
+                {isCollapsed ? (
+                  <div 
+                    onClick={() => toggleDateCollapse(dateStr)}
+                    className="flex-1 flex items-center justify-between p-4 bg-slate-50 hover:bg-slate-100/75 border border-slate-200 hover:border-slate-300 rounded-2xl cursor-pointer transition-all duration-200 h-[60px] shadow-sm select-none"
+                    title="Klik untuk melihat semua jadwal untuk hari ini"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg shrink-0">
+                        <Icon name="calendar-check" size={14} className="animate-pulse" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-slate-800">
+                          {items.length} Jadwal
+                        </span>
+                        <span className="text-xs font-semibold text-slate-400">
+                          ({items.map(s => formatTime24(s.startTime)).join(', ')})
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-indigo-600 font-extrabold text-xs">
+                      <span>Tampilkan</span>
+                      <Icon name="chevron-down" size={14} />
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    className={`flex-1 space-y-3 pb-8 rounded-2xl transition-all duration-200 ${
+                      dropTargetDate === dateStr && !dropTargetScheduleId ? 'bg-indigo-50/10' : ''
+                    }`}
                   onDragOver={(e) => {
                     e.preventDefault();
                     if (draggedScheduleId) {
@@ -1012,6 +1089,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                     );
                   })}
                 </div>
+                )}
               </div>
             );
           })}
@@ -1299,7 +1377,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
       {isAddModalOpen && (
         <>
           <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 animate-fadeIn" onClick={() => setIsAddModalOpen(false)}></div>
-          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-white rounded-3xl shadow-2xl p-6 lg:p-8 z-50 animate-slideUp overflow-y-auto max-h-[90vh] hover-scrollbar">
+          <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-lg bg-white rounded-3xl shadow-2xl p-6 lg:p-8 z-50 animate-slideUp overflow-y-auto max-h-[90vh] custom-thin-scrollbar">
             <div className="flex justify-between items-center mb-6">
               <h3 className="font-extrabold text-xl text-slate-900">{editingScheduleId ? 'Edit Schedule Target' : 'Add Schedule Target'}</h3>
               <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-xl transition-colors">
