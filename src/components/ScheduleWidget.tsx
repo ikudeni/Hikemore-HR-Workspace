@@ -1088,6 +1088,20 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
                       </div>
                     );
                   })}
+                  {/* Minimize button at the bottom right of expanded day group */}
+                  <div className="flex justify-end pt-2 pr-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleDateCollapse(dateStr);
+                      }}
+                      className="flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 font-extrabold text-xs cursor-pointer select-none transition-colors py-1.5 px-3 rounded-lg hover:bg-indigo-50"
+                      title="Sembunyikan Jadwal"
+                    >
+                      <span>Sembunyikan</span>
+                      <Icon name="chevron-up" size={14} />
+                    </button>
+                  </div>
                 </div>
                 )}
               </div>
