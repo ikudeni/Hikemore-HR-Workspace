@@ -604,6 +604,7 @@ export const DashboardContent = ({
     }
   };
   const [isKontrakModalOpen, setIsKontrakModalOpen] = useState(false);
+  const [isEditingKontrak, setIsEditingKontrak] = useState(false);
   const [contractOverridesReact, setContractOverridesReact] = useState<Record<string, any>>({});
 
   useEffect(() => {
@@ -660,7 +661,14 @@ export const DashboardContent = ({
           contractEnd: kontrakForm.contractEnd
         }
       }));
+      logActivity(isEditingKontrak ? 'Edit Data Kontrak' : 'Input Data Kontrak', {
+        employeeId: kontrakForm.employeeId,
+        contractType: kontrakForm.contractType,
+        contractStart: kontrakForm.contractStart,
+        contractEnd: kontrakForm.contractEnd
+      });
       setIsKontrakModalOpen(false);
+      setIsEditingKontrak(false);
       setKontrakForm({ employeeId: '', contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: '' });
     }
   };
@@ -3117,7 +3125,14 @@ export const DashboardContent = ({
                 <p className="text-sm font-medium text-slate-400 mt-1">Kelola dan pantau durasi kontrak karyawan.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <button onClick={() => setIsKontrakModalOpen(true)} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 mr-2">
+                <button 
+                  onClick={() => {
+                    setKontrakForm({ employeeId: '', contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: '' });
+                    setIsEditingKontrak(false);
+                    setIsKontrakModalOpen(true);
+                  }} 
+                  className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2 mr-2"
+                >
                   <Icon name="plus" size={16} /> Input Data
                 </button>
                 {(kontrakFilterDept !== 'All Departemen' || kontrakFilterType !== 'All Jenis Kontrak' || kontrakFilterStatus !== 'All Status' || kontrakCrossFilter !== null) && (
@@ -3254,6 +3269,7 @@ export const DashboardContent = ({
                     <th className="px-2 py-2.5 text-center w-[85px]">Kontrak Awal</th>
                     <th className="px-2 py-2.5 text-center w-[85px]">Kontrak Akhir</th>
                     <th className="px-2.5 py-2.5 text-left w-36">Total Durasi & Sisa</th>
+                    <th className="px-2 py-2.5 text-center w-12">Edit</th>
                     <th className="px-2 py-2.5 text-center w-28">File Kontrak</th>
                   </tr>
                 </thead>
@@ -3281,6 +3297,24 @@ export const DashboardContent = ({
                       <td className="px-2 py-2.5 text-center text-slate-600 font-semibold">{strToDateDisplay(row.contractEnd)}</td>
                       <td className="px-2.5 py-2 leading-tight">
                         {row.contractType === '-' ? '-' : getExactDurationInfo(row.contractStart, row.contractEnd, row.remainingDays)}
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <button
+                          onClick={() => {
+                            setKontrakForm({
+                              employeeId: row.id,
+                              contractType: row.contractType === '-' ? 'Kontrak Lanjutan' : row.contractType,
+                              contractStart: row.contractStart === '-' ? '' : row.contractStart,
+                              contractEnd: row.contractEnd === '-' ? '' : row.contractEnd
+                            });
+                            setIsEditingKontrak(true);
+                            setIsKontrakModalOpen(true);
+                          }}
+                          className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50/50 rounded-lg transition-all inline-flex items-center justify-center border border-transparent hover:border-indigo-100/30 active:scale-95 cursor-pointer"
+                          title="Edit Tanggal Kontrak"
+                        >
+                          <Icon name="edit" size={13} />
+                        </button>
                       </td>
                       <td className="px-2 py-2.5 text-center">
                         <div className="flex flex-col items-center justify-center gap-1">
@@ -3378,7 +3412,7 @@ export const DashboardContent = ({
                   ))}
                   {crossFilteredContracts.length === 0 && (
                      <tr>
-                        <td colSpan={9} className="px-5 py-10 text-center text-slate-400 text-xs font-medium">Tidak ada data kontrak yang cocok dengan filter</td>
+                        <td colSpan={10} className="px-5 py-10 text-center text-slate-400 text-xs font-medium">Tidak ada data kontrak yang cocok dengan filter</td>
                      </tr>
                   )}
                 </tbody>
@@ -4372,8 +4406,12 @@ export const DashboardContent = ({
                   <Icon name="file-text" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-extrabold text-lg text-slate-800">Input Data Kontrak</h3>
-                  <p className="text-sm font-medium text-slate-500">Lengkapi form berikut untuk data kontrak karyawan.</p>
+                  <h3 className="font-extrabold text-lg text-slate-800">
+                    {isEditingKontrak ? 'Edit Data Kontrak' : 'Input Data Kontrak'}
+                  </h3>
+                  <p className="text-sm font-medium text-slate-500">
+                    {isEditingKontrak ? 'Perbarui data kontrak untuk karyawan ini.' : 'Lengkapi form berikut untuk data kontrak karyawan.'}
+                  </p>
                 </div>
               </div>
               <button 
@@ -4384,15 +4422,27 @@ export const DashboardContent = ({
               </button>
             </div>
             <div className="p-6 overflow-auto scrollbar-thin flex-1 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
-                <SearchableSelect 
-                  label="Nama Karyawan"
-                  placeholder="Pilih Karyawan"
-                  value={kontrakForm.employeeId}
-                  options={employees.map(emp => ({ value: emp.id, label: emp.name }))}
-                  onChange={val => setKontrakForm({...kontrakForm, employeeId: val})}
-                />
-              </div>
+              {isEditingKontrak ? (
+                <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
+                  <label className="text-[13px] font-bold text-slate-700">Nama Karyawan</label>
+                  <input
+                    type="text"
+                    disabled
+                    className="w-full px-4 py-2.5 bg-slate-100 border border-slate-200 rounded-xl text-[13px] font-semibold outline-none text-slate-500 cursor-not-allowed"
+                    value={employees.find(e => e.id === kontrakForm.employeeId)?.name || ''}
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
+                  <SearchableSelect 
+                    label="Nama Karyawan"
+                    placeholder="Pilih Karyawan"
+                    value={kontrakForm.employeeId}
+                    options={employees.map(emp => ({ value: emp.id, label: emp.name }))}
+                    onChange={val => setKontrakForm({...kontrakForm, employeeId: val})}
+                  />
+                </div>
+              )}
 
               <div className="flex flex-col gap-1.5 focus-within:text-blue-600 text-slate-700">
                 <label className="text-[13px] font-bold">Jenis Kontrak</label>
