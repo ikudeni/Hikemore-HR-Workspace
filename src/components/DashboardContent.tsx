@@ -15,8 +15,8 @@ import { EduGaugeChart } from './ui/EduGaugeChart';
 import { getSourceBadgeClass, removeUndefined } from '../utils';
 import { Employee, JobListing, KanbanStage, Candidate, Schedule, DashboardWidget } from '../types';
 import { EmployeeTrendChart } from './EmployeeTrendChart';
-import { db, logActivity, storage } from '../firebase';
-import { doc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { db, logActivity, storage, uploadFileToFirestore, getFileFromFirestore } from '../firebase';
+import { doc, setDoc, onSnapshot, getDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   BarChart as ReBarChart, 
@@ -549,6 +549,60 @@ export const DashboardContent = ({
   const [kontrakFilterStatus, setKontrakFilterStatus] = useState<string>('All Status');
   const [kontrakCrossFilter, setKontrakCrossFilter] = useState<'ACTIVE' | 'EXPIRED' | 'PROBATION' | 'CRITICAL' | null>(null);
   const [searchKontrak, setSearchKontrak] = useState<string>('');
+  const [uploadingContracts, setUploadingContracts] = useState<Record<string, boolean>>({});
+  const [selectedEmpIdForUpload, setSelectedEmpIdForUpload] = useState<string | null>(null);
+  const contractFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleUploadContractFile = async (empId: string, file: File) => {
+    setUploadingContracts(prev => ({ ...prev, [empId]: true }));
+    try {
+      const storageUrl = await uploadFileToFirestore(file);
+      await updateDoc(doc(db, 'employees', empId), {
+        contractFile: {
+          name: file.name,
+          url: storageUrl,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+      await logActivity('Upload Contract File', {
+        employeeId: empId,
+        fileName: file.name,
+        details: `Mengunggah file kontrak untuk karyawan ${empId}`
+      });
+    } catch (err: any) {
+      console.error("Gagal mengunggah file kontrak:", err);
+      alert(err.message || "Gagal mengunggah file kontrak.");
+    } finally {
+      setUploadingContracts(prev => ({ ...prev, [empId]: false }));
+    }
+  };
+
+  const handleDeleteContractFile = async (empId: string) => {
+    if (!window.confirm("Apakah Anda yakin ingin menghapus file kontrak ini?")) return;
+    try {
+      await updateDoc(doc(db, 'employees', empId), {
+        contractFile: null
+      });
+      await logActivity('Delete Contract File', {
+        employeeId: empId,
+        details: `Menghapus file kontrak untuk karyawan ${empId}`
+      });
+    } catch (err: any) {
+      console.error("Gagal menghapus file kontrak:", err);
+      alert("Gagal menghapus file kontrak.");
+    }
+  };
+
+  const handleContractFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && selectedEmpIdForUpload) {
+      handleUploadContractFile(selectedEmpIdForUpload, file);
+    }
+    setSelectedEmpIdForUpload(null);
+    if (e.target) {
+      e.target.value = '';
+    }
+  };
   const [isKontrakModalOpen, setIsKontrakModalOpen] = useState(false);
   const [contractOverridesReact, setContractOverridesReact] = useState<Record<string, any>>({});
 
@@ -1495,7 +1549,8 @@ export const DashboardContent = ({
         contractType,
         contractStart,
         contractEnd,
-        remainingDays
+        remainingDays,
+        contractFile: emp.contractFile
       };
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [employees, contractOverrides]);
@@ -3178,52 +3233,152 @@ export const DashboardContent = ({
               </div>
             </div>
             
+            {/* Hidden File Input for Contract Attachments */}
+            <input 
+              type="file"
+              ref={contractFileInputRef}
+              onChange={handleContractFileChange}
+              className="hidden"
+              accept=".pdf,.doc,.docx,image/*"
+            />
+
             <div className="overflow-auto hover-scrollbar relative max-h-[530px]">
-              <table className="w-full text-left whitespace-nowrap">
+              <table className="w-full text-left whitespace-normal text-xs table-fixed">
                 <thead className="bg-slate-50 sticky top-0 z-20">
-                  <tr className="text-[11px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                    <th className="px-5 py-3.5 sticky left-0 z-30 bg-slate-50 w-12 text-center shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">No.</th>
-                    <th className="px-5 py-3.5 sticky left-[48px] z-30 bg-slate-50 cursor-pointer hover:text-slate-700 transition shadow-[2px_0_5px_-2px_rgba(0,0,0,0.08)]">
-                      Nama Karyawan <Icon name="chevron-up" size={12} className="inline-block align-middle ml-1" />
-                    </th>
-                    <th className="px-5 py-3.5">Departemen</th>
-                    <th className="px-5 py-3.5">Status</th>
-                    <th className="px-5 py-3.5">Jenis Kontrak</th>
-                    <th className="px-5 py-3.5">Kontrak Awal</th>
-                    <th className="px-5 py-3.5">Kontrak Akhir</th>
-                    <th className="px-5 py-3.5">Total Durasi & Sisa</th>
+                  <tr className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                    <th className="px-2 py-2.5 text-center w-8">No.</th>
+                    <th className="px-2.5 py-2.5 text-left w-36">Nama Karyawan</th>
+                    <th className="px-2.5 py-2.5 text-left w-28">Departemen</th>
+                    <th className="px-2 py-2.5 text-center w-[90px]">Status</th>
+                    <th className="px-2.5 py-2.5 text-left w-28">Jenis Kontrak</th>
+                    <th className="px-2 py-2.5 text-center w-[85px]">Kontrak Awal</th>
+                    <th className="px-2 py-2.5 text-center w-[85px]">Kontrak Akhir</th>
+                    <th className="px-2.5 py-2.5 text-left w-36">Total Durasi & Sisa</th>
+                    <th className="px-2 py-2.5 text-center w-28">File Kontrak</th>
                   </tr>
                 </thead>
-                <tbody className="text-[13px] text-slate-700 divide-y divide-slate-100 font-medium">
+                <tbody className="text-[11.5px] text-slate-700 divide-y divide-slate-100 font-medium">
                   {crossFilteredContracts.map((row, i) => (
-                    <tr key={row.id} className="hover:bg-slate-50/50 transition-colors cursor-pointer">
-                      <td className="px-5 py-3.5 sticky left-0 z-10 bg-white group-hover:bg-slate-50/50 text-slate-400 text-center">{i + 1}.</td>
-                      <td className="px-5 py-3.5 sticky left-[48px] z-10 bg-white group-hover:bg-slate-50/50 font-bold">{row.name}</td>
-                      <td className="px-5 py-3.5">{row.dept}</td>
-                      <td className="px-5 py-3.5 text-slate-500 font-medium">
-                        <span className={`inline-flex px-2 py-1 rounded-md text-[11px] font-bold ${
-                          row.status === 'Karyawan' || row.status === 'Permanent' ? 'bg-blue-50 text-blue-600 border border-blue-200' :
-                          row.status === 'Kontrak' ? 'bg-purple-50 text-purple-600 border border-purple-200' :
-                          row.status === 'Outsource' ? 'bg-teal-50 text-teal-600 border border-teal-200' :
-                          row.status === 'Magang' ? 'bg-pink-50 text-pink-600 border border-pink-200' :
-                          row.status === 'Daily Worker' || row.status === 'DW' ? 'bg-amber-50 text-amber-600 border border-amber-200' :
-                          row.status === 'Freelance' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200' :
-                          'bg-slate-50 text-slate-600 border border-slate-200'
+                    <tr key={row.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-2 py-2.5 text-center text-slate-400 font-bold">{i + 1}.</td>
+                      <td className="px-2.5 py-2.5 font-bold text-slate-800 break-words">{row.name}</td>
+                      <td className="px-2.5 py-2.5 text-slate-500 break-words">{row.dept}</td>
+                      <td className="px-2 py-2.5 text-center">
+                        <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-extrabold ${
+                          row.status === 'Karyawan' || row.status === 'Permanent' ? 'bg-blue-50 text-blue-600 border border-blue-200/50' :
+                          row.status === 'Kontrak' ? 'bg-purple-50 text-purple-600 border border-purple-200/50' :
+                          row.status === 'Outsource' ? 'bg-teal-50 text-teal-600 border border-teal-200/50' :
+                          row.status === 'Magang' ? 'bg-pink-50 text-pink-600 border border-pink-200/50' :
+                          row.status === 'Daily Worker' || row.status === 'DW' ? 'bg-amber-50 text-amber-600 border border-amber-200/50' :
+                          row.status === 'Freelance' ? 'bg-emerald-50 text-emerald-600 border border-emerald-200/50' :
+                          'bg-slate-50 text-slate-600 border border-slate-200/50'
                         }`}>
                           {row.status === 'Daily Worker' ? 'DW' : row.status}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5">{row.contractType}</td>
-                      <td className="px-5 py-3.5">{strToDateDisplay(row.contractStart)}</td>
-                      <td className="px-5 py-3.5">{strToDateDisplay(row.contractEnd)}</td>
-                      <td className="px-5 py-2">
+                      <td className="px-2.5 py-2.5 text-slate-500 break-words">{row.contractType}</td>
+                      <td className="px-2 py-2.5 text-center text-slate-600 font-semibold">{strToDateDisplay(row.contractStart)}</td>
+                      <td className="px-2 py-2.5 text-center text-slate-600 font-semibold">{strToDateDisplay(row.contractEnd)}</td>
+                      <td className="px-2.5 py-2 leading-tight">
                         {row.contractType === '-' ? '-' : getExactDurationInfo(row.contractStart, row.contractEnd, row.remainingDays)}
+                      </td>
+                      <td className="px-2 py-2.5 text-center">
+                        <div className="flex flex-col items-center justify-center gap-1">
+                          {uploadingContracts[row.id] ? (
+                            <div className="flex items-center gap-1 text-[10px] text-indigo-500 font-bold animate-pulse">
+                              <span className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>
+                              <span>Unggah...</span>
+                            </div>
+                          ) : row.contractFile ? (
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span 
+                                className="text-[9px] font-semibold text-slate-400 truncate max-w-[100px]" 
+                                title={row.contractFile.name}
+                              >
+                                {row.contractFile.name}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const w = window.open('about:blank', '_blank');
+                                      const docId = row.contractFile.url.split(':')[1];
+                                      const base64Str = await getFileFromFirestore(docId);
+                                      if (base64Str) {
+                                        if (w) w.document.write(`<iframe src="${base64Str}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+                                      } else {
+                                        if (w) w.close();
+                                        alert('File tidak ditemukan di database.');
+                                      }
+                                    } catch (err) {
+                                      console.error('Error opening file', err);
+                                      alert('Gagal membuka file.');
+                                    }
+                                  }}
+                                  className="p-1 text-blue-500 hover:bg-blue-50 rounded-md transition-colors"
+                                  title="Buka Dokumen"
+                                >
+                                  <Icon name="eye" size={12} />
+                                </button>
+                                
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const docId = row.contractFile.url.split(':')[1];
+                                      const docSnap = await getDoc(doc(db, 'fileContents', docId));
+                                      const data = docSnap.data();
+                                      if (docSnap.exists() && data?.base64) {
+                                        const { downloadFile } = await import('../utils');
+                                        await downloadFile(data.base64, row.contractFile.name);
+                                      } else {
+                                        alert('File tidak ditemukan.');
+                                      }
+                                    } catch (err) {
+                                      console.error('Error downloading file', err);
+                                      alert('Gagal mengunduh file.');
+                                    }
+                                  }}
+                                  className="p-1 text-emerald-500 hover:bg-emerald-50 rounded-md transition-colors"
+                                  title="Unduh Dokumen"
+                                >
+                                  <Icon name="download" size={12} />
+                                </button>
+
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteContractFile(row.id);
+                                  }}
+                                  className="p-1 text-rose-500 hover:bg-rose-50 rounded-md transition-colors"
+                                  title="Hapus Dokumen"
+                                >
+                                  <Icon name="trash-2" size={12} />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedEmpIdForUpload(row.id);
+                                contractFileInputRef.current?.click();
+                              }}
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border border-indigo-100/50 rounded-md font-bold text-[10px] transition-all cursor-pointer active:scale-95"
+                              title="Pilih file untuk dilampirkan"
+                            >
+                              <Icon name="paperclip" size={10} strokeWidth={2.5} />
+                              <span>Attach</span>
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {crossFilteredContracts.length === 0 && (
                      <tr>
-                        <td colSpan={8} className="px-5 py-10 text-center text-slate-400 text-sm font-medium">Tidak ada data kontrak yang cocok dengan filter</td>
+                        <td colSpan={9} className="px-5 py-10 text-center text-slate-400 text-xs font-medium">Tidak ada data kontrak yang cocok dengan filter</td>
                      </tr>
                   )}
                 </tbody>

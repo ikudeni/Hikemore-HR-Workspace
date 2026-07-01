@@ -48,6 +48,7 @@ export interface Employee {
   formattedDob?: string;
   calculatedAge?: number;
   documents?: { name: string; url: string; size?: number; type?: string }[];
+  contractFile?: { name: string; url: string; uploadedAt?: string };
 }
 
 export interface JobListing {
