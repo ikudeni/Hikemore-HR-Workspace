@@ -651,25 +651,39 @@ export const DashboardContent = ({
     contractEnd: ''
   });
 
-  const handleSaveKontrak = () => {
+  const handleSaveKontrak = async () => {
     if (kontrakForm.employeeId && kontrakForm.contractStart && kontrakForm.contractEnd) {
-      setContractOverrides(prev => ({
-        ...prev,
-        [kontrakForm.employeeId]: {
+      try {
+        // Update direct employee document in Firestore to sync with employee menu (Karyawan)
+        await updateDoc(doc(db, 'employees', kontrakForm.employeeId), {
           contractType: kontrakForm.contractType,
           contractStart: kontrakForm.contractStart,
           contractEnd: kontrakForm.contractEnd
-        }
-      }));
-      logActivity(isEditingKontrak ? 'Edit Data Kontrak' : 'Input Data Kontrak', {
-        employeeId: kontrakForm.employeeId,
-        contractType: kontrakForm.contractType,
-        contractStart: kontrakForm.contractStart,
-        contractEnd: kontrakForm.contractEnd
-      });
-      setIsKontrakModalOpen(false);
-      setIsEditingKontrak(false);
-      setKontrakForm({ employeeId: '', contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: '' });
+        });
+
+        setContractOverrides(prev => ({
+          ...prev,
+          [kontrakForm.employeeId]: {
+            contractType: kontrakForm.contractType,
+            contractStart: kontrakForm.contractStart,
+            contractEnd: kontrakForm.contractEnd
+          }
+        }));
+
+        await logActivity(isEditingKontrak ? 'Edit Data Kontrak' : 'Input Data Kontrak', {
+          employeeId: kontrakForm.employeeId,
+          contractType: kontrakForm.contractType,
+          contractStart: kontrakForm.contractStart,
+          contractEnd: kontrakForm.contractEnd
+        });
+
+        setIsKontrakModalOpen(false);
+        setIsEditingKontrak(false);
+        setKontrakForm({ employeeId: '', contractType: 'Kontrak Lanjutan', contractStart: '', contractEnd: '' });
+      } catch (err) {
+        console.error("Gagal menyimpan data kontrak:", err);
+        alert("Gagal menyimpan data kontrak ke database.");
+      }
     }
   };
 

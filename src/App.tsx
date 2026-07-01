@@ -362,12 +362,42 @@ export default function App() {
   }, [isAuthenticated]);
   
   const [rawEmployees, setRawEmployees] = useState<Employee[]>([]);
+  const [contractOverrides, setContractOverrides] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    let unsubscribeContractOverrides: (() => void) | undefined;
+
+    if (isAuthenticated) {
+      const q = doc(db, 'settings', 'contractOverrides');
+      unsubscribeContractOverrides = onSnapshot(q, (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          if (data.overrides) {
+            setContractOverrides(data.overrides);
+          }
+        }
+      }, (error) => {
+        console.error("Gagal mendengarkan snapshot contractOverrides di App:", error);
+      });
+    }
+
+    return () => {
+      if (unsubscribeContractOverrides) unsubscribeContractOverrides();
+    };
+  }, [isAuthenticated]);
 
   const globalEmployees = useMemo(() => {
     return rawEmployees.map((emp, idx) => {
       let contractType = emp.contractType;
       let contractStart = emp.contractStart;
       let contractEnd = emp.contractEnd;
+      
+      const override = contractOverrides[emp.id];
+      if (override) {
+        contractType = override.contractType || contractType;
+        contractStart = override.contractStart || contractStart;
+        contractEnd = override.contractEnd || contractEnd;
+      }
       
       if (!contractType && emp.isActive) {
         if (emp.status === 'Kontrak' || emp.status === 'Karyawan') {
@@ -412,7 +442,7 @@ export default function App() {
       formattedDob: new Date(emp.dob).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }),
       calculatedAge: calculateAge(emp.dob)
     }});
-  }, [rawEmployees]);
+  }, [rawEmployees, contractOverrides]);
 
   const [dashboardLayoutReact, setDashboardLayoutReact] = useState<DashboardWidget[]>([
     { id: 'sum', type: 'summaryStats', span: 3 },
@@ -499,6 +529,26 @@ export default function App() {
     try {
       const sanitizedVal = removeUndefined(newEmployee);
       await setDoc(doc(db, 'employees', randomId), sanitizedVal);
+
+      // Keep contractOverrides in sync if contract data is provided
+      if (newEmployee.contractType || newEmployee.contractStart || newEmployee.contractEnd) {
+        const docRef = doc(db, 'settings', 'contractOverrides');
+        const docSnap = await getDoc(docRef);
+        let latest: Record<string, any> = {};
+        if (docSnap.exists() && docSnap.data().overrides) {
+          latest = docSnap.data().overrides;
+        }
+        const combined = {
+          ...latest,
+          [randomId]: {
+            contractType: newEmployee.contractType || '',
+            contractStart: newEmployee.contractStart || '',
+            contractEnd: newEmployee.contractEnd || ''
+          }
+        };
+        await setDoc(docRef, { overrides: combined }, { merge: true });
+      }
+
       logActivity('Data Karyawan Ditambahkan', { nama: newEmployee.name, nip: nip || randomId });
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, `employees/${randomId}`);
@@ -510,6 +560,26 @@ export default function App() {
       const { id, ...data } = updatedEmployeeData;
       const sanitizedVal = removeUndefined(data);
       await updateDoc(doc(db, 'employees', id!), sanitizedVal as any);
+
+      // Keep contractOverrides in sync if contract data is updated
+      if (data.contractType || data.contractStart || data.contractEnd) {
+        const docRef = doc(db, 'settings', 'contractOverrides');
+        const docSnap = await getDoc(docRef);
+        let latest: Record<string, any> = {};
+        if (docSnap.exists() && docSnap.data().overrides) {
+          latest = docSnap.data().overrides;
+        }
+        const combined = {
+          ...latest,
+          [id!]: {
+            contractType: data.contractType || '',
+            contractStart: data.contractStart || '',
+            contractEnd: data.contractEnd || ''
+          }
+        };
+        await setDoc(docRef, { overrides: combined }, { merge: true });
+      }
+
       logActivity('Data Karyawan Diupdate', { nama: updatedEmployeeData.name, nip: updatedEmployeeData.id! });
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, `employees/${updatedEmployeeData.id}`);
