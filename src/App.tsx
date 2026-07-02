@@ -361,6 +361,184 @@ export default function App() {
     };
   }, [isAuthenticated]);
   
+  interface PresenceInfo {
+    username: string;
+    name: string;
+    lastActive: string;
+  }
+
+  const [onlineUsers, setOnlineUsers] = useState<PresenceInfo[]>([]);
+  const [registeredUsersMap, setRegisteredUsersMap] = useState<Record<string, { username: string; name: string }>>({});
+
+  // Real-time listener for registered accounts from settings/users
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setRegisteredUsersMap({});
+      return;
+    }
+    const docRef = doc(db, 'settings', 'users');
+    const unsubscribe = onSnapshot(docRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        if (data && data.records) {
+          setRegisteredUsersMap(data.records);
+        }
+      }
+    }, (err) => {
+      console.error("Gagal mendengarkan settings/users:", err);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated]);
+
+  // Listen to presence collection in real-time
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser.username) {
+      setOnlineUsers([]);
+      return;
+    }
+
+    const q = collection(db, 'presence');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const users: PresenceInfo[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        if (data && data.username) {
+          users.push(data as PresenceInfo);
+        }
+      });
+      setOnlineUsers(users);
+    }, (error) => {
+      console.error("Gagal mendengarkan presence:", error);
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isAuthenticated, currentUser.username]);
+
+  // Periodic heartbeat to signal active session
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser.username) return;
+
+    const usernameLower = currentUser.username.toLowerCase();
+    const docRef = doc(db, 'presence', usernameLower);
+
+    const updatePresence = async () => {
+      try {
+        await setDoc(docRef, {
+          username: usernameLower,
+          name: currentUser.name || usernameLower,
+          lastActive: new Date().toISOString()
+        }, { merge: true });
+      } catch (err) {
+        console.error("Gagal memperbarui data kehadiran (presence):", err);
+      }
+    };
+
+    // Update immediately on mount
+    updatePresence();
+
+    // Heartbeat every 10 seconds
+    const intervalId = setInterval(updatePresence, 10000);
+
+    return () => {
+      clearInterval(intervalId);
+      // Clean up presence on tab close or session unmount
+      try {
+        deleteDoc(docRef).catch(() => {});
+      } catch (e) {}
+    };
+  }, [isAuthenticated, currentUser.username, currentUser.name]);
+
+  const activeOnlineUsers = useMemo(() => {
+    const now = Date.now();
+    const threshold = 45 * 1000; // 45 seconds
+
+    // Map registered keys to lowercase for robust lookup
+    const registeredUserKeys = Object.keys(registeredUsersMap).reduce<Record<string, { username: string; name: string }>>((acc, key) => {
+      acc[key.toLowerCase()] = registeredUsersMap[key];
+      return acc;
+    }, {});
+
+    // Filter onlineUsers to only include those present in registered users
+    let filtered = onlineUsers.filter(u => {
+      const usernameLower = u.username?.toLowerCase();
+      if (!usernameLower || !registeredUserKeys[usernameLower]) return false;
+
+      if (usernameLower === currentUser.username?.toLowerCase()) {
+        return true;
+      }
+      if (!u.lastActive) return false;
+      const lastActiveTime = new Date(u.lastActive).getTime();
+      return Math.abs(now - lastActiveTime) < threshold;
+    });
+
+    // Ensure currently logged-in user is included if registered
+    const currentUsernameLower = currentUser.username?.toLowerCase();
+    const hasMe = filtered.some(u => u.username?.toLowerCase() === currentUsernameLower);
+    if (!hasMe && currentUsernameLower && registeredUserKeys[currentUsernameLower]) {
+      filtered.push({
+        username: currentUsernameLower,
+        name: registeredUserKeys[currentUsernameLower].name || currentUser.name || currentUsernameLower,
+        lastActive: new Date().toISOString()
+      });
+    }
+
+    // Map names to match registered database names and remove any users that are not registered
+    return filtered
+      .map(u => {
+        const usernameLower = u.username.toLowerCase();
+        const registered = registeredUserKeys[usernameLower];
+        return {
+          ...u,
+          name: registered ? registered.name : u.name
+        };
+      })
+      .sort((a, b) => {
+        const isAMe = a.username?.toLowerCase() === currentUsernameLower;
+        const isBMe = b.username?.toLowerCase() === currentUsernameLower;
+        if (isAMe) return -1;
+        if (isBMe) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  }, [onlineUsers, currentUser, registeredUsersMap]);
+
+  const getUserRole = (username: string, name: string) => {
+    const userLower = username.toLowerCase();
+    if (userLower === 'deniakbar') return 'Super Admin';
+    if (userLower === 'hrdhikemore') return 'HR Administrator';
+    
+    const matchedEmp = globalEmployees.find(emp => 
+      emp.name?.toLowerCase() === name?.toLowerCase() ||
+      emp.id?.toLowerCase() === userLower
+    );
+    
+    if (matchedEmp) {
+      return matchedEmp.pos || 'Karyawan';
+    }
+    return 'HR Workspace Staff';
+  };
+
+  const getAvatarColor = (username: string) => {
+    const colors = [
+      'bg-indigo-500 text-white dark:bg-indigo-600',
+      'bg-emerald-500 text-white dark:bg-emerald-600',
+      'bg-blue-500 text-white dark:bg-blue-600',
+      'bg-rose-500 text-white dark:bg-rose-600',
+      'bg-amber-500 text-white dark:bg-amber-600',
+      'bg-violet-500 text-white dark:bg-violet-600',
+      'bg-sky-500 text-white dark:bg-sky-600',
+      'bg-teal-500 text-white dark:bg-teal-600'
+    ];
+    let hash = 0;
+    for (let i = 0; i < username.length; i++) {
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return colors[Math.abs(hash) % colors.length];
+  };
+
   const [rawEmployees, setRawEmployees] = useState<Employee[]>([]);
   const [contractOverrides, setContractOverrides] = useState<Record<string, any>>({});
 
@@ -849,6 +1027,94 @@ export default function App() {
               </ul>
             </div>
           ))}
+
+          {/* Real-time Presence Indicator */}
+          <div className={`mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 ${isSidebarOpen ? 'px-5' : 'px-0 w-full flex flex-col items-center'}`}>
+            {isSidebarOpen ? (
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-[12px] font-black text-slate-400 uppercase tracking-[0.15em] whitespace-nowrap overflow-hidden">
+                  Online Sekarang ({activeOnlineUsers.length})
+                </h4>
+                <div className="flex items-center gap-1.5">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Live</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center mb-4 relative" title={`Online Sekarang: ${activeOnlineUsers.length} pengguna`}>
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+            )}
+
+            <div className={`space-y-3 ${isSidebarOpen ? 'max-h-52 overflow-y-auto hide-scrollbar' : 'w-full flex flex-col items-center space-y-3'}`}>
+              {activeOnlineUsers.map((user) => {
+                const initials = (user.name || user.username)
+                  .trim()
+                  .split(/\s+/)
+                  .map(n => n.charAt(0))
+                  .join('')
+                  .substring(0, 2)
+                  .toUpperCase();
+                
+                const isMe = user.username?.toLowerCase() === currentUser.username?.toLowerCase();
+                const role = getUserRole(user.username, user.name);
+
+                return isSidebarOpen ? (
+                  <div key={user.username} className="flex items-center justify-between group py-1.5 px-2 hover:bg-slate-50/80 rounded-xl transition-colors">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-extrabold text-xs shrink-0 relative shadow-sm ${getAvatarColor(user.username)}`}>
+                        {initials}
+                        {/* Little pulsing indicator on avatar */}
+                        <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900 animate-pulse" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[14px] font-extrabold text-slate-800 dark:text-slate-200 truncate max-w-[130px]">
+                            {user.name}
+                          </span>
+                          {isMe && (
+                            <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-md uppercase tracking-wider dark:bg-blue-950/40 dark:text-blue-400 shrink-0">
+                              Anda
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 truncate max-w-[150px]">
+                          @{user.username} · {role}
+                        </span>
+                      </div>
+                    </div>
+                    {/* Status dot */}
+                    <div className="flex items-center shrink-0 ml-1">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-sm shadow-emerald-400/50" />
+                    </div>
+                  </div>
+                ) : (
+                  <div 
+                    key={user.username} 
+                    className="relative group cursor-pointer hover:scale-105 transition-transform"
+                    title={`${user.name} (@${user.username}) - ${role}${isMe ? ' (Anda)' : ''}`}
+                  >
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center font-extrabold text-xs shadow-md ${getAvatarColor(user.username)}`}>
+                      {initials}
+                    </div>
+                    {/* Pulsing indicator on corner of avatar for collapsed state */}
+                    <span className="absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white dark:bg-slate-900">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      </span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
         
         <div className={`mt-6 transition-all duration-300 ${isSidebarOpen ? 'px-8' : 'px-4'}`}>
@@ -931,6 +1197,12 @@ export default function App() {
               <button 
                 onClick={async () => {
                   setIsLogoutModalOpen(false);
+                  const usernameLower = currentUser.username.toLowerCase();
+                  if (usernameLower) {
+                    try {
+                      await deleteDoc(doc(db, 'presence', usernameLower));
+                    } catch (e) {}
+                  }
                   sessionStorage.removeItem('currentUser');
                   try {
                     await auth.signOut();

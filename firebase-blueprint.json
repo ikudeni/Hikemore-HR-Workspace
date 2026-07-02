@@ -80,6 +80,17 @@
             "date": { "type": "string" }
         },
         "required": ["id", "employeeId", "employeeName", "employeeNip", "employeePos", "employeeDept", "branch", "shiftName", "checkIn", "checkOut", "startBreak", "endBreak", "duration", "description", "issues", "date"]
+    },
+    "Presence": {
+        "title": "Presence",
+        "description": "User presence information for active online accounts.",
+        "type": "object",
+        "properties": {
+            "username": { "type": "string" },
+            "name": { "type": "string" },
+            "lastActive": { "type": "string" }
+        },
+        "required": ["username", "name", "lastActive"]
     }
   },
   "firestore": {
@@ -94,6 +105,10 @@
     "attendanceLogs": {
       "schema": "#/entities/AttendanceLog",
       "description": "Daily employee attendance logs."
+    },
+    "presence": {
+      "schema": "#/entities/Presence",
+      "description": "Active users currently online."
     }
   }
 }
