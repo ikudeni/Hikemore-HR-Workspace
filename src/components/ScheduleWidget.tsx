@@ -825,7 +825,7 @@ export const ScheduleWidget = ({ schedules, setSchedules, candidates = [], emplo
 
       {/* Timeline List / Calendar View */}
       {viewMode === 'list' ? (
-        <div className="flex flex-col max-h-[600px] overflow-y-auto custom-thin-scrollbar pr-4 pb-12 animate-fadeIn">
+        <div className="flex flex-col max-h-[600px] overflow-y-auto custom-thin-scrollbar pl-3 pr-4 pb-12 animate-fadeIn">
           {Object.keys(groupedSchedules).sort().map((dateStr, index) => {
             const dateObj = new Date(dateStr);
             const dayName = dateObj.toLocaleDateString('id-ID', { weekday: 'short' });
